@@ -1,0 +1,29 @@
+%PDF-1.7
+%©©© 
+
+1 0 obj
+<< /Length 2 0 R >>
+stream
+    This should be small.
+endstream
+endobj
+
+2 0 obj
+    50
+endobj
+
+xref
+0 3
+0000000000 65535 f
+0000000022 00000 n
+0000000108 00000 n
+
+trailer
+<<
+/Size 3
+>>
+
+startxref
+135
+
+%%EOF

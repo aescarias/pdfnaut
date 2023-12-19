@@ -1,0 +1,38 @@
+[project]
+name = "pdfnaut"
+version = "0.1.0"
+description = "Parse and explore PDFs with ease"
+authors = [
+    { name = "Angel Carias" }
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: File Formats",
+    "Topic :: Office/Business :: Office Suites",
+    "Topic :: Software Development :: Libraries",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11", 
+    "Programming Language :: Python :: 3.12"    
+]
+dependencies = []
+
+[project.urls]
+homepage = "https://github.com/aescarias/pdfnaut"
+
+[project.optional-dependencies]
+tests = ["pytest", "pytest-cov"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
