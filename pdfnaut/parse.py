@@ -475,8 +475,8 @@ class PdfParser:
         trailer = self._simple_parser.parse_dictionary()
         return trailer
     
-    def parse_indirect_object(self, xref_offset: int) -> PdfObject | PdfStream | None:
-        self._simple_parser.position = xref_offset
+    def parse_indirect_object(self, xref_entry: PdfXrefEntry) -> PdfObject | PdfStream | None:
+        self._simple_parser.position = xref_entry.offset
         mat = re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", 
                        self._simple_parser.current_to_eol)
         if not mat:
@@ -492,20 +492,22 @@ class PdfParser:
         if self._simple_parser.current + self._simple_parser.peek(5) == b"stream":   
             length = tok["Length"]
             if isinstance(length, PdfIndirectRef):
-                length = self.resolve_reference(length) 
+                _current = self._simple_parser.position
+                length = self.resolve_reference(length)
+                self._simple_parser.position = _current 
             if not isinstance(length, int):
                 raise ValueError(f"Expected \\Length in stream extent to be of type Integer but got {type(length)} instead")
-            
-            return PdfStream(tok, self.parse_stream(length))
+
+            return PdfStream(tok, self.parse_stream(xref_entry, length))
         return tok
     
     def resolve_reference(self, reference: PdfIndirectRef):
         """Resolves a reference into the indirect object it points to."""
         root_entry = self.xref.sections[0].entries[reference.object_number]
         if reference.generation == root_entry.generation:
-            return self.parse_indirect_object(root_entry.offset)
+            return self.parse_indirect_object(root_entry)
     
-    def parse_stream(self, extent_length: int) -> bytes:
+    def parse_stream(self, xref_entry: PdfXrefEntry, extent_length: int) -> bytes:
         """Parses a PDF stream of length ``extent_length``"""
         self._simple_parser.advance(6) # past the stream
 
@@ -522,8 +524,23 @@ class PdfParser:
         pos, eol = self._simple_parser.next_eol()
         if pos == self._simple_parser.position and eol != "\r":
             self._simple_parser.advance(len(eol))
-        
+
+        # Get the offset of the next XRef entry
+        index_after = self.xref.sections[0].entries.index(xref_entry)
+        next_entry_hold = filter(
+            lambda e: e.offset > xref_entry.offset, 
+            self.xref.sections[0].entries[index_after + 1:]
+        )
+
+        # Check if we have consumed the appropriate bytes
+        # Have we gone way beyond?
+        try:
+            if self._simple_parser.position >= next(next_entry_hold).offset:
+                raise ValueError("\\Length key in stream extent parses beyond object.")
+        except StopIteration:
+            pass
+        # Have we not reached the end?
         if not self._simple_parser.advance_if_next(b"endstream"):
-            raise ValueError("\\Length key in stream extent too small.")
+            raise ValueError("\\Length key in stream extent does not match end of stream.")
         
         return contents
