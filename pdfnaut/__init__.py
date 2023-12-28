@@ -1,4 +1,4 @@
-from .parse import PdfParser
+from .parsers import PdfParser
 
 __name__ = "pdfnaut"
 __version__ = "0.1.0"

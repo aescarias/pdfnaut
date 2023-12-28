@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from .types import (
+from .objects import (
     PdfXrefEntry, PdfXrefSubsection, PdfXrefTable, 
     PdfHexString, PdfName, PdfNull, PdfComment,
     PdfIndirectRef, PdfStream, PdfObject
@@ -11,6 +11,7 @@ from .types import (
 
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
+
 # as defined in 7.3.4.2 Literal Strings, Table 3
 STRING_ESCAPE = {
     b"\\n":  b"\n",
@@ -89,14 +90,7 @@ class SimpleObjectParser:
             return carriage, "\r"
         elif newline != -1:
             return newline, "\n" 
-        # if newline != -1:
-        #     if self.data[newline - 1:newline] == b"\r":
-        #         return newline - 1, "\r\n"
-        #     return newline, "\n"
-        
-        # if carriage != -1:
-        #     return carriage, "\r"
-        
+
         return (-1, "")
 
     def peek(self, n: int = 1) -> bytes:
@@ -191,7 +185,7 @@ class SimpleObjectParser:
         
         They are useful for including arbitrary binary data in a PDF. It is a sequence
         of hexadecimal characters where every 2 characters is a byte. If the sequence
-        is uneven, the last character is assumed 0.
+        is uneven, the last character is assumed to be 0.
         """
         self.advance(1) # adv. past the <
 
@@ -253,10 +247,7 @@ class SimpleObjectParser:
         self.advance(mat.end()) # consume the reference
         self.advance_whitespace()
         
-        return PdfIndirectRef(
-            int(mat.group("num")), 
-            int(mat.group("gen"))
-        )
+        return PdfIndirectRef(int(mat.group("num")), int(mat.group("gen")))
 
     def parse_literal_string(self) -> bytes:
         """Parses a literal string."""
@@ -283,7 +274,7 @@ class SimpleObjectParser:
                     self.advance(1 + len(eol))
                 # Is this an octal character code?
                 elif self.peek(1).isdigit():
-                    self.advance() # past the /
+                    self.advance() # past the \
                     code = b""
                     # The sequence can be at most 3 digits
                     while not self.at_end() and len(code) < 3 and self.current.isdigit():
@@ -305,7 +296,7 @@ class SimpleObjectParser:
         return string
 
     def parse_comment(self) -> PdfComment:
-        """Parses a PDF comment"""
+        """Parses a PDF comment. These have no syntactical meaning but we still parse them anyway."""
         self.advance() # past the %
         line = self.current_to_eol
         self.advance(len(line))
@@ -317,7 +308,7 @@ class PdfParser:
     
     It consumes the PDF's cross-reference tables and trailers. It merges the tables
     into a single one and provides an interface to individually parse
-    each indirect object using ``SimpleObjectParser``."""
+    each indirect object using :class:`SimpleObjectParser`."""
 
     def __init__(self, data: bytes) -> None:
         self._simple_parser = SimpleObjectParser(data)

@@ -1,7 +1,7 @@
 import pytest
 
-from pdfnaut.parse import PdfParser, PdfParseError
-from pdfnaut.types import PdfStream, PdfIndirectRef
+from pdfnaut.parsers import PdfParser, PdfParseError
+from pdfnaut.objects import PdfStream, PdfIndirectRef
 
 # TODO: Add more tests as the library evolves
 def test_simple_pdf() -> None:

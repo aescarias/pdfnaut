@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pdfnaut.parse import SimpleObjectParser
-from pdfnaut.types import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
+from pdfnaut.parsers import SimpleObjectParser
+from pdfnaut.objects import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
 
 
 def _iterate_tokens(parser: SimpleObjectParser):
