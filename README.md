@@ -7,7 +7,7 @@ PDFnaut is a Python library for parsing PDF 1.7 files.
 PDFnaut currently provides a barebones low-level interface for parsing PDF objects as defined in the [PDF 1.7 specification](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf).
 
 ```py
-from pdfnaut.parse import PdfParser
+from pdfnaut.parsers import PdfParser
 
 with open("tests/docs/sample.pdf", "rb") as doc:
     pdf = PdfParser(doc.read())
