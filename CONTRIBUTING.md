@@ -13,9 +13,16 @@ When reporting an issue, please provide a *Minimal Reproducible Example (MRE)*. 
 - Docstrings should be written according to the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html#docstrings).
 - Code should mostly adhere to the [PEP8](https://www.python.org/dev/peps/pep-0008/) style guide.
 - Markdown documents are linted through [Markdownlint](https://github.com/DavidAnson/markdownlint).
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
-  - Commits should be descriptive and concise. They may include emojis in exceptional cases. (:tada:)
-  - The commit types used are:  
-    - `feat`: New features
-    - `fix`: For bug fixes (the commit message must reference the issue)
-    - `chore`: For anything else not covered above.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). See below.
+
+#### Guidelines — Commit Messages
+
+Commit messages should be descriptive and concise. They may include emojis in exceptional cases. (:tada:)
+
+Commit messages should also specify their scope. The scope should be the modules or areas affected by the commit. (for example, `fix(parsers): ...`).
+
+The commit types currently in use are:
+
+- `feat` for new features.
+- `fix` For bug fixes. (if applicable, they should reference the issue this commit resolves)
+- `chore` for anything else not covered in the other types.
