@@ -1,9 +1,9 @@
 import pytest
 
-from pdfnaut.parsers import PdfParser, PdfParseError
+from pdfnaut.parsers import PdfParser
 from pdfnaut.objects import PdfStream, PdfIndirectRef
+from pdfnaut.exceptions import PdfParseError
 
-# TODO: Add more tests as the library evolves
 def test_simple_pdf() -> None:
     with open("tests/docs/sample.pdf", "rb") as data:
         parser = PdfParser(data.read())
@@ -36,17 +36,22 @@ def test_invalid_pdfs() -> None:
             parser.parse()
             parser.resolve_reference(PdfIndirectRef(1, 0))
 
-def test_unsupported_pdf() -> None:
-    # This PDF has its XRef compressed
-    with pytest.raises(NotImplementedError):
-        with open("tests/docs/super-compressed.pdf", "rb") as data:
-            parser = PdfParser(data.read())
-            parser.parse()
-
 def test_pdf_with_incremental() -> None:
     with open("tests/docs/pdf2-incremental.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
         
         assert len(parser.update_xrefs) == 2 and len(parser._trailers) == 2
-        
+        assert parser.trailer["Size"] == parser.xref.sections[0].count
+
+def test_pdf_with_xref_stream() -> None:
+    with open("tests/docs/super-compressed.pdf", "rb") as data:
+        parser = PdfParser(data.read())
+        parser.parse()
+
+        catalog = parser.resolve_reference(parser.trailer["Root"])
+        pages = parser.resolve_reference(catalog["Pages"])
+        first_page = parser.resolve_reference(pages["Kids"][0])
+        stream = parser.resolve_reference(first_page["Contents"]).decompress()
+
+        assert stream.startswith(b"q\n0.000008871 0 595.32 841.92 re\n") 
