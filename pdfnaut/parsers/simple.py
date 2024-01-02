@@ -1,13 +1,8 @@
 """Low-level utilities for parsing PDFs"""
-
 import re
 from typing import Any
 
-from .objects import (
-    PdfXrefEntry, PdfXrefSubsection, PdfXrefTable, 
-    PdfHexString, PdfName, PdfNull, PdfComment,
-    PdfIndirectRef, PdfStream, PdfObject
-)
+from ..objects.base import PdfHexString, PdfName, PdfNull, PdfComment, PdfIndirectRef, PdfObject
 
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
@@ -25,11 +20,6 @@ STRING_ESCAPE = {
 }
 
 
-class PdfParseError(Exception):
-    """Raised if unable to continue parsing the PDF"""
-    pass
-
-
 class SimpleObjectParser:
     """A parser designed to consume objects that do not depend on cross reference 
     tables. This will not parse indirect objects or streams because those do 
@@ -42,11 +32,21 @@ class SimpleObjectParser:
         self.data = data
         self.position = 0
     
+    def __iter__(self):
+        return self
+    
+    def __next__(self) -> PdfObject | PdfComment:
+        while not self.at_end():
+            if (tok := self.next_token()) is not None:
+                return tok
+            self.advance()
+        raise StopIteration
+    
     @property
     def current(self) -> bytes:
         """The character at this current position"""
         return self.data[self.position:self.position + 1]
-    
+
     def at_end(self) -> bool:
         """Checks whether the parser has reached the end of data"""
         return self.position >= len(self.data)
@@ -302,236 +302,3 @@ class SimpleObjectParser:
         self.advance(len(line))
         return PdfComment(line.strip(b"\r\n"))
     
-
-class PdfParser:
-    """A parser that can completely parse a PDF document.
-    
-    It consumes the PDF's cross-reference tables and trailers. It merges the tables
-    into a single one and provides an interface to individually parse
-    each indirect object using :class:`SimpleObjectParser`."""
-
-    def __init__(self, data: bytes) -> None:
-        self._simple_parser = SimpleObjectParser(data)
-        self._trailers: list[dict[str, Any]] = []
-
-        self.update_xrefs: list[PdfXrefTable] = []
-        """A list of all XRef tables in the document (the most recent first)"""
-
-        # The below values are expected to be filled
-        self.trailer: dict[str, Any] = {}
-        """The most recent trailer in the PDF document"""
-
-        self.xref: PdfXrefTable = PdfXrefTable([])
-        """A cross-reference table with a single section that combines all 
-        entries in each update XRef."""
-
-        self.version = self.parse_header()
-        """The document's PDF version as seen in the header."""
-
-    def parse(self, start_xref: int | None = None) -> None:
-        """Parses the entire document.
-        
-        It parses the most recent XRef table and trailer. If this trailer points 
-        to a previous XRef, this function is called again with a ``start_xref``
-        offset until no more XRefs are found.
-
-        Arguments:
-            start_xref (int, optional):
-                An offset occurring before the ``startxref`` keyword.
-        """
-        # Get where the last (most recent) XRef is
-        if start_xref is None:
-            start_xref = self.lookup_xref_start()
-
-        # Get the most recent XRef
-        self._simple_parser.position = start_xref
-        xref = self.parse_xref_table()
-        self._simple_parser.advance_whitespace()
-
-        # Get the trailer to locate further XRefs
-        trailer = self.parse_trailer()
-        self.update_xrefs.append(xref)
-        self._trailers.append(trailer)
-
-        if "Prev" in trailer:
-            # Recursion!
-            self._simple_parser.position = 0
-            self.parse(trailer["Prev"])
-        else:
-            self.xref = self.get_merged_xrefs()
-            self.trailer = self._trailers[0]
-
-    def parse_header(self) -> str:
-        """Parse the %PDF-n.m header."""
-        header = self._simple_parser.parse_comment()
-        mat = re.match(rb"PDF-(?P<major>\d+).(?P<minor>\d+)", header.value)
-        if mat:
-            return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
-
-        raise PdfParseError("Expected PDF header.")
-    
-    def get_merged_xrefs(self) -> PdfXrefTable:
-        """Combines all update XRef tables in the document into a single table 
-        with a single section containing all entries"""
-        entry_map: dict[int, PdfXrefEntry] = {}
-
-        for xref in self.update_xrefs[::-1]:
-            for section in xref.sections:
-                for idx, entry in enumerate(section.entries):
-                    entry_map[section.first_obj_number + idx] = entry
-
-        final_entries: list[PdfXrefEntry] = [None] * len(entry_map) # type: ignore
-        for num, entry in entry_map.items():
-            final_entries[num] = entry
-
-        return PdfXrefTable([
-            PdfXrefSubsection(0, self._trailers[0]["Size"], final_entries)
-        ])
-
-    def parse_xref_table(self) -> PdfXrefTable:
-        # TODO: The startxref can also point to a compressed XRef object
-        # TODO: We don't support those yet.
-        if self._simple_parser.current + self._simple_parser.peek(3) != b"xref":
-            if re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", self._simple_parser.current_to_eol):
-                raise NotImplementedError("'startxref' offset pointing to \\XRef object unsupported.")
-            raise PdfParseError("XRef offset not at start of 'xref' keyword")
-        
-        self._simple_parser.advance(4)
-        self._simple_parser.advance_whitespace()
-
-        xref = PdfXrefTable([])
-
-        while not self._simple_parser.at_end():
-            # subsection
-            subsection = re.match(rb"(?P<first_obj>\d+)\s(?P<count>\d+)", 
-                                self._simple_parser.current_to_eol)
-            if subsection is None:
-                break
-            self._simple_parser.advance(subsection.end())
-            self._simple_parser.advance_whitespace()
-
-            # xref entries
-            entries: list[PdfXrefEntry] = []
-            for i in range(int(subsection.group("count"))):
-                entry = re.match(rb"(?P<offset>\d{10}) (?P<gen>\d{5}) (?P<status>f|n)", 
-                    self._simple_parser.current + self._simple_parser.peek(19))
-                if entry is None:
-                    raise PdfParseError(f"Expected valid XRef entry at row {i + 1}")
-                
-                entries.append(PdfXrefEntry(
-                    int(entry.group("offset")),
-                    int(entry.group("gen")),
-                    entry.group("status") == b"n"
-                ))
-                self._simple_parser.advance(20)
-            
-            xref.sections.append(PdfXrefSubsection(
-                int(subsection.group("first_obj")),
-                int(subsection.group("count")),
-                entries
-            ))
-            
-        return xref
-
-    def lookup_xref_start(self) -> int:
-        """Scans through the PDF until it finds the XRef offset then returns it"""
-        contents = bytearray()
-
-        # The PDF spec tells us we need to parse from the end of the file
-        # and the XRef comes first
-        self._simple_parser.position = len(self._simple_parser.data) - 1
-
-        while self._simple_parser.position > 0:
-            contents.insert(0, ord(self._simple_parser.current))
-            if contents.startswith(b"startxref"):
-                break
-            self._simple_parser.position -= 1
-        
-        if not contents.startswith(b"startxref"):
-            raise PdfParseError("Cannot locate XRef table. 'startxref' offset missing.")
-        
-        # advance through the startxref, we know it's there.
-        self._simple_parser.advance(9)
-        self._simple_parser.advance_whitespace()
-
-        return int(self._simple_parser.parse_numeric()) # startxref
-    
-    def parse_trailer(self) -> dict[str, Any]:
-        """Parse the PDF's trailer which is used to quickly locate crossrefs 
-        and other special objects"""
-        self._simple_parser.advance(7) # advance through the 'trailer' keyword
-        self._simple_parser.advance_whitespace()
-        
-        # next token is a dictionary
-        trailer = self._simple_parser.parse_dictionary()
-        return trailer
-    
-    def parse_indirect_object(self, xref_entry: PdfXrefEntry) -> PdfObject | PdfStream | None:
-        self._simple_parser.position = xref_entry.offset
-        mat = re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", 
-                       self._simple_parser.current_to_eol)
-        if not mat:
-            raise PdfParseError("Not an indirect object")
-        
-        self._simple_parser.advance(mat.end())
-        self._simple_parser.advance_whitespace()
-
-        tok: dict[str, Any] = self._simple_parser.next_token() # type: ignore
-        self._simple_parser.advance_whitespace()
-
-        # uh oh, a stream?
-        if self._simple_parser.current + self._simple_parser.peek(5) == b"stream":   
-            length = tok["Length"]
-            if isinstance(length, PdfIndirectRef):
-                _current = self._simple_parser.position
-                length = self.resolve_reference(length)
-                self._simple_parser.position = _current 
-            if not isinstance(length, int):
-                raise ValueError(f"Expected \\Length in stream extent to be of type Integer but got {type(length)} instead")
-
-            return PdfStream(tok, self.parse_stream(xref_entry, length))
-        return tok
-    
-    def resolve_reference(self, reference: PdfIndirectRef):
-        """Resolves a reference into the indirect object it points to."""
-        root_entry = self.xref.sections[0].entries[reference.object_number]
-        if reference.generation == root_entry.generation:
-            return self.parse_indirect_object(root_entry)
-    
-    def parse_stream(self, xref_entry: PdfXrefEntry, extent_length: int) -> bytes:
-        """Parses a PDF stream of length ``extent_length``"""
-        self._simple_parser.advance(6) # past the stream
-
-        # If the current character is LF or CRLF (but not just CR), skip.
-        pos, eol = self._simple_parser.next_eol()
-        if pos == self._simple_parser.position and eol != "\r":
-            self._simple_parser.advance(len(eol))
-
-        contents = self._simple_parser.data[self._simple_parser.position:
-                                            self._simple_parser.position + extent_length]
-        self._simple_parser.advance(len(contents))
-
-        # Same check as earlier
-        pos, eol = self._simple_parser.next_eol()
-        if pos == self._simple_parser.position and eol != "\r":
-            self._simple_parser.advance(len(eol))
-
-        # Get the offset of the next XRef entry
-        index_after = self.xref.sections[0].entries.index(xref_entry)
-        next_entry_hold = filter(
-            lambda e: e.offset > xref_entry.offset, 
-            self.xref.sections[0].entries[index_after + 1:]
-        )
-
-        # Check if we have consumed the appropriate bytes
-        # Have we gone way beyond?
-        try:
-            if self._simple_parser.position >= next(next_entry_hold).offset:
-                raise ValueError("\\Length key in stream extent parses beyond object.")
-        except StopIteration:
-            pass
-        # Have we not reached the end?
-        if not self._simple_parser.advance_if_next(b"endstream"):
-            raise ValueError("\\Length key in stream extent does not match end of stream.")
-        
-        return contents
