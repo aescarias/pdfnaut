@@ -1,11 +1,8 @@
-from .base import PdfComment, PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfStream
-from .xref import PdfXrefEntry, PdfXrefSubsection, PdfXrefTable
+from typing import Any, Dict, List, Union
 
-from typing import List, Union, Any, Dict
-
-PdfObject = Union[
-    bool, int, float, bytes, 
-    List[Any], Dict[str, Any], 
-    PdfHexString, PdfName, 
-    PdfIndirectRef, PdfNull
-]
+from .base import PdfComment, PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfObject
+from .stream import PdfStream
+from .xref import (
+    CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
+    PdfXRefEntry, PdfXRefSubsection, PdfXRefTable
+)

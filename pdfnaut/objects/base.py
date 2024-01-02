@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Union, List, Dict, Any
 
 
 class PdfNull:
@@ -40,9 +40,9 @@ class PdfIndirectRef:
     generation: int
 
 
-@dataclass
-class PdfStream:
-    """A stream object in a PDF"""
-    details: dict[str, Any]
-    raw: bytes = field(repr=False)
-
+PdfObject = Union[
+    bool, int, float, bytes, 
+    List[Any], Dict[str, Any], 
+    PdfHexString, PdfName, 
+    PdfIndirectRef, PdfNull
+]

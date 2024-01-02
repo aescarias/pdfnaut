@@ -1,37 +1,47 @@
 from __future__ import annotations
+from typing import Union
 
 from dataclasses import dataclass
 
 
 @dataclass
-class PdfXrefTable:
+class PdfXRefTable:
     """A cross-reference table which permits random access to objects across a PDF.
     
     It is conformed of subsections indicating where objects are located. A PDF file
     starts with one subsection and additional ones are added per each incremental update.
     """
-    sections: list[PdfXrefSubsection]
+    sections: list[PdfXRefSubsection]
 
 
 @dataclass
-class PdfXrefSubsection:
+class PdfXRefSubsection:
     """A subsection part of an XRef table. Each subsection generally indicates 
     incremental updates to a document."""
     first_obj_number: int
     count: int
-    entries: list[PdfXrefEntry]
+    entries: list[PdfXRefEntry]
 
 
 @dataclass
-class PdfXrefEntry:
-    """An entry inside a subsection in an XRef table. It represents the position of an object
-    in the table.
-    
-    In the case the entry is in use, ``offset`` points to the start position of the object.
-    In the case it is a free entry, ``offset`` points to the object number of the next free 
-    object and ``generation`` is the generation to use when this object number is used again.
-    """
+class FreeXRefEntry:
+    """A Type 0 entry. These entries form the linked list of free objects."""
+    next_free_object: int
+    gen_if_used_again: int
+
+
+@dataclass
+class InUseXRefEntry:
+    """A Type 1 entry. These point to uncompressed entries currently in use."""
     offset: int
     generation: int
-    in_use: bool
 
+
+@dataclass
+class CompressedXRefEntry:
+    """A Type 2 entry. These point to entries that are within an object stream."""
+    objstm_number: int
+    index_within: int
+
+
+PdfXRefEntry = Union[FreeXRefEntry, InUseXRefEntry, CompressedXRefEntry]

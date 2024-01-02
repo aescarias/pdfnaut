@@ -27,7 +27,7 @@ with open("tests/docs/sample.pdf", "rb") as doc:
 
 The following tracks coverage of certain portions of the PDF standard.
 
-- Compression filters (FlateDecode, ASCII85Decode, etc): **Not supported**
+- Compression filters: **Supported** (only FlateDecode, ASCII85Decode, and ASCIIHexDecode for now)
 - Reading from encrypted PDFs: **Not supported**
-- Linearized PDFs: **Almost**. They will parse but require testing.
-- Compressed XRef objects: **Not supported**
+- XRef streams: **Supported**
+- File specifications: **Not supported**
