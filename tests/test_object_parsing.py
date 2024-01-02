@@ -6,28 +6,22 @@ from pdfnaut.parsers import SimpleObjectParser
 from pdfnaut.objects import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
 
 
-def _iterate_tokens(parser: SimpleObjectParser):
-    while not parser.at_end():
-        if (tok := parser.next_token()) is not None:
-            yield tok
-        else:
-            parser.advance()
-
 def test_null_and_bool() -> None:
     parser = SimpleObjectParser(b"null true false")
-    tokens = list(_iterate_tokens(parser))
+    tokens = list(parser)
+
     assert isinstance(tokens[0], PdfNull)
     assert tokens[1] is True and tokens[2] is False
 
 def test_numeric() -> None:
     parser = SimpleObjectParser(b"-1 +25 46 -32.591 +52.871 3.1451")
-    tokens = list(_iterate_tokens(parser))
+    tokens = list(parser)
 
     assert tokens == [-1, 25, 46, -32.591,  52.871, 3.1451]
 
 def test_name() -> None:
     parser = SimpleObjectParser(b"/Type /SomeR@ndomK*y /Lime#20Green / /F#23")
-    tokens = list(_iterate_tokens(parser))
+    tokens = list(parser)
     assert tokens == [ PdfName(b"Type"), PdfName(b"SomeR@ndomK*y"), PdfName(b"Lime Green"), PdfName(b""), PdfName(b"F#") ]
 
 def test_literal_string() -> None:
@@ -54,7 +48,7 @@ def test_literal_string() -> None:
 
 def test_hex_string() -> None:
     parser = SimpleObjectParser(b"<A5B2FF><6868ADE>")
-    tokens: list[PdfHexString] = list(_iterate_tokens(parser))
+    tokens: list[PdfHexString] = list(parser)
     
     assert tokens[0].value == b"A5B2FF" and tokens[1].value == b"6868ADE0" 
 
@@ -71,13 +65,12 @@ def test_comment() -> None:
     parser = SimpleObjectParser(b"% This is a comment\r\n"
                                 b"12 % This is another comment\r"
                                 b"25\n")
-    tokens = _iterate_tokens(parser)
-    assert isinstance(com := next(tokens), PdfComment) \
+    assert isinstance(com := next(parser), PdfComment) \
         and com.value == b" This is a comment"
-    assert next(tokens) == 12
-    assert isinstance(com := next(tokens), PdfComment) and \
+    assert next(parser) == 12
+    assert isinstance(com := next(parser), PdfComment) and \
         com.value == b" This is another comment"
-    assert next(tokens) == 25
+    assert next(parser) == 25
 
     parser = SimpleObjectParser(b"% This is a comment ending with \\r\r")
     assert isinstance(com := parser.next_token(), PdfComment) \
