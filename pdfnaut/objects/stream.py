@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 from dataclasses import dataclass, field
 
-from .base import PdfName
+from .base import PdfName, PdfNull
 from ..filters import SUPPORTED_FILTERS
+from ..exceptions import PdfFilterError
 
 
 @dataclass
@@ -16,9 +17,11 @@ class PdfStream:
     def decompress(self) -> bytes:
         """Returns the contents of the stream decompressed.
         
-        If a filter is not defined, it returns the original contents.
-        If a filter is unsupported, it raises an exception."""
+        If no filter is defined, it returns the original contents.
+        
+        Raises :class:`PdfFilterError` if a filter is unsupported."""
         filters = self.details.get("Filter")
+        params = self.details.get("DecodeParms")
         
         if filters is None:
             return self.raw
@@ -26,13 +29,17 @@ class PdfStream:
         if isinstance(filters, PdfName):
             filters = [filters]
 
-        data = self.raw
-        for filt in filters:
+        if not isinstance(params, list):
+            params = [params]
+                
+        output = self.raw
+        for filt, params in zip(filters, params):
             if filt.value not in SUPPORTED_FILTERS:
-                raise NotImplementedError(f"Filter {filt.value} is unsupported.")
+                raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
             
-            data = SUPPORTED_FILTERS[filt.value]().decode(
-                contents=self.raw, params=self.details.get("DecodeParms", {}))
+            if isinstance(params, PdfNull):
+                params = {}
+                
+            output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
 
-        return data
-    
+        return output
