@@ -1,4 +1,6 @@
-"""Filters for used when decoding/decompressing streams. See § 7.4 Filters in the PDF spec."""
+"""Filters used when decoding (decompressing) streams. 
+
+See ``§ 7.4 Filters`` in the PDF spec for details."""
 from __future__ import annotations
 
 import zlib

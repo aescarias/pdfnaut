@@ -22,12 +22,12 @@ STRING_ESCAPE = {
 
 class SimpleObjectParser:
     """A parser designed to consume objects that do not depend on cross reference 
-    tables. This will not parse indirect objects or streams because those do 
-    depend on XRef and are effectively not sequentially parsable.
+    tables. It is used by :class:`PdfParser` for this purpose.
     
-    Because of this limitation, this parser is not made to parse an entire
-    PDF document, but only objects part of it. It is used by :class:`PdfParser`
-    for this purpose."""
+    This parser will not parse indirect objects or streams because those do depend on XRef 
+    and are effectively not sequentially parsable. Because of this limitation, it is not 
+    intended for parsing the entire document, but rather its simpler objects."""
+
     def __init__(self, data: bytes) -> None:
         self.data = data
         self.position = 0
@@ -44,15 +44,15 @@ class SimpleObjectParser:
     
     @property
     def current(self) -> bytes:
-        """The character at this current position"""
+        """The character at the current position"""
         return self.data[self.position:self.position + 1]
 
     def at_end(self) -> bool:
-        """Checks whether the parser has reached the end of data"""
+        """Checks whether the parser has reached the end of the data"""
         return self.position >= len(self.data)
 
     def advance(self, n: int = 1) -> None:
-        """Advance ``n`` steps through the parser"""
+        """Advances ``n`` steps through the parser"""
         if not self.at_end():
             self.position += n
 
@@ -100,7 +100,7 @@ class SimpleObjectParser:
     @property
     def current_to_eol(self) -> bytes:
         """A substring starting from the current character and ending at the 
-        next end of line (included)"""
+        next end of line marker (included)"""
         pos, eol = self.next_eol()
         line = self.data[self.position:pos + len(eol)]
         if pos == -1:

@@ -1,3 +1,7 @@
+"""
+PDFnaut is a Python library for parsing the structure of PDFs.
+"""
+
 from .parsers import PdfParser
 
 __name__ = "pdfnaut"
