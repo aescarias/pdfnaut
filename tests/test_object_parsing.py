@@ -50,7 +50,7 @@ def test_hex_string() -> None:
     parser = SimpleObjectParser(b"<A5B2FF><6868ADE>")
     tokens: list[PdfHexString] = list(parser)
     
-    assert tokens[0].value == b"A5B2FF" and tokens[1].value == b"6868ADE0" 
+    assert tokens[0].raw == b"A5B2FF" and tokens[1].raw == b"6868ADE0" 
 
 def test_dictionary() -> None:
     parser = SimpleObjectParser(b"""<< /Type /Catalog /Metadata 2 0 R /Pages 3 0 R >>""")

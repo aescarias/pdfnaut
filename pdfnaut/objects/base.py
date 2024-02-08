@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from binascii import unhexlify
 from typing import Union, List, Dict, Any
 
 
@@ -25,12 +26,17 @@ class PdfName:
 @dataclass
 class PdfHexString:
     """A PDF hexadecimal string. These are used to include arbitrary binary data in a PDF."""
-    value: bytes
+    raw: bytes
+    """The raw value of the string"""
     
     def __post_init__(self) -> None:
         # If uneven, we append a zero. (it's hexadecimal -- 2 chars = byte)
-        if len(self.value) % 2 != 0:
-            self.value += b"0"
+        if len(self.raw) % 2 != 0:
+            self.raw += b"0"
+
+    @property
+    def value(self) -> bytes:
+        return unhexlify(self.raw)
 
 
 @dataclass

@@ -9,10 +9,7 @@ def test_simple_pdf() -> None:
         parser = PdfParser(data.read())
         parser.parse()
 
-        xref = parser.xref.sections[0]
-
-        assert len(xref.entries) == xref.count
-        assert len(xref.entries) == parser.trailer["Size"]
+        assert len(parser.xref) == parser.trailer["Size"]
 
         catalog = parser.resolve_reference(parser.trailer["Root"])
         metadata = parser.resolve_reference(parser.trailer["Info"])
@@ -30,7 +27,7 @@ def test_invalid_pdfs() -> None:
         parser.parse()
 
     # PDF with an invalid \\Length in stream
-    with pytest.raises(ValueError):
+    with pytest.raises(PdfParseError):
         with open("tests/docs/pdf-with-bad-stream.pdf", "rb") as data:
             parser = PdfParser(data.read())
             parser.parse()
@@ -42,7 +39,7 @@ def test_pdf_with_incremental() -> None:
         parser.parse()
         
         assert len(parser.update_xrefs) == 2 and len(parser._trailers) == 2
-        assert parser.trailer["Size"] == parser.xref.sections[0].count
+        assert parser.trailer["Size"] == len(parser.xref)
 
 def test_pdf_with_xref_stream() -> None:
     with open("tests/docs/super-compressed.pdf", "rb") as data:
