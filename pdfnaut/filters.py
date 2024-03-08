@@ -4,20 +4,18 @@ See ``§ 7.4 Filters`` in the PDF spec for details."""
 from __future__ import annotations
 
 import zlib
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from math import floor, ceil
 from base64 import b16decode, a85decode
 
 from .parsers.simple import WHITESPACE
 from .exceptions import PdfFilterError
+from .objects.base import PdfName, PdfIndirectRef
 
 
 def predict_paeth(a: int, b: int, c: int) -> int:
-    """Runs Paeth prediction on a, b, c as defined by § 9. Filtering in the PNG spec.
-
-    Equivalent to ``Orig(x) - PaethPredictor(Orig(a), Orig(b), Orig(c))`` where ``Orig(x)``
-    is the original value being filtered and ``PaethPredictor(a, b, c)`` is this function."""
-    # Code below has been adapted from Section 9 in the PNG spec.
+    """Runs Paeth prediction on a, b, and c as defined and implemented by 
+    ``§ 9. Filtering`` in the PNG spec."""
     p = a + b - c
     pa = abs(p - a)
     pb = abs(p - b)
@@ -49,7 +47,7 @@ class ASCII85Filter(PdfFilter):
         return a85decode(contents, ignorechars=WHITESPACE, adobe=True)
 
 
-class FlateFilter:
+class FlateFilter(PdfFilter):
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         if params is None:
             params = {}
@@ -140,8 +138,28 @@ class FlateFilter:
         return output
 
 
+# 7.4.10 Crypt Filter
+# TODO: Please test
+class CryptFetchFilter(PdfFilter):
+    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        if params is None:
+            params = {}
+        
+        cf_name = cast("PdfName | None", params.get("Name"))
+        if cf_name is None or cf_name.value == b"Identity":
+            return contents
+
+        crypt_filter = params["Handler"].encryption.get("CF", {}).get(
+            cf_name.value.decode(), params["Handler"].encryption.get("StmF")
+        )
+
+        return params["Handler"].decrypt_object(params["EncryptionKey"],
+            contents, params["IndirectRef"], crypt_filter=crypt_filter)
+
+
 SUPPORTED_FILTERS: dict[bytes, type[PdfFilter]] = {
     b"FlateDecode": FlateFilter,
     b"ASCII85Decode": ASCII85Filter,
-    b"ASCIIHexDecode": ASCIIHexFilter
+    b"ASCIIHexDecode": ASCIIHexFilter,
+    b"Crypt": CryptFetchFilter
 }

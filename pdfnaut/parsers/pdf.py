@@ -1,16 +1,26 @@
 import re
-from typing import Any
+from typing import Any, cast, TypeVar
+from enum import IntEnum
 from io import BytesIO
 
-from ..objects.base import PdfNull, PdfIndirectRef, PdfObject
+from ..objects.base import PdfNull, PdfIndirectRef, PdfObject, PdfName, PdfHexString
 from ..objects.stream import PdfStream
 from ..objects.xref import (
     PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, PdfXRefEntry, FreeXRefEntry,
     CompressedXRefEntry, InUseXRefEntry
 )
-
 from ..exceptions import PdfParseError
+from ..security_handler import StandardSecurityHandler
 from .simple import SimpleObjectParser
+
+
+class PermsAcquired(IntEnum):
+    NONE = 0
+    """No permissions acquired, document is still encrypted."""
+    USER = 1
+    """User permissions within the limits specified by the security handler"""
+    OWNER = 2
+    """Owner permissions (all permissions)"""
 
 
 class PdfParser:
@@ -41,12 +51,22 @@ class PdfParser:
         The value is any of the 3 types of XRef entries (free, in use, compressed)
         """
 
-        self.version = self.parse_header()
+        self.version = ""
         """The document's PDF version as seen in the header.
         
         To retrieve the PDF's version properly, access the Version entry part of the 
         document catalog. If not present, you can reliably depend on the header.
         """
+
+        self.security_handler = None
+        """The document's standard security handler if any, as specified in the Encrypt 
+        dictionary of the PDF trailer.
+
+        This field being set indicates that a supported security handler was used for
+        encryption. If not set, the parser will not attempt to decrypt this document.
+        """
+
+        self._encryption_key = None
 
     def parse(self, start_xref: int | None = None) -> None:
         """Parses the entire document.
@@ -57,13 +77,13 @@ class PdfParser:
 
         Arguments:
             start_xref (int, optional):
-                An offset occurring at the start of the ``startxref`` keyword.
+                The offset where the most recent XRef can be found.
         """
-        # Get where the last (most recent) XRef is
+        # Because the function may be called recursively, we check if this is the first call.
         if start_xref is None:
             start_xref = self.lookup_xref_start()
 
-        # Get the most recent XRef and trailer
+        # Move to the offset where the XRef and trailer are
         self._simple_parser.position = start_xref
         xref, trailer = self.parse_xref_and_trailer()
 
@@ -71,13 +91,25 @@ class PdfParser:
         self._trailers.append(trailer)
 
         if "Prev" in trailer:
-            # More XRefs were found. Recursion!
+            # More XRefs were found. Recurse!
             self._simple_parser.position = 0
             self.parse(trailer["Prev"])
         else:
             # That's it. Merge them together.
             self.xref = self.get_merged_xrefs()
             self.trailer = self._trailers[0]
+
+        # Move back for the header
+        self._simple_parser.position = 0
+        self.version = self.parse_header()
+
+        # Is the document encrypted with a standard security handler?
+        if "Encrypt" in self.trailer:
+            encryption = cast("dict[str, Any]", 
+                self.resolve_reference(_E) if isinstance((_E := self.trailer["Encrypt"]), PdfIndirectRef) else _E)
+            
+            if encryption["Filter"].value == b"Standard":
+                self.security_handler = StandardSecurityHandler(encryption, self.trailer["ID"])
 
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
@@ -162,9 +194,9 @@ class PdfParser:
 
     def parse_simple_xref(self) -> PdfXRefTable:
         """Parses a standard, uncompressed XRef table of the format described in 
-        `§ 7.5.4 Cross-Reference Table` in the PDF spec.
+        ``§ 7.5.4 Cross-Reference Table`` in the PDF spec.
 
-        If ``startxref`` points to an XRef object, :meth:`parse_compressed_xref`
+        If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         is called instead.
         """
         self._simple_parser.advance(4)
@@ -209,7 +241,9 @@ class PdfParser:
 
     def parse_compressed_xref(self) -> tuple[PdfXRefTable, dict[str, Any]]:
         """Parses a compressed cross-reference stream which includes both the XRef table 
-        and information from the PDF trailer. Described in `§ 7.5.4 Cross-Reference Streams`."""
+        and information from the PDF trailer. 
+        
+        Described in ``§ 7.5.4 Cross-Reference Streams``."""
         xref_stream = self.parse_indirect_object(
             InUseXRefEntry(self._simple_parser.position, 0))
         assert isinstance(xref_stream, PdfStream)
@@ -245,7 +279,8 @@ class PdfParser:
         return table, xref_stream.details
 
     def parse_indirect_object(self, xref_entry: InUseXRefEntry) -> PdfObject | PdfStream | None:
-        """Parses an indirect object not within an object stream."""
+        """Parses an indirect object not within an object stream, or basically, an object 
+        that is directly referred to by an ``xref_entry``"""
         self._simple_parser.position = xref_entry.offset
         self._simple_parser.advance_whitespace()
         mat = re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", 
@@ -256,11 +291,22 @@ class PdfParser:
         self._simple_parser.advance(mat.end())
         self._simple_parser.advance_whitespace()
 
-        tok: dict[str, Any] = self._simple_parser.next_token() # type: ignore
+        tok = self._simple_parser.next_token()
         self._simple_parser.advance_whitespace()
+
+        try:
+            indirect_ref = PdfIndirectRef(
+                *list(self.xref.keys())[list(self.xref.values()).index(xref_entry)]
+            )
+        except ValueError:
+            # The only way I know indirect_ref can be None is if we are parsing a compressed
+            # XRef stream. XRef streams do not appear in the XRef and XRef streams cannot be 
+            # encrypted so we do not need an indirect ref.
+            indirect_ref = None
 
         # uh oh, a stream?
         if self._simple_parser.current + self._simple_parser.peek(5) == b"stream":   
+            tok = cast("dict[str, Any]", tok)
             length = tok["Length"]
             if isinstance(length, PdfIndirectRef):
                 _current = self._simple_parser.position
@@ -269,8 +315,57 @@ class PdfParser:
             if not isinstance(length, int):
                 raise PdfParseError(f"\\Length entry of stream extent not an integer")
 
-            return PdfStream(tok, self.parse_stream(xref_entry, length))
-        return tok
+            stream = PdfStream(tok, self.parse_stream(xref_entry, length))
+            if indirect_ref is None:
+                return stream
+            return self._get_decrypted(stream, indirect_ref)
+
+        return self._get_decrypted(tok, indirect_ref) # type: ignore
+
+    _WrapsEncryptable = TypeVar("_WrapsEncryptable", PdfObject, PdfStream)
+    def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfIndirectRef) -> _WrapsEncryptable:        
+        if self.security_handler is None or not self._encryption_key:
+            return pdf_object
+        
+        if isinstance(pdf_object, PdfStream):
+            use_stmf = True
+            # Don't use StmF if the stream handles its own encryption
+            if (filter_ := pdf_object.details.get("Filter")):
+                if isinstance(filter_, PdfName) and filter_.value == b"Crypt":
+                    use_stmf = False
+                elif isinstance(filter_, list):
+                    use_stmf = not any(isinstance(filt, PdfName) and filt.value == b"Crypt" 
+                                        for filt in filter_)
+            
+            # Give the stream an instance of the security handler
+            pdf_object._sec_handler = {
+                "Handler": self.security_handler,
+                "EncryptionKey": self._encryption_key,
+                "IndirectRef": reference
+            }
+
+            if use_stmf:
+                pdf_object.raw = self.security_handler.decrypt_object(
+                    self._encryption_key, pdf_object, reference)
+
+            return pdf_object
+        elif isinstance(pdf_object, PdfHexString):
+            return PdfHexString.from_raw(
+                self.security_handler.decrypt_object(
+                    self._encryption_key, pdf_object.value, reference
+                )
+            )
+        elif isinstance(pdf_object, bytes):
+            return self.security_handler.decrypt_object(
+                self._encryption_key, pdf_object, reference
+            )
+        elif isinstance(pdf_object, list):
+            return [self._get_decrypted(obj, reference) for obj in pdf_object]
+        elif isinstance(pdf_object, dict):
+            return {name: self._get_decrypted(value, reference) for name, value in pdf_object.items()}         
+
+        # Why would a number be encrypted?
+        return pdf_object
 
     def parse_stream(self, xref_entry: InUseXRefEntry, extent: int) -> bytes:
         """Parses a PDF stream of length ``extent``"""
@@ -308,6 +403,8 @@ class PdfParser:
                 raise PdfParseError("\\Length key in stream extent parses beyond object.")
         except StopIteration:
             pass
+
+        self._simple_parser.advance_whitespace()
         # Have we not reached the end?
         if not self._simple_parser.advance_if_next(b"endstream"):
             raise PdfParseError("\\Length key in stream extent does not match end of stream.")
@@ -319,11 +416,11 @@ class PdfParser:
         
         Arguments:
             reference (int | :class:`PdfIndirectRef`): 
-                An indirect reference object or a tuple of two integers representing the 
-                object number and the generation number.
+                An indirect reference object or a tuple of two integers representing, 
+                in order, the object number and the generation number.
 
         Returns:
-            A PDF object if the reference can be found, otherwise :class:`PdfNull`.
+            A PDF object if the reference was found, otherwise :class:`PdfNull`.
         """
         
         if isinstance(reference, tuple):
@@ -351,3 +448,33 @@ class PdfParser:
                     return token
         
         return PdfNull()
+
+    def decrypt(self, password: str) -> PermsAcquired:
+        """Decrypts this document using the provided ``password``.
+
+        The standard security handler may specify 2 passwords: an owner password and a user 
+        password. The owner password would allow full access to the PDF and the user password 
+        should allow access according to the permissions specified in the document.
+
+        Returns:
+            A ``PermsAcquired`` specifying the permissions acquired by ``password``.
+            
+            - If the document is not encrypted, defaults to :attr:`.PermsAcquired.OWNER`
+            - if the document was not decrypted, defaults to :attr:`.PermsAcquired.NONE`
+        """
+        if self.security_handler is None:
+            return PermsAcquired.OWNER
+        
+        # Is this the owner password?
+        encryption_key, is_owner_pass = self.security_handler.authenticate_owner_password(password.encode())
+        if is_owner_pass:
+            self._encryption_key = encryption_key
+            return PermsAcquired.OWNER
+        
+        # Is this the user password
+        encryption_key, is_user_pass = self.security_handler.authenticate_user_password(password.encode())
+        if is_user_pass:
+            self._encryption_key = encryption_key
+            return PermsAcquired.USER
+        
+        return PermsAcquired.NONE

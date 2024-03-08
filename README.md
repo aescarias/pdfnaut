@@ -28,6 +28,6 @@ with open("tests/docs/sample.pdf", "rb") as doc:
 The following tracks coverage of certain portions of the PDF standard.
 
 - Compression filters: **Supported** (only FlateDecode, ASCII85Decode, and ASCIIHexDecode for now)
-- Reading from encrypted PDFs: **Not supported**
+- Reading from encrypted PDFs: **Supported** (ARC4 and AES; requires a user-supplied implementation or availability of a compatible module -- `pycryptodome` for now)
 - XRef streams: **Supported**
 - File specifications: **Not supported**

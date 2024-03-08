@@ -28,10 +28,14 @@ homepage = "https://github.com/aescarias/pdfnaut"
 
 [project.optional-dependencies]
 tests = ["pytest", "pytest-cov"]
+docs = ["sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.setuptools]
+packages = ["pdfnaut"]
 
 [build-system]
 requires = ["setuptools"]
