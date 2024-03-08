@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 from typing import Union, List, Dict, Any
 
 
 class PdfNull:
     """A PDF null object."""
-    def __repr__(self) -> str:
-        return "PdfNull"
-
+    pass
 
 @dataclass
 class PdfComment:
-    """A PDF comment. These have no syntactical meaning and are assumed to be whitespace."""
+    """A PDF comment. Comments have no syntactical meaning and are interpreted as whitespace."""
     value: bytes
 
 
@@ -34,8 +32,13 @@ class PdfHexString:
         if len(self.raw) % 2 != 0:
             self.raw += b"0"
 
+    @classmethod
+    def from_raw(cls, data: bytes):
+        return cls(hexlify(data))
+
     @property
     def value(self) -> bytes:
+        """The decoded value of the hex string"""
         return unhexlify(self.raw)
 
 
@@ -44,6 +47,12 @@ class PdfIndirectRef:
     """A reference to a PDF indirect object."""
     object_number: int
     generation: int
+
+
+@dataclass
+class PdfOperator:
+    """A PDF operator within a content stream."""
+    value: bytes
 
 
 PdfObject = Union[

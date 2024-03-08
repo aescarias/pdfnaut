@@ -2,7 +2,7 @@
 import re
 from typing import Any
 
-from ..objects.base import PdfHexString, PdfName, PdfNull, PdfComment, PdfIndirectRef, PdfObject
+from ..objects.base import PdfHexString, PdfName, PdfNull, PdfComment, PdfIndirectRef, PdfObject, PdfOperator
 
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
@@ -26,16 +26,27 @@ class SimpleObjectParser:
     
     This parser will not parse indirect objects or streams because those do depend on XRef 
     and are effectively not sequentially parsable. Because of this limitation, it is not 
-    intended for parsing the entire document, but rather its simpler objects."""
+    intended for parsing the entire document, but rather its simpler objects.
+            
+    Arguments:
+        data (bytes): 
+            The contents to be parsed.
+    
+        is_content_stream (bool, optional):
+            Whether to parse ``data`` as if part of a content stream. This notably parses 
+            the operators present in these streams. Defaults to False.
+    """
 
-    def __init__(self, data: bytes) -> None:
+    def __init__(self, data: bytes, *, is_content_stream: bool = False) -> None:
         self.data = data
         self.position = 0
+
+        self.is_content_stream = is_content_stream
     
     def __iter__(self):
         return self
     
-    def __next__(self) -> PdfObject | PdfComment:
+    def __next__(self) -> PdfObject | PdfComment | PdfOperator:
         while not self.at_end():
             if (tok := self.next_token()) is not None:
                 return tok
@@ -107,7 +118,7 @@ class SimpleObjectParser:
             line = self.data[self.position:]
         return line
 
-    def next_token(self) -> PdfObject | PdfComment | None:
+    def next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
         """Parses and returns the next token"""
         while not self.at_end():
             if self.advance_if_next(b"true"):
@@ -132,6 +143,8 @@ class SimpleObjectParser:
                 return self.parse_literal_string()
             elif self.current == b"%":
                 return self.parse_comment()
+            elif self.is_content_stream and self.current.isalpha() or self.current in ("'", "\""):
+                return self.parse_operator()
 
             return None        
 
@@ -302,3 +315,12 @@ class SimpleObjectParser:
         self.advance(len(line))
         return PdfComment(line.strip(b"\r\n"))
     
+    def parse_operator(self) -> PdfOperator:
+        """Parses a PDF operator. These are found in content streams and are only parsed 
+        if :attr:`.SimpleObjectParser.is_content_stream` is True."""
+        accumulated = b""
+        while not self.at_end() and self.current not in DELIMITERS + WHITESPACE:
+            accumulated += self.current
+            self.advance()
+        
+        return PdfOperator(accumulated)
