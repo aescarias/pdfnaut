@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from pdfnaut.parsers import SimpleObjectParser
 from pdfnaut.objects import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
 
 
-def test_null_and_bool() -> None:
+def test_null_and_boolean() -> None:
     parser = SimpleObjectParser(b"null true false")
     tokens = list(parser)
 
@@ -17,12 +19,13 @@ def test_numeric() -> None:
     parser = SimpleObjectParser(b"-1 +25 46 -32.591 +52.871 3.1451")
     tokens = list(parser)
 
-    assert tokens == [-1, 25, 46, -32.591,  52.871, 3.1451]
+    assert tokens == [-1, 25, 46, -32.591, 52.871, 3.1451]
 
-def test_name() -> None:
+def test_name_object() -> None:
     parser = SimpleObjectParser(b"/Type /SomeR@ndomK*y /Lime#20Green / /F#23")
     tokens = list(parser)
-    assert tokens == [ PdfName(b"Type"), PdfName(b"SomeR@ndomK*y"), PdfName(b"Lime Green"), PdfName(b""), PdfName(b"F#") ]
+    assert tokens == [ PdfName(b"Type"), PdfName(b"SomeR@ndomK*y"), PdfName(b"Lime Green"), 
+                       PdfName(b""), PdfName(b"F#") ]
 
 def test_literal_string() -> None:
     # Basic string
@@ -48,8 +51,8 @@ def test_literal_string() -> None:
 
 def test_hex_string() -> None:
     parser = SimpleObjectParser(b"<A5B2FF><6868ADE>")
-    tokens: list[PdfHexString] = list(parser)
-    
+    tokens = cast("list[PdfHexString]", list(parser))
+
     assert tokens[0].raw == b"A5B2FF" and tokens[1].raw == b"6868ADE0" 
 
 def test_dictionary() -> None:

@@ -5,6 +5,8 @@ from pdfnaut.objects import PdfStream, PdfIndirectRef
 from pdfnaut.exceptions import PdfParseError
 
 def test_simple_pdf() -> None:
+    """Tests a simple PDF. In this context, "simple" means an unencrypted PDF 
+    with no compression and few pages of content."""
     with open("tests/docs/sample.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
@@ -21,6 +23,7 @@ def test_simple_pdf() -> None:
         assert isinstance(first_page_contents, PdfStream)
 
 def test_invalid_pdfs() -> None:
+    """Tests invalid PDF scenarios. The cases included should all fail."""
     # "PDF" with no header
     with pytest.raises(PdfParseError):
         parser = PdfParser(b"The content doesn't matter. The header not being here does.")
@@ -34,6 +37,8 @@ def test_invalid_pdfs() -> None:
             parser.resolve_reference(PdfIndirectRef(1, 0))
 
 def test_pdf_with_incremental() -> None:
+    """Tests whether an incremental PDF is parsed correctly. Basically, whether the 
+    correct trailer is provided and whether the XRefs are merged."""
     with open("tests/docs/pdf2-incremental.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
@@ -42,7 +47,8 @@ def test_pdf_with_incremental() -> None:
         assert parser.trailer["Size"] == len(parser.xref)
 
 def test_pdf_with_xref_stream() -> None:
-    with open("tests/docs/super-compressed.pdf", "rb") as data:
+    """Tests a PDF document with a compressed XRef stream"""
+    with open("tests/docs/compressed-xref.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
 
