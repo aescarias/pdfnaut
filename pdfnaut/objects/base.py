@@ -6,26 +6,29 @@ from typing import Union, List, Dict, Any
 
 
 class PdfNull:
-    """A PDF null object."""
+    """A PDF null object (``§ 7.3.9 Null Object``)."""
     pass
 
 @dataclass
 class PdfComment:
-    """A PDF comment. Comments have no syntactical meaning and are interpreted as whitespace."""
+    """A PDF comment (``§ 7.2.3 Comments``). Comments have no syntactical meaning and shall 
+    be interpreted as whitespace."""
     value: bytes
 
 
 @dataclass
 class PdfName:
-    """A PDF name object."""
+    """A PDF name object (``§ 7.3.5 Name Objects``)."""
     value: bytes
 
 
 @dataclass
 class PdfHexString:
-    """A PDF hexadecimal string. These are used to include arbitrary binary data in a PDF."""
+    """A PDF hexadecimal string which can be used to include arbitrary binary data in a PDF
+    (``§ 7.3.4.3 Hexadecimal Strings``)."""
+    
     raw: bytes
-    """The raw value of the string"""
+    """The raw (in hex) value of the string"""
     
     def __post_init__(self) -> None:
         # If uneven, we append a zero. (it's hexadecimal -- 2 chars = byte)

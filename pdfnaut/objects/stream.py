@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast, Callable
+from typing import Any
 from dataclasses import dataclass, field
 
 from .base import PdfName, PdfNull

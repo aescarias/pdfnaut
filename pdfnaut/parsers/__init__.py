@@ -1,2 +1,2 @@
 from .pdf import PdfParser
-from .simple import SimpleObjectParser
+from .simple import PdfTokenizer

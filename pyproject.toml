@@ -1,7 +1,7 @@
 [project]
 name = "pdfnaut"
 version = "0.1.0"
-description = "Parse and explore PDFs with ease"
+description = "Parse PDFs with ease"
 authors = [
     { name = "Angel Carias" }
 ]
@@ -34,8 +34,9 @@ docs = ["sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
 testpaths = ["tests"]
 pythonpath = ["."]
 
-[tool.setuptools]
-packages = ["pdfnaut"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pdfnaut*"]
 
 [build-system]
 requires = ["setuptools"]

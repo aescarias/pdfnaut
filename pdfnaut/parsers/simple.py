@@ -1,13 +1,19 @@
-"""Low-level utilities for parsing PDFs"""
+"""A PDF tokenizer for objects"""
+from __future__ import annotations
+
 import re
 from typing import Any
 
-from ..objects.base import PdfHexString, PdfName, PdfNull, PdfComment, PdfIndirectRef, PdfObject, PdfOperator
+from ..objects.base import (
+    PdfHexString, PdfName, PdfNull, PdfComment, 
+    PdfIndirectRef, PdfObject, PdfOperator
+)
 
+# as defined in § 7.2.2 Character Set, Table 1 & Table 2
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
 
-# as defined in 7.3.4.2 Literal Strings, Table 3
+# as defined in § 7.3.4.2 Literal Strings, Table 3
 STRING_ESCAPE = {
     b"\\n":  b"\n",
     b"\\r":  b"\r",
@@ -20,7 +26,7 @@ STRING_ESCAPE = {
 }
 
 
-class SimpleObjectParser:
+class PdfTokenizer:
     """A parser designed to consume objects that do not depend on cross reference 
     tables. It is used by :class:`PdfParser` for this purpose.
     
@@ -59,7 +65,7 @@ class SimpleObjectParser:
         return self.data[self.position:self.position + 1]
 
     def at_end(self) -> bool:
-        """Checks whether the parser has reached the end of the data"""
+        """Checks whether the parser has reached the end of data"""
         return self.position >= len(self.data)
 
     def advance(self, n: int = 1) -> None:
@@ -68,20 +74,21 @@ class SimpleObjectParser:
             self.position += n
 
     def advance_if_next(self, keyword: bytes) -> bool:
-        """Checks if ``keyword`` starts at the current position. If so, returns True and advances through the keyword."""
+        """Checks if ``keyword`` starts at the current position. If so, returns True 
+        and advances through the keyword."""
         if self.current + self.peek(len(keyword) - 1) == keyword:
             self.advance(len(keyword))
             return True
         return False
     
     def advance_whitespace(self) -> None:
-        """Advances through whitespace"""
+        """Advances through PDF whitespace."""
         while self.current in WHITESPACE:
             self.advance()
 
     def next_eol(self) -> tuple[int, str]:
         """Returns a tuple containing the position where the next End-Of-Line 
-        Marker occurs and the EOL marker itself. If none is found, ``(-1, "")``
+        Marker occurs along with the EOL marker itself. If none is found, ``(-1, "")``
         is returned.
          
         The spec defines the EOL marker as either ``\\r`` (except in some cases), 
@@ -164,17 +171,14 @@ class SimpleObjectParser:
             number += self.current
             self.advance()
 
-        # is this a float?
+        # is this a float (a real value)?
         if b"." in number:
             return float(number)
         return int(number)
     
     def parse_name(self) -> PdfName:
-        """Parses a name.
-        
-        It is a uniquely defined atomic symbol introduced by a slash. The sequence
-        of characters after the slash (/) and before any delimiter or whitespace
-        is the name. (/ is a valid name)
+        """Parses a name -- a uniquely defined atomic symbol introduced with a slash 
+        and ending before a delimiter or whitespace.
         """
         self.advance() # past the /
 
@@ -194,12 +198,8 @@ class SimpleObjectParser:
         return PdfName(atom)
     
     def parse_hex_string(self) -> PdfHexString:
-        """Parses a hexadecimal string.
-        
-        They are useful for including arbitrary binary data in a PDF. It is a sequence
-        of hexadecimal characters where every 2 characters is a byte. If the sequence
-        is uneven, the last character is assumed to be 0.
-        """
+        """Parses a hexadecimal string. Hexadecimal strings usually include arbitrary binary
+        data in a PDF. If the sequence is uneven, the last character is assumed to be 0."""
         self.advance(1) # adv. past the <
 
         content = b""
@@ -214,10 +214,12 @@ class SimpleObjectParser:
         return PdfHexString(content)
 
     def parse_dictionary(self) -> dict[str, Any]:
-        """Parses a dictionary object."""
+        """Parses a dictionary object. In a PDF, dictionary keys are name objects and 
+        dictionary values are any object or reference. This parser maps name objects to
+        strings in this context."""
         self.advance(2) # adv. past the <<
 
-        kv_pairs: list[PdfObject | PdfComment] = []
+        kv_pairs: list[PdfObject] = []
 
         while not self.at_end():
             if self.current + self.peek() == b">>":
@@ -238,7 +240,7 @@ class SimpleObjectParser:
         } 
 
     def parse_array(self) -> list[Any]:
-        """Parses an array"""
+        """Parses an array. Arrays are heterogenous in PDF so they are mapped to ``list``s."""
         self.advance() # past the [ 
         items: list[Any] = []
 
@@ -256,14 +258,16 @@ class SimpleObjectParser:
         return items
     
     def parse_indirect_reference(self, mat: re.Match[bytes]) -> PdfIndirectRef:
-        """Parses an indirect reference."""
+        """Parses an indirect reference. Indirect references allow locating an object in a PDF."""
         self.advance(mat.end()) # consume the reference
         self.advance_whitespace()
         
         return PdfIndirectRef(int(mat.group("num")), int(mat.group("gen")))
 
     def parse_literal_string(self) -> bytes:
-        """Parses a literal string."""
+        """Parses a literal string. Literal strings may be entirely ASCII or may include 
+        arbitrary binary data (usually when they are encrypted). This parser does not currently
+        distinguish between different encodings."""
         self.advance() # past the (
         
         string = b""
@@ -273,9 +277,9 @@ class SimpleObjectParser:
         while not self.at_end() and paren_depth >= 1:
             # escape character logic
             if self.current == b"\\":
-                value = STRING_ESCAPE.get(self.current + self.peek())
-                if value is not None:
-                    string += value
+                escape = STRING_ESCAPE.get(self.current + self.peek())
+                if escape is not None:
+                    string += escape
                     self.advance(2) # past the escape code
                     continue
 
@@ -285,7 +289,7 @@ class SimpleObjectParser:
                 if self.position + 1 == pos:
                     # A single \ indicates that the string is continued
                     self.advance(1 + len(eol))
-                # Is this an octal character code?
+                # Is this an octal character code? (\ddd notation)
                 elif self.peek(1).isdigit():
                     self.advance() # past the \
                     code = b""
@@ -309,15 +313,15 @@ class SimpleObjectParser:
         return string
 
     def parse_comment(self) -> PdfComment:
-        """Parses a PDF comment. These have no syntactical meaning but we still parse them anyway."""
+        """Parses a PDF comment. Comments have no syntactical meaning."""
         self.advance() # past the %
         line = self.current_to_eol
         self.advance(len(line))
         return PdfComment(line.strip(b"\r\n"))
     
     def parse_operator(self) -> PdfOperator:
-        """Parses a PDF operator. These are found in content streams and are only parsed 
-        if :attr:`.SimpleObjectParser.is_content_stream` is True."""
+        """Parses a PDF operator. Operators can be found in content streams and are only 
+        parsed if :attr:`.is_content_stream` is true."""
         accumulated = b""
         while not self.at_end() and self.current not in DELIMITERS + WHITESPACE:
             accumulated += self.current
