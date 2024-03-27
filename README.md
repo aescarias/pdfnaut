@@ -1,10 +1,11 @@
 # pdfnaut
 
-> Warning: `pdfnaut` is currently in an early stage of development and has only been tested with a small set of compliant documents. Expect bugs or issues.
+> [!Warning]
+> pdfnaut is currently in an early stage of development and has only been tested with a small set of compliant documents. Expect bugs or issues.
 
-`pdfnaut` is a Python library for parsing PDF 1.7 files.
+pdfnaut is a Python library for parsing PDF 1.7 files.
 
-`pdfnaut` provides a low-level interface for reading and writing PDF objects as defined in the [PDF 1.7 specification](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf). `pdfnaut` currently does not attempt to deviate from the specification. There's no guarantee that valid documents not fully conforming to the standard will be processed correctly.
+pdfnaut provides a low-level interface for reading and writing PDF objects as defined in the [PDF 1.7 specification](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf). pdfnaut currently does not attempt to deviate from the specification. There's no guarantee that valid documents not fully conforming to the standard will be processed correctly.
 
 ```py
 from pdfnaut import PdfParser

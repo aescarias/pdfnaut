@@ -6,3 +6,7 @@ class PdfParseError(Exception):
 class PdfFilterError(Exception):
     """A filter is unable to decode a stream or the filter is simply unsupported"""
     pass
+
+class PdfWriteError(Exception):
+    """The writer was unable to serialize an object"""
+    pass

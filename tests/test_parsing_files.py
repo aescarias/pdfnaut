@@ -1,8 +1,10 @@
+# Unit tests for parsing a subset of handcrafted and example files.
 import pytest
 
 from pdfnaut.parsers import PdfParser
 from pdfnaut.objects import PdfStream, PdfIndirectRef
 from pdfnaut.exceptions import PdfParseError
+
 
 def test_simple_pdf() -> None:
     """Tests a simple PDF. In this context, "simple" means an unencrypted PDF 
@@ -22,6 +24,7 @@ def test_simple_pdf() -> None:
         first_page_contents = parser.resolve_reference(first_page["Contents"])
         assert isinstance(first_page_contents, PdfStream)
 
+
 def test_invalid_pdfs() -> None:
     """Tests invalid PDF scenarios. The cases included should all fail."""
     # "PDF" with no header
@@ -36,6 +39,7 @@ def test_invalid_pdfs() -> None:
             parser.parse()
             parser.resolve_reference(PdfIndirectRef(1, 0))
 
+
 def test_pdf_with_incremental() -> None:
     """Tests whether an incremental PDF is parsed correctly. Basically, whether the 
     correct trailer is provided and whether the XRefs are merged."""
@@ -45,6 +49,7 @@ def test_pdf_with_incremental() -> None:
         
         assert len(parser.update_xrefs) == 2 and len(parser._trailers) == 2
         assert parser.trailer["Size"] == len(parser.xref)
+
 
 def test_pdf_with_xref_stream() -> None:
     """Tests a PDF document with a compressed XRef stream"""

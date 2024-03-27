@@ -1,8 +1,11 @@
+# Unit tests for PDF encryption routines and the Standard security handler
+
 from __future__ import annotations
 from typing import cast, Any
 
 from pdfnaut import PdfParser
 from pdfnaut.parsers.pdf import PermsAcquired
+
 
 def test_std_security_handler():
     with open("tests/docs/sample.pdf", "rb") as fp:
@@ -27,7 +30,10 @@ def test_std_security_handler():
         # but not 'some'
         assert parser.decrypt("some") is PermsAcquired.NONE
 
+
 def test_rc4_aes_decryption():
+    # TODO: A stream check wouldn't hurt?
+    # TODO: Some files have different StmF and StrF filters
     with open("tests/docs/encrypted-arc4.pdf", "rb") as fp:
         parser = PdfParser(fp.read())
         parser.parse()
@@ -43,4 +49,3 @@ def test_rc4_aes_decryption():
         parser.decrypt("nil")
         metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
         assert metadata["Producer"].value == b"pypdf"
-
