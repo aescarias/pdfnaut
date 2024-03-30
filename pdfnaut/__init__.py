@@ -1,10 +1,13 @@
 """
-PDFnaut is a Python library for parsing the structure of PDFs.
+PDFnaut is a Python library for reading and writing PDFs at a low level.
 """
 
 from .parsers import PdfParser
+from .serializer import PdfSerializer
+
+__all__ = ("PdfParser", "PdfSerializer")
 
 __name__ = "pdfnaut"
 __version__ = "0.1.0"
-__description__ = "Parse and explore PDFs with ease"
+__description__ = "Explore PDFs with ease"
 __license__ = "Apache 2.0"

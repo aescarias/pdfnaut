@@ -60,8 +60,8 @@ class StandardSecurityHandler:
         return self.encryption.get("Length", 40) // 8
 
     def compute_encryption_key(self, password: bytes) -> bytes:  
-        """Computes an encryption key as defined in ``§ 7.6.3.3 Encryption Key Algorithm`` > 
-        ``Algorithm 2: Computing an encryption key`` in the PDF spec."""      
+        """Computes an encryption key as defined in ``§ 7.6.3.3 Encryption Key Algorithm > 
+        Algorithm 2: Computing an encryption key`` in the PDF spec."""      
         padded_password = password[:32] + PASSWORD_PADDING[:32 - len(password)]
 
         psw_hash = md5(padded_password)

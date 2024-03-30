@@ -8,8 +8,8 @@ from io import BytesIO
 from ..objects.base import PdfNull, PdfIndirectRef, PdfObject, PdfName, PdfHexString
 from ..objects.stream import PdfStream
 from ..objects.xref import (
-    PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, PdfXRefEntry, FreeXRefEntry,
-    CompressedXRefEntry, InUseXRefEntry
+    PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, 
+    FreeXRefEntry, InUseXRefEntry, CompressedXRefEntry
 )
 from ..exceptions import PdfParseError
 from ..security_handler import StandardSecurityHandler
@@ -30,7 +30,7 @@ class PdfParser:
     
     It consumes the PDF's cross-reference tables and trailers. It merges the tables
     into a single one and provides an interface to individually parse each indirect 
-    object using :class:`PdfTokenizer`."""
+    object using :class:`~pdfnaut.parsers.simple.PdfTokenizer`."""
 
     def __init__(self, data: bytes) -> None:
         self._tokenizer = PdfTokenizer(data)
@@ -42,7 +42,7 @@ class PdfParser:
         self.trailer: dict[str, Any] = {}
         """The most recent trailer in the PDF document.
         
-        For details on the contents of the trailer, see § 7.5.5 File Trailer of the PDF spec.
+        For details on the contents of the trailer, see ``§ 7.5.5 File Trailer`` in the PDF spec.
         """
 
         self.xref: dict[tuple[int, int], PdfXRefEntry] = {}
@@ -61,7 +61,7 @@ class PdfParser:
         """
 
         self.security_handler = None
-        """The document's standard security handler if any, as specified in the Encrypt 
+        """The document's standard security handler, if any, as specified in the Encrypt 
         dictionary of the PDF trailer.
 
         This field being set indicates that a supported security handler was used for
@@ -199,7 +199,7 @@ class PdfParser:
         ``§ 7.5.4 Cross-Reference Table`` in the PDF spec.
 
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
-        is called instead.
+        should be called instead.
         """
         self._tokenizer.advance(4)
         self._tokenizer.advance_whitespace()
@@ -315,7 +315,7 @@ class PdfParser:
                 length = self.resolve_reference(length)
                 self._tokenizer.position = _current 
             if not isinstance(length, int):
-                raise PdfParseError(f"\\Length entry of stream extent not an integer")
+                raise PdfParseError("\\Length entry of stream extent not an integer")
 
             stream = PdfStream(tok, self.parse_stream(xref_entry, length))
             if indirect_ref is None:
@@ -417,12 +417,12 @@ class PdfParser:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
-            reference (int | :class:`PdfIndirectRef`): 
+            reference (int | :class:`.PdfIndirectRef`): 
                 An indirect reference object or a tuple of two integers representing, 
                 in order, the object number and the generation number.
 
         Returns:
-            A PDF object if the reference was found, otherwise :class:`PdfNull`.
+            A PDF object if the reference was found, otherwise :class:`.PdfNull`.
         """
         
         if isinstance(reference, tuple):

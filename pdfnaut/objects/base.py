@@ -28,7 +28,7 @@ class PdfHexString:
     (``§ 7.3.4.3 Hexadecimal Strings``)."""
     
     raw: bytes
-    """The raw (in hex) value of the string"""
+    """The hex value of the string"""
     
     def __post_init__(self) -> None:
         # If uneven, we append a zero. (it's hexadecimal -- 2 chars = byte)
@@ -37,6 +37,7 @@ class PdfHexString:
 
     @classmethod
     def from_raw(cls, data: bytes):
+        """Creates a hexadecimal string from ``data``"""
         return cls(hexlify(data))
 
     @property

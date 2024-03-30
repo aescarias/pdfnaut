@@ -10,7 +10,7 @@ from base64 import b16decode, a85decode
 
 from .parsers.simple import WHITESPACE
 from .exceptions import PdfFilterError
-from .objects.base import PdfName, PdfIndirectRef
+from .objects.base import PdfName
 
 
 def predict_paeth(a: int, b: int, c: int) -> int:

@@ -20,7 +20,8 @@ class PdfStream:
         
         If no filter is defined, it returns the original contents.
         
-        Raises :class:`PdfFilterError` if a filter is unsupported."""
+        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
+
         filters = self.details.get("Filter")
         params = self.details.get("DecodeParms")
             

@@ -1,13 +1,10 @@
-"""A PDF tokenizer for objects"""
 from __future__ import annotations
 
 import re
 from typing import Any
 
-from ..objects.base import (
-    PdfHexString, PdfName, PdfNull, PdfComment, 
-    PdfIndirectRef, PdfObject, PdfOperator
-)
+from ..objects.base import (PdfHexString, PdfName, PdfNull, PdfComment, 
+                            PdfIndirectRef, PdfObject, PdfOperator)
 
 # as defined in § 7.2.2 Character Set, Table 1 & Table 2
 DELIMITERS = b"()<>[]{}/%"
@@ -28,7 +25,7 @@ STRING_ESCAPE = {
 
 class PdfTokenizer:
     """A parser designed to consume objects that do not depend on cross reference 
-    tables. It is used by :class:`PdfParser` for this purpose.
+    tables. It is used by :class:`~pdfnaut.parsers.pdf.PdfParser` for this purpose.
     
     This parser will not parse indirect objects or streams because those do depend on XRef 
     and are effectively not sequentially parsable. Because of this limitation, it is not 
@@ -240,7 +237,7 @@ class PdfTokenizer:
         } 
 
     def parse_array(self) -> list[Any]:
-        """Parses an array. Arrays are heterogenous in PDF so they are mapped to ``list``s."""
+        """Parses an array. Arrays are heterogenous in PDF so they are mapped to Python lists."""
         self.advance() # past the [ 
         items: list[Any] = []
 

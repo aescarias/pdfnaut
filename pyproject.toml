@@ -1,7 +1,7 @@
 [project]
 name = "pdfnaut"
 version = "0.1.0"
-description = "Parse PDFs with ease"
+description = "Explore PDFs with ease"
 authors = [
     { name = "Angel Carias" }
 ]
