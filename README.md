@@ -1,5 +1,10 @@
 # pdfnaut
 
+[![Documentation Status](https://readthedocs.org/projects/pdfnaut/badge/?version=latest)](https://pdfnaut.readthedocs.io/en/latest/?badge=latest)
+![PyPI - License](https://img.shields.io/pypi/l/pdfnaut)
+![PyPI - Downloads](https://img.shields.io/pypi/dw/pdfnaut)
+![PyPI - Version](https://img.shields.io/pypi/v/pdfnaut)
+
 > [!Warning]
 > pdfnaut is currently in an early stage of development and has only been tested with a small set of compliant documents. Expect bugs or issues.
 
@@ -21,7 +26,7 @@ with open("tests/docs/sample.pdf", "rb") as doc:
     # Get the first page contents
     first_page = pdf.resolve_reference(pages["Kids"][0])
     first_page_stream = pdf.resolve_reference(first_page["Contents"])
-    print(first_page_stream.contents)
+    print(first_page_stream.decompress())
 ```
 
 ## Coverage
