@@ -47,7 +47,7 @@ def test_pdf_with_incremental() -> None:
         parser = PdfParser(data.read())
         parser.parse()
         
-        assert len(parser.update_xrefs) == 2 and len(parser._trailers) == 2
+        assert len(parser.updates) == 2
         assert parser.trailer["Size"] == len(parser.xref)
 
 

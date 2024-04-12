@@ -80,7 +80,7 @@ class PdfTokenizer:
     
     def advance_whitespace(self) -> None:
         """Advances through PDF whitespace."""
-        while self.current in WHITESPACE:
+        while self.current in WHITESPACE and not self.at_end():
             self.advance()
 
     def next_eol(self) -> tuple[int, str]:

@@ -34,10 +34,10 @@ class PdfParser:
 
     def __init__(self, data: bytes) -> None:
         self._tokenizer = PdfTokenizer(data)
-        self._trailers: list[dict[str, Any]] = []
 
-        self.update_xrefs: list[PdfXRefTable] = []
-        """A list of all XRef tables in the document (the most recent first)"""
+        self.updates: list[tuple[PdfXRefTable, dict[str, Any]]] = []
+        """A list of all incremental updates present in the document. The items are two-element 
+        tuples: first, the XRef table; second, the trailer. (most recent/last update first)"""
 
         self.trailer: dict[str, Any] = {}
         """The most recent trailer in the PDF document.
@@ -93,8 +93,7 @@ class PdfParser:
         self._tokenizer.position = start_xref
         xref, trailer = self.parse_xref_and_trailer()
 
-        self.update_xrefs.append(xref)
-        self._trailers.append(trailer)
+        self.updates.append((xref, trailer))
 
         if "Prev" in trailer:
             # More XRefs were found. Recurse!
@@ -103,7 +102,7 @@ class PdfParser:
         else:
             # That's it. Merge them together.
             self.xref = self.get_merged_xrefs()
-            self.trailer = self._trailers[0]
+            self.trailer = self.updates[0][1]
 
         # Is the document encrypted with a standard security handler?
         if "Encrypt" in self.trailer:
@@ -122,23 +121,31 @@ class PdfParser:
 
         raise PdfParseError("Expected PDF header at start of file.")
     
+    def build_xref_map(self, xref: PdfXRefTable) -> dict[tuple[int, int], PdfXRefEntry]:
+        """Creates a dictionary mapping references to XRef entries in the document."""
+        entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
+
+        for section in xref.sections:
+            for idx, entry in enumerate(section.entries, section.first_obj_number):
+                if isinstance(entry, FreeXRefEntry):
+                    gen = entry.gen_if_used_again
+                elif isinstance(entry, InUseXRefEntry):
+                    gen = entry.generation
+                else:
+                    gen = 0 # compressed entries
+
+                entry_map[(idx, gen)] = entry
+
+        return entry_map
+
     def get_merged_xrefs(self) -> dict[tuple[int, int], PdfXRefEntry]:
         """Combines all update XRef tables in the document into a cross-reference mapping
         that includes all entries."""
         entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
 
-        # from least recent
-        for xref in self.update_xrefs[::-1]:
-            for section in xref.sections:
-                for idx, entry in enumerate(section.entries, section.first_obj_number):
-                    if isinstance(entry, FreeXRefEntry):
-                        gen = entry.gen_if_used_again
-                    elif isinstance(entry, InUseXRefEntry):
-                        gen = entry.generation
-                    else:
-                        gen = 0 # compressed entries
-                    
-                    entry_map[(idx, gen)] = entry
+        # from least recent to most recent
+        for xref, _ in self.updates[::-1]:    
+            entry_map.update(self.build_xref_map(xref))        
 
         return entry_map
 
@@ -387,8 +394,8 @@ class PdfParser:
         if pos == self._tokenizer.position and eol != "\r":
             self._tokenizer.advance(len(eol))
 
-        # Get the offset of the next XRef entry directly following the current one
         if self.xref:
+            # As a bounds check, we get the offset of the entry directly following the current one.
             index_after = list(self.xref.values()).index(xref_entry)
             next_entry_hold = filter(
                 lambda e: isinstance(e, InUseXRefEntry) and e.offset > xref_entry.offset, 
@@ -417,14 +424,13 @@ class PdfParser:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
-            reference (int | :class:`.PdfIndirectRef`): 
+            reference (:class:`.PdfIndirectRef` | tuple[int, int]): 
                 An indirect reference object or a tuple of two integers representing, 
                 in order, the object number and the generation number.
-
+  
         Returns:
             A PDF object if the reference was found, otherwise :class:`.PdfNull`.
         """
-        
         if isinstance(reference, tuple):
             root_entry = self.xref.get(reference)
         else:
