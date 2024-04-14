@@ -46,7 +46,7 @@ Let's take, for example, the ``sample.pdf`` file available in our `test suite <h
      'Pages': PdfIndirectRef(object_number=3, generation=0),
      'Type': PdfName(value=b'Catalog')}
 
-Two objects of note can be found: Outlines and Pages. Outlines stores what we commonly refer to as "bookmarks". Pages stores the page tree, which is what we are interested in.
+Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what we commonly refer to as bookmarks. ``Pages`` stores the page tree, which is what we are interested in:
 
 .. code-block:: python
 
@@ -57,7 +57,7 @@ Two objects of note can be found: Outlines and Pages. Outlines stores what we co
               PdfIndirectRef(object_number=6, generation=0)],
      'Type': PdfName(value=b'Pages')}
 
-The page tree is seen above. It contains two "kids" which may either be a single page object or a list of more pages.
+The page tree is seen above. Given that this document only includes 2 pages, they are specified as "kids" in the root node. For larger documents, it is not uncommon to divide the pages into multiple nodes for performance reasons. Next, we can extract the first page of the document:
 
 .. code-block:: python
 
@@ -73,7 +73,7 @@ The page tree is seen above. It contains two "kids" which may either be a single
      'Type': PdfName(value=b'Page')
     }
 
-Above we see the actual page. This dictionary includes the media box which specifies the dimensions of the page when shown or printed (PDF is all about printing!), a reference to its parent, the resources used such as the font, and the Contents of the page.
+Above we see the actual page. This dictionary includes the *media box* which specifies the dimensions of the page when shown or printed (PDF is all about printing!), a reference to its parent, the resources used such as the font, and the contents of the page. We are looking for the contents of the page. Given that the Contents key includes a stream, it is set as an indirect reference. 
 
 .. code-block:: python
 
@@ -81,11 +81,11 @@ Above we see the actual page. This dictionary includes the media box which speci
     >>> page_contents
     PdfStream(details={'Length': 1074})
 
-We find ourselves with a stream. The contents of pages are defined in streams known as content streams. In this case, it is not compressed (it does not have a Filter). So we can easily read it.
+We find ourselves with a stream. The contents of pages are defined in streams known as **content streams**. This kind of stream includes instructions on how a PDF processor should render this page. In this case, it is not compressed (it does not have a Filter). So we can easily read it:
 
 .. code-block:: python
 
     >>> page_contents.decompress()
     b'2 J\r\nBT\r\n0 0 0 rg\r\n/F1 0027 Tf\r\n57.3750 722.2800 Td\r\n( A Simple PDF File ) Tj\r\nET\r\nBT\r\n/F1 0010 Tf\r\n69.2500 688.6080 Td\r\n[...]ET\r\n'
 
-The content stream is comprised of operators and operands. In this case, it would simply write "A Simple PDF File" at the position defined by the Td operands (and with the font /F1 included in our Resources which, in this case, points to Helvetica).
+A content stream is comprised of operators and operands. In this case, it would simply write "A Simple PDF File" at the position defined by the Td operands (and with the font /F1 included in our Resources which, in this case, points to Helvetica).

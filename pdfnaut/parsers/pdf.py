@@ -287,7 +287,7 @@ class PdfParser:
 
         return table, xref_stream.details
 
-    def parse_indirect_object(self, xref_entry: InUseXRefEntry) -> PdfObject | PdfStream | None:
+    def parse_indirect_object(self, xref_entry: InUseXRefEntry) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object 
         that is directly referred to by an ``xref_entry``"""
         self._tokenizer.position = xref_entry.offset
@@ -420,7 +420,7 @@ class PdfParser:
         
         return contents
 
-    def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]):
+    def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
