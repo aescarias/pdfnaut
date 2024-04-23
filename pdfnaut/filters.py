@@ -72,11 +72,11 @@ class FlateFilter(PdfFilter):
         bpc = params.get("BitsPerComponent", 8)
 
         if predictor == 2:
-            return bytes(self._undo_tiff_prediction(bytearray(uncomp), cols, colors, bpc))
+            raise PdfFilterError("FlateDecode: TIFF Predictor 2 not supported.")
         elif 10 <= predictor <= 15:
             return bytes(self._undo_png_prediction(bytearray(uncomp), cols, colors, bpc))
         else:
-            raise PdfFilterError(f"FlateDecode: Predictor {predictor} unsupported.")
+            raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
 
     def _undo_png_prediction(self, filtered: bytearray, cols: int, colors: int, bpc: int) -> bytearray:
         sample_length = ceil(colors * bpc / 8)
@@ -90,50 +90,30 @@ class FlateFilter(PdfFilter):
             filter_type = filtered[r]
             row = filtered[r + 1:r + 1 + row_length]
 
-            for c in range(0, len(row), sample_length):
-                # cur_sample is x, sample_left is a, sample_up is b, sample_up_left is c
-                cur_sample = int.from_bytes(row[c:c + sample_length])
-                sample_left = int.from_bytes(row[c - sample_length:c]) if c != 0 else 0
-                sample_up = int.from_bytes(previous[c:c + sample_length])
-                sample_up_left = int.from_bytes(previous[c - sample_length:c]) if c != 0 else 0
+            for c in range(len(row)):
+                # (Fig. 19) cur_byte is x, byte_left is a, byte_up is b, byte_up_left is c
+                cur_byte = row[c]
+                byte_left = row[c - sample_length] if c >= sample_length else 0
+                byte_up = previous[c]
+                byte_up_left = previous[c - sample_length] if c >= sample_length else 0
 
                 if filter_type == 0: # None
-                    char = cur_sample
+                    char = cur_byte
                 elif filter_type == 1: # Sub
-                    char = cur_sample + sample_left
+                    char = cur_byte + byte_left
                 elif filter_type == 2: # Up
-                    char = cur_sample + sample_up
+                    char = cur_byte + byte_up
                 elif filter_type == 3: # Average
-                    char = cur_sample + floor((sample_left + sample_up) / 2)
+                    char = cur_byte + floor((byte_left + byte_up) / 2)
                 elif filter_type == 4: # Paeth
-                    char = cur_sample + predict_paeth(sample_left, sample_up, sample_up_left)
+                    char = cur_byte + predict_paeth(byte_left, byte_up, byte_up_left)
                 else:
-                    raise PdfFilterError(f"FlateDecode: Row uses unsupported filter {filter_type}")
-
-                row[c:c + sample_length] = (char % 256).to_bytes(sample_length)
-
+                    raise PdfFilterError(f"FlateDecode [png]: Row uses unsupported filter {filter_type}")
+                
+                row[c] = char % 256 if filter_type else char
+            
             output.extend(row)
             previous = row.copy()
-
-        return output
-    
-    def _undo_tiff_prediction(self, filtered: bytearray, cols: int, colors: int, bpc: int) -> bytearray:
-        sample_length = ceil(colors * bpc / 8)
-        row_length = sample_length * cols
-
-        output = bytearray()
-
-        for r in range(0, len(filtered), row_length):
-            row = filtered[r:r + row_length]
-
-            for c in range(0, len(row), sample_length):
-                cur_sample = int.from_bytes(row[c:c + sample_length])
-                sample_left = int.from_bytes(row[c - sample_length:c]) if c != 0 else 0
-
-                char = cur_sample - sample_left
-                row[c:c + sample_length] = (char % 256).to_bytes(sample_length)
-
-            output.extend(row)
 
         return output
 
