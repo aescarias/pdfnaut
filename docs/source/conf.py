@@ -35,3 +35,9 @@ html_logo = "_static/pdfnaut-logo.svg"
 
 copybutton_prompt_text = r'>>> |\.\.\. '
 copybutton_prompt_is_regexp = True
+
+autoclass_content = "both"
+autodoc_class_signature = "separated"
+autodoc_default_options = {
+    "show-inheritance": True
+}

@@ -3,9 +3,10 @@ class PdfParseError(Exception):
     pass
 
 
-class PdfFilterError(Exception):
-    """A filter is unable to decode a stream or the filter is simply unsupported"""
+class PdfFilterError(PdfParseError):
+    """A filter was unable to decode a stream or is not supported"""
     pass
+
 
 class PdfWriteError(Exception):
     """The writer was unable to serialize an object"""
