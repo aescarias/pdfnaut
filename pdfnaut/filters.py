@@ -3,30 +3,18 @@ from __future__ import annotations
 import zlib
 from typing import Any, Protocol, cast
 from math import floor, ceil
-from base64 import b16decode, a85decode
+from base64 import b16decode, b16encode, a85decode, a85encode
 
 from .parsers.simple import WHITESPACE
 from .exceptions import PdfFilterError
 from .objects.base import PdfName
 
 
-def predict_paeth(a: int, b: int, c: int) -> int:
-    """Runs Paeth prediction on a, b, and c as defined and implemented by 
-    ``§ 9. Filtering`` in the PNG spec."""
-    p = a + b - c
-    pa = abs(p - a)
-    pb = abs(p - b)
-    pc = abs(p - c)
-    if pa <= pb and pa <= pc:
-        return a
-    elif pb <= pc:
-        return b
-    else:
-        return c
-
-
 class PdfFilter(Protocol):
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        ...
+
+    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         ...
 
 
@@ -35,13 +23,15 @@ class ASCIIHexFilter(PdfFilter):
     
     This filter does not take any parameters. ``params`` will be ignored.
     """
-
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         if contents[-1:] != b">":
             raise PdfFilterError("ASCIIHex: EOD not at end of stream.")
 
         hexdata = bytearray(ch for ch in contents[:-1] if ch not in WHITESPACE)
         return b16decode(hexdata, casefold=True)
+
+    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        return b16encode(contents) + b">"
 
 
 class ASCII85Filter(PdfFilter):
@@ -50,9 +40,12 @@ class ASCII85Filter(PdfFilter):
     
     This filter does not take any parameters. ``params`` will be ignored.
     """
-
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         return a85decode(contents, ignorechars=WHITESPACE, adobe=True)
+
+    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        # the PDF spec does not need the starting delimiter
+        return a85encode(contents, adobe=True)[2:]
 
 
 class RunLengthFilter(PdfFilter):
@@ -69,7 +62,6 @@ class RunLengthFilter(PdfFilter):
 
     This filter does not take any parameters. ``params`` will be ignored.
     """
-
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:    
         idx = 0
         output = bytes()
@@ -88,6 +80,9 @@ class RunLengthFilter(PdfFilter):
                 break
         
         return output
+    
+    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        raise NotImplementedError("RunLengthDecode: Encoding not implemented.")
 
 
 class FlateFilter(PdfFilter):
@@ -98,7 +93,7 @@ class FlateFilter(PdfFilter):
     ``§ 9. Filtering`` in the PNG spec and TIFF Predictor 2 specified in the TIFF 6.0 spec.
 
     The predictor is specified by means of the Predictor key in ``params`` (default: 1).
-    If specified, the following parameters can be provided: 
+    If the Predictor is not 1, the following parameters can be provided: 
     
     - **Colors**: Amount of color components per sample. Any value greater than 1 (default=1).
     - **BitsPerComponent**: Bit length of each of the color components. Values: 1, 2, 4, 8 (default), 16.
@@ -109,7 +104,6 @@ class FlateFilter(PdfFilter):
     and the length of a row is obtained by 
         ``Length(Row) = Length(Sample) * Columns``
     """
-
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         if params is None:
             params = {}
@@ -131,6 +125,66 @@ class FlateFilter(PdfFilter):
         else:
             raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
 
+    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        if params is None:
+            params = {}
+        
+        if (predictor := params.get("Predictor", 1)) == 1:
+            return zlib.compress(contents)
+
+        cols = params.get("Columns", 1)
+        colors = params.get("Colors", 1)
+        bpc = params.get("BitsPerComponent", 8)
+
+        if predictor == 2:
+            raise PdfFilterError("FlateDecode: TIFF Predictor 2 not supported.")
+        elif 10 <= predictor <= 15:
+            return zlib.compress(self._apply_png_prediction(bytearray(contents), 
+                                                            predictor - 10, cols, colors, bpc))
+        else:
+            raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
+
+
+    def _predict_paeth(self, a: int, b: int, c: int) -> int:
+        p = a + b - c
+        pa = abs(p - a)
+        pb = abs(p - b)
+        pc = abs(p - c)
+        if pa <= pb and pa <= pc:
+            return a
+        elif pb <= pc:
+            return b
+        else:
+            return c
+        
+    def _process_png_row(self, encode: bool, row: bytearray, filter_type: int, 
+                         previous: bytearray, sample_length: int) -> bytearray:
+        for c in range(len(row)):
+            # (Fig. 19) cur_byte is x, byte_left is a, byte_up is b, byte_up_left is c
+            cur_byte = row[c]
+            byte_left = row[c - sample_length] if c >= sample_length else 0
+            byte_up = previous[c]
+            byte_up_left = previous[c - sample_length] if c >= sample_length else 0
+
+            if filter_type == 0: # None
+                char = cur_byte
+            elif filter_type == 1: # Sub
+                char = cur_byte - byte_left if encode else cur_byte + byte_left
+            elif filter_type == 2: # Up
+                char = cur_byte - byte_up if encode else cur_byte + byte_up
+            elif filter_type == 3: # Average
+                avg = floor((byte_left + byte_up) / 2)
+                char = cur_byte - avg if encode else cur_byte + avg
+            elif filter_type == 4: # Paeth
+                paeth = self._predict_paeth(byte_left, byte_up, byte_up_left)
+                char = cur_byte - paeth if encode else cur_byte + paeth
+            else:
+                raise PdfFilterError(f"FlateDecode [png]: Row uses unsupported filter {filter_type}")
+            
+            row[c] = char % 256 if filter_type else char
+        
+        return row
+
     def _undo_png_prediction(self, filtered: bytearray, cols: int, colors: int, bpc: int) -> bytearray:
         sample_length = ceil(colors * bpc / 8)
         row_length = sample_length * cols
@@ -141,35 +195,38 @@ class FlateFilter(PdfFilter):
         # 1 + row_length because the first byte is the filter type
         for r in range(0, len(filtered), 1 + row_length):
             filter_type = filtered[r]
-            row = filtered[r + 1:r + 1 + row_length]
-
-            for c in range(len(row)):
-                # (Fig. 19) cur_byte is x, byte_left is a, byte_up is b, byte_up_left is c
-                cur_byte = row[c]
-                byte_left = row[c - sample_length] if c >= sample_length else 0
-                byte_up = previous[c]
-                byte_up_left = previous[c - sample_length] if c >= sample_length else 0
-
-                if filter_type == 0: # None
-                    char = cur_byte
-                elif filter_type == 1: # Sub
-                    char = cur_byte + byte_left
-                elif filter_type == 2: # Up
-                    char = cur_byte + byte_up
-                elif filter_type == 3: # Average
-                    char = cur_byte + floor((byte_left + byte_up) / 2)
-                elif filter_type == 4: # Paeth
-                    char = cur_byte + predict_paeth(byte_left, byte_up, byte_up_left)
-                else:
-                    raise PdfFilterError(f"FlateDecode [png]: Row uses unsupported filter {filter_type}")
-                
-                row[c] = char % 256 if filter_type else char
-            
-            output.extend(row)
-            previous = row.copy()
+            decoded = self._process_png_row(False, filtered[r + 1:r + 1 + row_length], 
+                                            filter_type, previous, sample_length)
+            output.extend(decoded)
+            previous = decoded.copy()
 
         return output
+    
+    def _apply_png_prediction(self, to_filter: bytearray, filter_type: int, 
+                              cols: int, colors: int, bpc: int) -> bytearray:
+        sample_length = ceil(colors * bpc / 8)
+        row_length = sample_length * cols
 
+        previous = bytearray([0] * row_length) 
+        output = bytearray()
+
+        for r in range(0, len(to_filter), row_length):
+            row = to_filter[r:r + row_length]
+            if 0 <= filter_type <= 4:
+                encoded = self._process_png_row(True, row, filter_type, previous, sample_length)
+                output.extend(filter_type.to_bytes() + encoded)
+            elif filter_type == 5: # Optimum
+                # TODO: we will default optimum to be paeth for now
+                # TODO: impl. actual heuristic
+                encoded = self._process_png_row(True, row, 4, previous, sample_length)
+                output.extend((4).to_bytes() + row)
+            else:
+                raise PdfFilterError(f"FlateDecode [png]: Row uses unsupported filter {filter_type}")
+
+            previous = to_filter[r:r + row_length].copy()
+
+        return output
+    
 
 # TODO: Please test
 class CryptFetchFilter(PdfFilter):
@@ -179,13 +236,16 @@ class CryptFetchFilter(PdfFilter):
     as being for this filter; and ``Name``, which defines what filter should be used to 
     decrypt the stream.
 
-    This filter requires 3 additional parameters. These parameters are for exclusive 
-    within ``pdfnaut`` and should not be written to the document.
+    This filter requires 3 additional parameters. These parameters are for use exclusively
+    within the PDF processor and shall not be written to the document.
     
     - **Handler**: An instance of the security handler.
     - **EncryptionKey**: The encryption key generated from the security handler.
     - **IndirectRef**: The indirect reference of the object to decrypt.
     """
+    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+        raise NotImplementedError("Crypt: Encrypting streams not implemented.")
+
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         if params is None:
             params = {}
