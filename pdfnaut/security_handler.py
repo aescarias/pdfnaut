@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hashlib import md5
-from typing import Any, Union, Protocol, cast
+from typing import Any, Union, Protocol, Literal, cast
 
 from .objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
 
@@ -16,6 +16,13 @@ class CryptProvider(Protocol):
     def decrypt(self, contents: bytes) -> bytes: ...
 
 
+class _IdentityProvider(CryptProvider):
+    def encrypt(self, contents: bytes) -> bytes:
+        return contents
+
+    def decrypt(self, contents: bytes) -> bytes:
+        return contents
+
 try:
     from Crypto.Cipher import ARC4, AES
     from Crypto.Util import Padding
@@ -27,7 +34,7 @@ try:
         def encrypt(self, contents: bytes) -> bytes:
             return ARC4.new(self.key).encrypt(contents)
         
-    class _DomeAESCBCProvider(CryptProvider):
+    class _DomeAES128Provider(CryptProvider):
         def decrypt(self, contents: bytes) -> bytes:
             iv = contents[:16]
             encrypted = contents[16:]
@@ -42,12 +49,16 @@ try:
             encryptor = AES.new(self.key, AES.MODE_CBC)
             return encryptor.iv + encryptor.encrypt(padded)
         
-    CRYPT_PROVIDERS = { "ARC4": _DomeARC4Provider, "AES_CBC": _DomeAESCBCProvider }
+    CRYPT_PROVIDERS = { "ARC4": _DomeARC4Provider, "AESV2": _DomeAES128Provider, 
+                        "Identity": _IdentityProvider }
 except ImportError:
-    CRYPT_PROVIDERS = { "ARC4": None, "AES_CBC": None }
+    CRYPT_PROVIDERS = { "ARC4": None, "AESV2": None, "Identity": _IdentityProvider }
 
 
 PASSWORD_PADDING = b'(\xbfN^Nu\x8aAd\x00NV\xff\xfa\x01\x08..\x00\xb6\xd0h>\x80/\x0c\xa9\xfedSiz'
+
+def pad_password(password: bytes) -> bytes:
+    return password[:32] + PASSWORD_PADDING[:32 - len(password)]
 
 
 class StandardSecurityHandler:
@@ -62,7 +73,7 @@ class StandardSecurityHandler:
     def compute_encryption_key(self, password: bytes) -> bytes:  
         """Computes an encryption key as defined in ``§ 7.6.3.3 Encryption Key Algorithm > 
         Algorithm 2: Computing an encryption key`` in the PDF spec."""      
-        padded_password = password[:32] + PASSWORD_PADDING[:32 - len(password)]
+        padded_password = pad_password(password)
 
         psw_hash = md5(padded_password)
         psw_hash.update(_O.value if isinstance(_O := self.encryption["O"], PdfHexString) else _O)
@@ -78,6 +89,46 @@ class StandardSecurityHandler:
 
         return psw_hash.digest()[:self.key_length]
     
+    def compute_owner_password(self, owner_password: bytes, user_password: bytes) -> bytes:
+        """Computes the O (owner password) value in the Encrypt dictionary
+        as defined in ``§ 7.6.3.3 Encryption Key Algorithm > Algorithm 3``"""   
+
+        padded = pad_password(owner_password if owner_password else user_password)
+        owner_digest = md5(padded).digest()
+        if self.encryption["R"] >= 3:
+            for _ in range(50):
+                owner_digest = md5(owner_digest).digest()
+
+        owner_cipher = owner_digest[:self.key_length]
+        
+        padded_user_psw = pad_password(user_password)
+        arc4 = self._get_provider("ARC4")
+        owner_crypt = arc4(owner_cipher).encrypt(padded_user_psw)
+
+        if self.encryption["R"] >= 3:
+            for i in range(1, 20):
+                owner_crypt = arc4(bytearray(b ^ i for b in owner_cipher)).encrypt(owner_crypt)
+
+        return owner_crypt
+    
+    def compute_user_password(self, password: bytes) -> bytes:
+        """Computes the U (owner password) value in the Encrypt dictionary
+        as defined in ``§ 7.6.3.3 Encryption Key Algorithm > Algorithms 4 and 5"""   
+
+        encr_key = self.compute_encryption_key(password)
+        arc4 = self._get_provider("ARC4")
+        if self.encryption["R"] == 2:
+            padding_crypt = arc4(encr_key).encrypt(PASSWORD_PADDING)
+            return padding_crypt
+        else: # rev 3
+            padded_id_hash = md5(PASSWORD_PADDING + self.ids[0].value)
+            user_cipher = arc4(encr_key).encrypt(padded_id_hash.digest())
+
+            for i in range(1, 20):
+                user_cipher = arc4(bytearray(b ^ i for b in encr_key)).encrypt(user_cipher)
+
+            return pad_password(user_cipher)
+         
     def authenticate_user_password(self, password: bytes) -> tuple[bytes, bool]:  
         """Authenticates the provided user ``password`` according to Algorithm 4, 5, and 6 in 
         ``§ 7.6.3.4 Password Algorithms`` of the PDF spec.
@@ -113,7 +164,7 @@ class StandardSecurityHandler:
             If the password was correct, a tuple of two values: the encryption key that should 
             decrypt the document and True. Otherwise, ``(b"", False)`` is returned."""
         # (a) to (d) in Algorithm 3
-        padded_password = password[:32] + PASSWORD_PADDING[:32 - len(password)]
+        padded_password = pad_password(password)
         digest = md5(padded_password).digest()
         if self.encryption["R"] >= 3:
             for _ in range(50):
@@ -133,51 +184,82 @@ class StandardSecurityHandler:
         return self.authenticate_user_password(user_cipher)
 
     _Encryptable = Union[PdfStream, PdfHexString, bytes]
-    def decrypt_object(self, encryption_key: bytes, contents: _Encryptable, reference: PdfIndirectRef, *, crypt_filter: dict[str, Any] | None = None) -> bytes:
-        """Decrypts the specified `contents` object according to Algorithm 1 in ``§ 7.6.2 General Encryption Algorithm``
+    def compute_object_crypt(self, encryption_key: bytes, contents: _Encryptable, 
+                             reference: PdfIndirectRef, *, 
+                             crypt_filter: dict[str, Any] | None = None) -> tuple[CryptMethod, bytes, bytes]:
+        """Computes all needed parameters to encrypt or decrypt ``contents`` according to 
+        Algorithm 1 in ``§ 7.6.2 General Encryption Algorithm``
         
         Arguments:
             encryption_key (bytes):
-                An encryption key generated by :meth:``.compute_encryption_key``
+                An encryption key generated by :meth:`.compute_encryption_key`
 
             contents (`PdfStream | PdfHexString | bytes`):
-                The contents to decrypt. The type of object to decrypt will determine what crypt filter
-                will be used for decryption (StmF for streams, StrF for hex and literal strings).
+                The contents to encrypt/decrypt. The type of object will determine what 
+                crypt filter will be used for decryption (StmF for streams, StrF for 
+                hex and literal strings).
 
             reference (`PdfIndirectRef`):
-                The reference of either the object itself (in the case of a stream) or the object 
-                containing it (in the case of a string)
+                The reference of either the object itself (in the case of a stream) or 
+                the object containing it (in the case of a string)
 
             crypt_filter (`dict[str, Any]`, optional):
                 The specific crypt filter to be referenced when decrypting the document.
                 If not specified, the default for this type of ``contents`` will be used.
 
         Returns:
-            A decrypted bytes representation of ``contents``
+            A tuple of 3 values: the crypt method to apply (AES CBC or ARC4), 
+            the key to use with this method, and the data to encrypt/decrypt.
         """
         generation = reference.generation.to_bytes(4, "little")
         object_number = reference.object_number.to_bytes(4, "little")
 
         extended_key = encryption_key + object_number[:3] + generation[:2]
 
-        is_aes = self._is_aes_filter(crypt_filter or {}) or self._aes_applies_for(contents)
-        if is_aes:
+        method = self._get_cfm_method(crypt_filter) if crypt_filter else self._get_crypt_method(contents)
+        if method == "AESV2":
             extended_key += bytes([0x73, 0x41, 0x6C, 0x54])
 
-        decryption_key = md5(extended_key).digest()[:self.key_length][:16]
+        crypt_key = md5(extended_key).digest()[:self.key_length + 5][:16]
 
         if isinstance(contents, PdfStream):
-            encrypted = contents.raw
+            data = contents.raw
         elif isinstance(contents, PdfHexString):
-            encrypted = contents.value
+            data = contents.value
         elif isinstance(contents, bytes):
-            encrypted = contents
+            data = contents
         else:
             raise TypeError("contents arg not a stream or string object")
 
-        if is_aes:
-            return self._get_provider("AES_CBC")(decryption_key).decrypt(encrypted)
-        return self._get_provider("ARC4")(decryption_key).decrypt(encrypted)
+        return (method, crypt_key, data)
+
+    def encrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
+                       reference: PdfIndirectRef, *, 
+                       crypt_filter: dict[str, Any] | None = None) -> bytes:
+        """Encrypts the specified ``contents`` according to Algorithm 1 in 
+        ``§ 7.6.2 General Encryption Algorithm``.
+        
+        For details on arguments, please see :meth:`.compute_object_crypt`"""
+        
+        crypt_method, key, decrypted = self.compute_object_crypt(encryption_key, 
+                                                                 contents, reference, 
+                                                                 crypt_filter=crypt_filter)
+
+        return self._get_provider(crypt_method)(key).encrypt(decrypted)
+
+    def decrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
+                       reference: PdfIndirectRef, *, 
+                       crypt_filter: dict[str, Any] | None = None) -> bytes:
+        """Decrypts the specified ``contents`` according to Algorithm 1 in 
+        ``§ 7.6.2 General Encryption Algorithm``.
+        
+        For details on arguments, please see :meth:`.compute_object_crypt`"""
+        
+        crypt_method, key, encrypted = self.compute_object_crypt(encryption_key, 
+                                                                 contents, reference,
+                                                                 crypt_filter=crypt_filter)
+
+        return self._get_provider(crypt_method)(key).decrypt(encrypted)
 
     def _get_provider(self, name: str) -> type[CryptProvider]:
         provider = CRYPT_PROVIDERS.get(name)
@@ -185,24 +267,35 @@ class StandardSecurityHandler:
             raise NotImplementedError(f"Missing crypt provider for {name}. Register in CRYPT_PROVIDERS or install a compatible module.")
         return provider
 
-    def _aes_applies_for(self, contents: _Encryptable) -> bool:
+    CryptMethod = Literal["Identity", "ARC4", "AESV2"]
+    def _get_crypt_method(self, contents: _Encryptable) -> CryptMethod:
         if self.encryption["V"] != 4:
-            return False
-        
+            # ARC4 is assumed given that can only be specified if V = 4. It is definitely
+            # not Identity because the document wouldn't be encrypted in that case.
+            return "ARC4"            
+
         if isinstance(contents, PdfStream):
             cf_name = cast(PdfName, self.encryption.get("StmF", PdfName(b"Identity")))
         elif isinstance(contents, (bytes, PdfHexString)):
             cf_name = cast(PdfName, self.encryption.get("StrF", PdfName(b"Identity")))
         else:
             raise TypeError("contents arg not a stream or string object")
-        
+
         if cf_name.value == b"Identity":
-            return False
-            
-        crypt_filters = cast("dict[str, Any]", self.encryption.get("CF", {}))
+            return "Identity" # No processing needed
         
+        crypt_filters = cast("dict[str, Any]", self.encryption.get("CF", {}))
         crypter = crypt_filters.get(cf_name.value.decode(), {})
-        return self._is_aes_filter(crypter)
-    
-    def _is_aes_filter(self, crypt_filter: dict[str, Any]) -> bool:
-        return crypt_filter.get("CFM", PdfName(b"Identity")).value == b"AESV2"
+        
+        return self._get_cfm_method(crypter)
+
+    def _get_cfm_method(self, crypt_filter: dict[str, Any]) -> CryptMethod:
+        cf_name = crypt_filter.get("CFM", PdfName(b"Identity"))
+        if cf_name.value == b"Identity":
+            return "Identity"
+        elif cf_name.value == b"AESV2":
+            return "AESV2"
+        elif cf_name.value == b"V2":
+            return "ARC4"
+
+        raise NotImplementedError(f"{cf_name} not a supported crypt filter for the Standard security handler")
