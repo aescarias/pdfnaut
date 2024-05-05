@@ -371,6 +371,10 @@ class PdfParser:
         elif isinstance(pdf_object, list):
             return [self._get_decrypted(obj, reference) for obj in pdf_object]
         elif isinstance(pdf_object, dict):
+            # make a special exception if the dictionary is the Encrypt key in the trailer
+            # we do not need to decrypt them
+            if reference == self.trailer["Encrypt"]:
+                return pdf_object
             return {name: self._get_decrypted(value, reference) for name, value in pdf_object.items()}         
 
         # Why would a number be encrypted?

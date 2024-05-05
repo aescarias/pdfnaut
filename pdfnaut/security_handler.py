@@ -93,7 +93,7 @@ class StandardSecurityHandler:
         """Computes the O (owner password) value in the Encrypt dictionary
         as defined in ``§ 7.6.3.3 Encryption Key Algorithm > Algorithm 3``"""   
 
-        padded = pad_password(owner_password if owner_password else user_password)
+        padded = pad_password(owner_password or user_password)
         owner_digest = md5(padded).digest()
         if self.encryption["R"] >= 3:
             for _ in range(50):
@@ -113,7 +113,7 @@ class StandardSecurityHandler:
     
     def compute_user_password(self, password: bytes) -> bytes:
         """Computes the U (owner password) value in the Encrypt dictionary
-        as defined in ``§ 7.6.3.3 Encryption Key Algorithm > Algorithms 4 and 5"""   
+        as defined in ``§ 7.6.3.3 Encryption Key Algorithm > Algorithms 4 and 5``"""   
 
         encr_key = self.compute_encryption_key(password)
         arc4 = self._get_provider("ARC4")

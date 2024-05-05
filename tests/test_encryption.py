@@ -49,3 +49,26 @@ def test_rc4_aes_decryption():
         parser.decrypt("nil")
         metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
         assert metadata["Producer"].value == b"pypdf"
+
+def test_rc4_aes_password_values():
+    with open("tests/docs/encrypted-arc4.pdf", "rb") as fp:
+        parser = PdfParser(fp.read())
+        parser.parse()
+
+        encr_metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
+        
+        encrypt_dict = parser.resolve_reference(parser.trailer["Encrypt"])
+        assert parser.security_handler is not None
+
+        # Passwords
+        o_value = parser.security_handler.compute_owner_password(b"null", b"nil")
+        assert o_value.hex().lower().encode() == encrypt_dict["O"].raw.lower()
+
+        u_value = parser.security_handler.compute_user_password(b"nil")
+        assert u_value.hex().lower().encode() == encrypt_dict["U"].raw.lower()
+
+        # Encryption with passwords
+        encr_key = parser.security_handler.compute_encryption_key(b"nil")
+
+        assert encr_metadata["Producer"].value == parser.security_handler.encrypt_object(
+            encr_key, b"pypdf", parser.trailer["Info"]) 
