@@ -1,6 +1,5 @@
 [project]
 name = "pdfnaut"
-version = "0.1.1"
 description = "Explore PDFs with ease"
 authors = [
     { name = "Angel Carias" }
@@ -21,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11", 
     "Programming Language :: Python :: 3.12"    
 ]
+dynamic = ["version"]
 dependencies = []
 
 [project.urls]
@@ -37,6 +37,9 @@ pythonpath = ["."]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pdfnaut*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pdfnaut.__version__" }
 
 [build-system]
 requires = ["setuptools"]

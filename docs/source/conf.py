@@ -6,10 +6,12 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+from pdfnaut import __version__
+
 project = 'pdfnaut'
 copyright = '2024, Angel Carias'
 author = 'Angel Carias'
-release = '0.1.1'
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -18,7 +18,30 @@ Features
 
 - Low level PDF manipulation
 - Encryption (AES/ARC4)
-- Serialization of basic documents
+- Document building/serializations
+
+Install
+-------
+
+``pdfnaut`` can be installed from PyPI:
+
+.. tab-set::
+
+    .. tab-item:: Linux/Mac
+
+      .. code-block:: sh
+
+         python3 -m pip install pdfnaut 
+
+    .. tab-item:: Windows
+
+      .. code-block:: sh
+
+         python -m pip install pdfnaut
+
+.. important:: 
+   While ``pdfnaut`` supports encryption, it does not implement these algorithms. You must either supply your own implementations or preferably install a package like ``pycryptodome``
+   that includes these algorithms.
 
 Examples
 --------
@@ -51,6 +74,7 @@ The next example illustrates how ``pdfnaut`` can currently be used to read an ex
    PDF Tokenizer <reference/parsers/simple>
    PDF Parser <reference/parsers/pdf>
    PDF Serializer <reference/serializer>
+   Standard Security Handler <reference/security_handler>
    Objects <reference/objects>
    Exceptions <reference/exceptions>
    Filters <reference/filters>
