@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from binascii import unhexlify, hexlify
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, TypeVar, Generic, Any
 
 
 class PdfNull:
     """A PDF null object (``§ 7.3.9 Null Object``)."""
     pass
+
 
 @dataclass
 class PdfComment:
@@ -46,8 +47,9 @@ class PdfHexString:
         return unhexlify(self.raw)
 
 
+T = TypeVar("T")
 @dataclass
-class PdfIndirectRef:
+class PdfIndirectRef(Generic[T]):
     """A reference to a PDF indirect object."""
     object_number: int
     generation: int

@@ -47,8 +47,9 @@ try:
             padded = Padding.pad(contents, 16, style="pkcs7")
 
             encryptor = AES.new(self.key, AES.MODE_CBC)
-            return encryptor.iv + encryptor.encrypt(padded)
-        
+            return bytes(encryptor.iv) + encryptor.encrypt(padded)
+    
+
     CRYPT_PROVIDERS = { "ARC4": _DomeARC4Provider, "AESV2": _DomeAES128Provider, 
                         "Identity": _IdentityProvider }
 except ImportError:
@@ -60,9 +61,12 @@ PASSWORD_PADDING = b'(\xbfN^Nu\x8aAd\x00NV\xff\xfa\x01\x08..\x00\xb6\xd0h>\x80/\
 def pad_password(password: bytes) -> bytes:
     return password[:32] + PASSWORD_PADDING[:32 - len(password)]
 
+def get_value_from_bytes(contents: PdfHexString | bytes) -> bytes:
+    return contents.value if isinstance(contents, PdfHexString) else contents
+
 
 class StandardSecurityHandler:
-    def __init__(self, encryption: dict[str, Any], ids: list[PdfHexString]) -> None:
+    def __init__(self, encryption: dict[str, Any], ids: list[PdfHexString | bytes]) -> None:
         self.encryption = encryption
         self.ids = ids
 
@@ -76,9 +80,9 @@ class StandardSecurityHandler:
         padded_password = pad_password(password)
 
         psw_hash = md5(padded_password)
-        psw_hash.update(_O.value if isinstance(_O := self.encryption["O"], PdfHexString) else _O)
+        psw_hash.update(get_value_from_bytes(self.encryption["O"]))
         psw_hash.update(self.encryption["P"].to_bytes(4, "little", signed=True))
-        psw_hash.update(self.ids[0].value)
+        psw_hash.update(get_value_from_bytes(self.ids[0]))
 
         if self.encryption.get("V", 0) >= 4 and not self.encryption.get("EncryptMetadata", True):
             psw_hash.update(b"\xff\xff\xff\xff")
@@ -121,7 +125,7 @@ class StandardSecurityHandler:
             padding_crypt = arc4(encr_key).encrypt(PASSWORD_PADDING)
             return padding_crypt
         else: # rev 3
-            padded_id_hash = md5(PASSWORD_PADDING + self.ids[0].value)
+            padded_id_hash = md5(PASSWORD_PADDING + get_value_from_bytes(self.ids[0]))
             user_cipher = arc4(encr_key).encrypt(padded_id_hash.digest())
 
             for i in range(1, 20):
@@ -137,7 +141,7 @@ class StandardSecurityHandler:
             If the password was correct, a tuple of two values: the encryption key that should 
             decrypt the document and True. Otherwise, ``(b"", False)`` is returned."""
         encryption_key = self.compute_encryption_key(password)
-        stored_password = _U.value if isinstance(_U := self.encryption["U"], PdfHexString) else _U
+        stored_password = get_value_from_bytes(self.encryption["U"])
         
         make_provider = self._get_provider("ARC4")
 
@@ -148,7 +152,7 @@ class StandardSecurityHandler:
             return (encryption_key, True) if stored_password == user_cipher else (b"", False)
         # Algorithm 5
         else:
-            padded_id_hash = md5(PASSWORD_PADDING + self.ids[0].value)
+            padded_id_hash = md5(PASSWORD_PADDING + get_value_from_bytes(self.ids[0]))
             user_cipher = make_provider(encryption_key).encrypt(padded_id_hash.digest())
 
             for i in range(1, 20):
@@ -171,8 +175,8 @@ class StandardSecurityHandler:
                 digest = md5(digest).digest()
 
         cipher_key = digest[:self.key_length]
-        user_cipher = _O.value if isinstance(_O := self.encryption["O"], PdfHexString) else _O
-
+        user_cipher = get_value_from_bytes(self.encryption["O"])
+        
         make_provider = self._get_provider("ARC4")
         # Algorithm 7
         if self.encryption["R"] == 2:
@@ -269,7 +273,7 @@ class StandardSecurityHandler:
 
     CryptMethod = Literal["Identity", "ARC4", "AESV2"]
     def _get_crypt_method(self, contents: _Encryptable) -> CryptMethod:
-        if self.encryption["V"] != 4:
+        if self.encryption.get("V", 0) != 4:
             # ARC4 is assumed given that can only be specified if V = 4. It is definitely
             # not Identity because the document wouldn't be encrypted in that case.
             return "ARC4"            

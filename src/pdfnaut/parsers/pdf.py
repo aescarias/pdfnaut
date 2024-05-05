@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast, TypeVar
+from typing import Any, cast, TypeVar, overload
 from enum import IntEnum
 from io import BytesIO
 
@@ -424,6 +424,15 @@ class PdfParser:
         
         return contents
 
+    T = TypeVar("T", PdfObject, PdfStream)
+    @overload
+    def resolve_reference(self, reference: PdfIndirectRef[T]) -> T:
+        ...
+    
+    @overload
+    def resolve_reference(self, reference: tuple[int, int]) -> PdfObject | PdfStream:
+        ...
+    
     def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
         """Resolves a reference into the indirect object it points to.
         

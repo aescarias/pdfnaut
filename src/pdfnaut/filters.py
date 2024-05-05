@@ -104,6 +104,7 @@ class FlateFilter(PdfFilter):
     and the length of a row is obtained by 
         ``Length(Row) = Length(Sample) * Columns``
     """
+
     def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
         if params is None:
             params = {}
