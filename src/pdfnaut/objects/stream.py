@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from dataclasses import dataclass, field
 
+
 from .base import PdfName, PdfNull
 from ..filters import SUPPORTED_FILTERS
 from ..exceptions import PdfFilterError
@@ -11,6 +12,7 @@ from ..exceptions import PdfFilterError
 @dataclass
 class PdfStream:
     """A stream object in a PDF"""
+    # we don't yet use a type here given details can have a lot of other things
     details: dict[str, Any]
     raw: bytes = field(repr=False)
     _sec_handler: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -43,7 +45,7 @@ class PdfStream:
             if isinstance(params, PdfNull) or params is None:
                 params = {}
             
-            if filt.value == b"Crypt" and self._sec_handler.get("Handler"):
+            if filt.value == b"Crypt" and self._sec_handler.get("_Handler"):
                 params.update(self._sec_handler)
             
             output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)

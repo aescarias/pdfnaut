@@ -131,10 +131,10 @@ class PdfTokenizer:
                 return False
             elif self.advance_if_next(b"null"):
                 return PdfNull()
-            elif (mat := re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.current_to_eol)):
+            elif self.current.isdigit() and (mat := re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.current_to_eol)):
                 return self.parse_indirect_reference(mat)
             elif self.current.isdigit() or self.current in b"+-":
-                return self.parse_numeric() 
+                return self.parse_numeric()
             elif self.current == b"[":
                 return self.parse_array()
             elif self.current == b"/":

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from hashlib import md5
-from typing import Any, Union, Protocol, Literal, cast
+from typing import Union, Protocol, Literal
 
+from .typings.encryption import EncrCryptFilter, StandardEncrypt
 from .objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
 
 
@@ -66,7 +67,7 @@ def get_value_from_bytes(contents: PdfHexString | bytes) -> bytes:
 
 
 class StandardSecurityHandler:
-    def __init__(self, encryption: dict[str, Any], ids: list[PdfHexString | bytes]) -> None:
+    def __init__(self, encryption: StandardEncrypt, ids: list[PdfHexString | bytes]) -> None:
         self.encryption = encryption
         self.ids = ids
 
@@ -166,7 +167,8 @@ class StandardSecurityHandler:
         
         Returns:
             If the password was correct, a tuple of two values: the encryption key that should 
-            decrypt the document and True. Otherwise, ``(b"", False)`` is returned."""
+            decrypt the document and True. Otherwise, ``(b"", False)`` is returned.
+        """
         # (a) to (d) in Algorithm 3
         padded_password = pad_password(password)
         digest = md5(padded_password).digest()
@@ -190,7 +192,7 @@ class StandardSecurityHandler:
     _Encryptable = Union[PdfStream, PdfHexString, bytes]
     def compute_object_crypt(self, encryption_key: bytes, contents: _Encryptable, 
                              reference: PdfIndirectRef, *, 
-                             crypt_filter: dict[str, Any] | None = None) -> tuple[CryptMethod, bytes, bytes]:
+                             crypt_filter: EncrCryptFilter | None = None) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to 
         Algorithm 1 in ``§ 7.6.2 General Encryption Algorithm``
         
@@ -239,7 +241,7 @@ class StandardSecurityHandler:
 
     def encrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
                        reference: PdfIndirectRef, *, 
-                       crypt_filter: dict[str, Any] | None = None) -> bytes:
+                       crypt_filter: EncrCryptFilter | None = None) -> bytes:
         """Encrypts the specified ``contents`` according to Algorithm 1 in 
         ``§ 7.6.2 General Encryption Algorithm``.
         
@@ -253,7 +255,7 @@ class StandardSecurityHandler:
 
     def decrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
                        reference: PdfIndirectRef, *, 
-                       crypt_filter: dict[str, Any] | None = None) -> bytes:
+                       crypt_filter: EncrCryptFilter | None = None) -> bytes:
         """Decrypts the specified ``contents`` according to Algorithm 1 in 
         ``§ 7.6.2 General Encryption Algorithm``.
         
@@ -279,21 +281,21 @@ class StandardSecurityHandler:
             return "ARC4"            
 
         if isinstance(contents, PdfStream):
-            cf_name = cast(PdfName, self.encryption.get("StmF", PdfName(b"Identity")))
+            cf_name = self.encryption.get("StmF", PdfName(b"Identity"))
         elif isinstance(contents, (bytes, PdfHexString)):
-            cf_name = cast(PdfName, self.encryption.get("StrF", PdfName(b"Identity")))
+            cf_name = self.encryption.get("StrF", PdfName(b"Identity"))
         else:
             raise TypeError("contents arg not a stream or string object")
 
         if cf_name.value == b"Identity":
             return "Identity" # No processing needed
         
-        crypt_filters = cast("dict[str, Any]", self.encryption.get("CF", {}))
+        crypt_filters = self.encryption.get("CF", {})
         crypter = crypt_filters.get(cf_name.value.decode(), {})
         
         return self._get_cfm_method(crypter)
 
-    def _get_cfm_method(self, crypt_filter: dict[str, Any]) -> CryptMethod:
+    def _get_cfm_method(self, crypt_filter: EncrCryptFilter) -> CryptMethod:
         cf_name = crypt_filter.get("CFM", PdfName(b"Identity"))
         if cf_name.value == b"Identity":
             return "Identity"

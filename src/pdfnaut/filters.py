@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import zlib
-from typing import Any, Protocol, cast
+from typing import Any, Mapping, Protocol
 from math import floor, ceil
 from base64 import b16decode, b16encode, a85decode, a85encode
 
+from .typings.filters import CryptFilterParams, LZWFlateParams
 from .parsers.simple import WHITESPACE
 from .exceptions import PdfFilterError
 from .objects.base import PdfName
 
 
 class PdfFilter(Protocol):
-    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         ...
 
-    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         ...
 
 
@@ -23,14 +24,14 @@ class ASCIIHexFilter(PdfFilter):
     
     This filter does not take any parameters. ``params`` will be ignored.
     """
-    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         if contents[-1:] != b">":
             raise PdfFilterError("ASCIIHex: EOD not at end of stream.")
 
         hexdata = bytearray(ch for ch in contents[:-1] if ch not in WHITESPACE)
         return b16decode(hexdata, casefold=True)
 
-    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         return b16encode(contents) + b">"
 
 
@@ -40,10 +41,10 @@ class ASCII85Filter(PdfFilter):
     
     This filter does not take any parameters. ``params`` will be ignored.
     """
-    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         return a85decode(contents, ignorechars=WHITESPACE, adobe=True)
 
-    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         # the PDF spec does not need the starting delimiter
         return a85encode(contents, adobe=True)[2:]
 
@@ -62,7 +63,7 @@ class RunLengthFilter(PdfFilter):
 
     This filter does not take any parameters. ``params`` will be ignored.
     """
-    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:    
+    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:    
         idx = 0
         output = bytes()
         
@@ -81,7 +82,7 @@ class RunLengthFilter(PdfFilter):
         
         return output
     
-    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
         raise NotImplementedError("RunLengthDecode: Encoding not implemented.")
 
 
@@ -105,7 +106,7 @@ class FlateFilter(PdfFilter):
         ``Length(Row) = Length(Sample) * Columns``
     """
 
-    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: LZWFlateParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
             params = {}
 
@@ -126,7 +127,7 @@ class FlateFilter(PdfFilter):
         else:
             raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
 
-    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: LZWFlateParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
             params = {}
         
@@ -240,27 +241,25 @@ class CryptFetchFilter(PdfFilter):
     This filter requires 3 additional parameters. These parameters are for use exclusively
     within the PDF processor and shall not be written to the document.
     
-    - **Handler**: An instance of the security handler.
-    - **EncryptionKey**: The encryption key generated from the security handler.
-    - **IndirectRef**: The indirect reference of the object to decrypt.
+    - **_Handler**: An instance of the security handler.
+    - **_EncryptionKey**: The encryption key generated from the security handler.
+    - **_IndirectRef**: The indirect reference of the object to decrypt.
     """
-    def encode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: CryptFilterParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         raise NotImplementedError("Crypt: Encrypting streams not implemented.")
 
-    def decode(self, contents: bytes, *, params: dict[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: CryptFilterParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
-            params = {}
+            raise ValueError("Crypt: This filter requires parameters.")
         
-        cf_name = cast("PdfName | None", params.get("Name"))
-        if cf_name is None or cf_name.value == b"Identity":
+        cf_name = params.get("Name", PdfName(b"Identity"))
+        if cf_name.value == b"Identity":
             return contents
+        
+        crypt_filter = params["_Handler"].encryption.get("CF", {}).get(cf_name.value.decode())
 
-        crypt_filter = params["Handler"].encryption.get("CF", {}).get(
-            cf_name.value.decode(), params["Handler"].encryption.get("StmF")
-        )
-
-        return params["Handler"].decrypt_object(params["EncryptionKey"],
-            contents, params["IndirectRef"], crypt_filter=crypt_filter)
+        return params["_Handler"].decrypt_object(params["_EncryptionKey"],
+            contents, params["_IndirectRef"], crypt_filter=crypt_filter)
 
 
 SUPPORTED_FILTERS: dict[bytes, type[PdfFilter]] = {

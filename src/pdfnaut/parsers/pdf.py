@@ -7,13 +7,13 @@ from io import BytesIO
 
 from ..objects.base import PdfNull, PdfIndirectRef, PdfObject, PdfName, PdfHexString
 from ..objects.stream import PdfStream
-from ..objects.xref import (
-    PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, 
-    FreeXRefEntry, InUseXRefEntry, CompressedXRefEntry
-)
+from ..objects.xref import (PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, 
+                            FreeXRefEntry, InUseXRefEntry, CompressedXRefEntry)
 from ..exceptions import PdfParseError
 from ..security_handler import StandardSecurityHandler
 from .simple import PdfTokenizer
+from ..typings.document import Trailer, XRefStream
+from ..typings.encryption import StandardEncrypt
 
 
 class PermsAcquired(IntEnum):
@@ -35,11 +35,12 @@ class PdfParser:
     def __init__(self, data: bytes) -> None:
         self._tokenizer = PdfTokenizer(data)
 
-        self.updates: list[tuple[PdfXRefTable, dict[str, Any]]] = []
+        self.updates: list[tuple[PdfXRefTable, Trailer | XRefStream]] = []
         """A list of all incremental updates present in the document. The items are two-element 
         tuples: first, the XRef table; second, the trailer. (most recent/last update first)"""
 
-        self.trailer: dict[str, Any] = {}
+        # placeholder to make the type checker happy
+        self.trailer: Trailer | XRefStream = { "Size": 0, "Root": PdfIndirectRef(0, 0) }
         """The most recent trailer in the PDF document.
         
         For details on the contents of the trailer, see ``§ 7.5.5 File Trailer`` in the PDF spec.
@@ -69,6 +70,10 @@ class PdfParser:
         """
 
         self._encryption_key = None
+
+    T = TypeVar("T")
+    def _ensure_resolved(self, obj: PdfIndirectRef[T] | T) -> T:
+        return self.resolve_reference(obj) if isinstance(obj, PdfIndirectRef) else obj
 
     def parse(self, start_xref: int | None = None) -> None:
         """Parses the entire document.
@@ -106,11 +111,12 @@ class PdfParser:
 
         # Is the document encrypted with a standard security handler?
         if "Encrypt" in self.trailer:
-            encryption = cast("dict[str, Any]", 
-                self.resolve_reference(_E) if isinstance((_E := self.trailer["Encrypt"]), PdfIndirectRef) else _E)
-            
+            assert "ID" in self.trailer
+            encryption = self._ensure_resolved(self.trailer["Encrypt"])
+
             if encryption["Filter"].value == b"Standard":
-                self.security_handler = StandardSecurityHandler(encryption, self.trailer["ID"])
+                self.security_handler = StandardSecurityHandler(
+                    cast(StandardEncrypt, encryption), self.trailer["ID"])
 
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
@@ -172,7 +178,7 @@ class PdfParser:
 
         return int(self._tokenizer.parse_numeric()) # startxref
 
-    def parse_xref_and_trailer(self) -> tuple[PdfXRefTable, dict[str, Any]]:
+    def parse_xref_and_trailer(self) -> tuple[PdfXRefTable, Trailer | XRefStream]:
         """Parses both the cross-reference table and the PDF trailer.
         
         PDFs may include a typical uncompressed XRef table (and hence separate XRefs and
@@ -187,8 +193,8 @@ class PdfParser:
             return self.parse_compressed_xref()
         else:
             raise PdfParseError("XRef offset does not point to XRef table.")
-        
-    def parse_simple_trailer(self) -> dict[str, Any]:
+
+    def parse_simple_trailer(self) -> Trailer:
         """Parses the PDF's standard trailer which is used to quickly locate other 
         cross reference tables and special objects.
         
@@ -198,7 +204,7 @@ class PdfParser:
         self._tokenizer.advance_whitespace()
         
         # next token is a dictionary
-        trailer = self._tokenizer.parse_dictionary()
+        trailer = cast(Trailer, self._tokenizer.parse_dictionary()) 
         return trailer
 
     def parse_simple_xref(self) -> PdfXRefTable:
@@ -248,7 +254,7 @@ class PdfParser:
             
         return table
 
-    def parse_compressed_xref(self) -> tuple[PdfXRefTable, dict[str, Any]]:
+    def parse_compressed_xref(self) -> tuple[PdfXRefTable, XRefStream]:
         """Parses a compressed cross-reference stream which includes both the XRef table 
         and information from the PDF trailer. 
         
@@ -285,7 +291,7 @@ class PdfParser:
 
             table.sections.append(section)
 
-        return table, xref_stream.details
+        return table, cast(XRefStream, xref_stream.details)
 
     def parse_indirect_object(self, xref_entry: InUseXRefEntry) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object 
@@ -296,7 +302,6 @@ class PdfParser:
                        self._tokenizer.current_to_eol)
         if not mat:
             raise PdfParseError("XRef entry does not point to indirect object.")
-        
         self._tokenizer.advance(mat.end())
         self._tokenizer.advance_whitespace()
 
@@ -348,9 +353,9 @@ class PdfParser:
             
             # Give the stream an instance of the security handler
             pdf_object._sec_handler = {
-                "Handler": self.security_handler,
-                "EncryptionKey": self._encryption_key,
-                "IndirectRef": reference
+                "_Handler": self.security_handler,
+                "_EncryptionKey": self._encryption_key,
+                "_IndirectRef": reference
             }
 
             if use_stmf:
@@ -373,7 +378,7 @@ class PdfParser:
         elif isinstance(pdf_object, dict):
             # make a special exception if the dictionary is the Encrypt key in the trailer
             # we do not need to decrypt them
-            if reference == self.trailer["Encrypt"]:
+            if reference == self.trailer.get("Encrypt", {}):
                 return pdf_object
             return {name: self._get_decrypted(value, reference) for name, value in pdf_object.items()}         
 
@@ -424,16 +429,16 @@ class PdfParser:
         
         return contents
 
-    T = TypeVar("T", PdfObject, PdfStream)
+    T = TypeVar("T")
     @overload
     def resolve_reference(self, reference: PdfIndirectRef[T]) -> T:
         ...
     
     @overload
-    def resolve_reference(self, reference: tuple[int, int]) -> PdfObject | PdfStream:
+    def resolve_reference(self, reference: tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
         ...
     
-    def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
+    def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull | Any:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:

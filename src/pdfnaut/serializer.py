@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal, Any
+from typing import Any, Literal, Mapping
 from collections import defaultdict
 
+from .typings.document import Trailer
 from .objects.stream import PdfStream
 from .objects.xref import PdfXRefSubsection, PdfXRefTable, FreeXRefEntry, InUseXRefEntry
 from .objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
@@ -86,7 +87,7 @@ def serialize_array(array: list[Any]) -> bytes:
     return b"[" + b" ".join(serialize(item) for item in array) + b"]"
 
 
-def serialize_dictionary(mapping: dict[str, Any]) -> bytes:
+def serialize_dictionary(mapping: Mapping[str, Any]) -> bytes:
     items = []
     for k, v in mapping.items():
         items.append(serialize(PdfName(k.encode())))
@@ -172,7 +173,7 @@ class PdfSerializer:
         """Writes an indirect object to the stream.
 
         Arguments:
-            reference (:class:`PdfIndirectRef` | tuple[int, int]):
+            reference (:class:`PdfIndirectRef` | :class:`tuple[int, int]`):
                 The object number and generation to which the object should be assigned.
 
             contents (:class:`PdfObject` | :class:`PdfStream`):
@@ -254,10 +255,10 @@ class PdfSerializer:
 
         return startxref
 
-    def write_trailer(self, details: dict[str, Any], startxref: int) -> None:
-        """Writes the trailer of the PDF (``details``) and the ``startxref`` offset."""
+    def write_trailer(self, trailer: Trailer, startxref: int) -> None:
+        """Writes a standard ``trailer`` to the PDF alongisde the ``startxref`` offset."""
         self.content += b"trailer" + self.eol
-        self.content += serialize_dictionary(details) + self.eol
+        self.content += serialize_dictionary(trailer) + self.eol
         self.content += b"startxref" + self.eol
         self.content += str(startxref).encode() + self.eol
 
