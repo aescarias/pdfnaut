@@ -35,7 +35,7 @@ Object (2, 0)  will include our page tree. To keep things simple, our document w
         "Count": 1
     }
 
-Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch). We also specify where the Contents of this page are and the font used.
+Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch or a "point"). We also specify where the Contents of this page are and the font used.
 
 .. code-block:: python
 
@@ -57,7 +57,7 @@ Object (4, 0) is the font specified in Resources. Again, for simplicity, we will
 
     builder.objects[(4, 0)] = {
         "Type": PdfName(b"Font"),
-        "Subtype": PdfName(b"Type1"), # Adobe Type 1 Font Format / Postscript
+        "Subtype": PdfName(b"Type1"), # Adobe Type 1 Font Format / PostScript
         "BaseFont": PdfName(b"Helvetica"),
         "Encoding": PdfName(b"WinAnsiEncoding")
     }

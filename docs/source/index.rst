@@ -64,13 +64,13 @@ The low-level API, seen in the example below, illustrates how ``pdfnaut`` can be
       page_stream = pdf.resolve_reference(page["Contents"])
       print(page_stream.decompress())
 
-The high-level API currently provides some abstraction for :class:`~pdfnaut.parsers.pdf.PdfParser`. Notably, it includes a helper property for accessing pages called :meth:`pdfnaut.document.PdfDocument.flatened_pages`.
+The high-level API currently provides some abstraction for :class:`~pdfnaut.parsers.pdf.PdfParser`. Notably, it includes a helper property for accessing pages called :attr:`~pdfnaut.document.PdfDocument.flattened_pages`.
 
 .. code-block:: python
    
    from pdfnaut import PdfDocument
 
-   pdf = PdfDocument.from_filename("../tests/docs/sample.pdf")
+   pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
    first_page = list(pdf.flattened_pages)[0]
    if "Contents" in first_page:
       first_page_stream = pdf.resolve_reference(first_page["Contents"])

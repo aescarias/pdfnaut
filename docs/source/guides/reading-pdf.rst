@@ -88,4 +88,4 @@ We find ourselves with a stream. The contents of pages are defined in streams kn
     >>> page_contents.decompress()
     b'2 J\r\nBT\r\n0 0 0 rg\r\n/F1 0027 Tf\r\n57.3750 722.2800 Td\r\n( A Simple PDF File ) Tj\r\nET\r\nBT\r\n/F1 0010 Tf\r\n69.2500 688.6080 Td\r\n[...]ET\r\n'
 
-A content stream is comprised of operators and operands. In this case, it would simply write "A Simple PDF File" at the position defined by the Td operands (and with the font /F1 included in our Resources which, in this case, points to Helvetica).
+A content stream is comprised of operators and operands (where operands are specified first). In this case, it would simply write "A Simple PDF File" at the position defined by the Td operands (and with the font /F1 included in our Resources which, in this case, points to Helvetica).
