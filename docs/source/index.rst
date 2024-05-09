@@ -11,14 +11,14 @@ pdfnaut
 
 pdfnaut aims to become a PDF processor for Python -- a library capable of reading and writing PDF documents.
 
-pdfnaut can currently read and write PDF documents at a low level. **No high-level APIs are currently provided.**
+pdfnaut currently works best for handling low-level scenarios. A high-level reader (:class:`~pdfnaut.document.PdfDocument`) is provided although it's pretty much in the works.
 
 Features
 --------
 
-- Low level PDF manipulation
+- Low level, typed PDF manipulation
 - Encryption (AES/ARC4)
-- Document building/serializations
+- Document building/serialization
 
 Install
 -------
@@ -40,13 +40,12 @@ Install
          python -m pip install pdfnaut
 
 .. important:: 
-   While ``pdfnaut`` supports encryption, it does not implement these algorithms. You must either supply your own implementations or preferably install a package like ``pycryptodome``
-   that includes these algorithms.
+   While ``pdfnaut`` supports encryption with ARC4 and AES, it does not include their implementations by default. You must either supply your own or preferably install a supported package like ``pycryptodome`` that can provide these.
 
 Examples
 --------
 
-The next example illustrates how ``pdfnaut`` can currently be used to read an existing PDF. Note that, due to the low-level nature of ``pdfnaut``, reading and extracting data from each document will require existing knowledge of its structure.
+The low-level API, seen in the example below, illustrates how ``pdfnaut`` can be used to inspect PDFs and retrieve information. Of course, each PDF will have a different structure and so knowledge of that structure is needed.
 
 .. code-block:: python
 
@@ -65,6 +64,18 @@ The next example illustrates how ``pdfnaut`` can currently be used to read an ex
       page_stream = pdf.resolve_reference(page["Contents"])
       print(page_stream.decompress())
 
+The high-level API currently provides some abstraction for :class:`~pdfnaut.parsers.pdf.PdfParser`. Notably, it includes a helper property for accessing pages called :meth:`pdfnaut.document.PdfDocument.flatened_pages`.
+
+.. code-block:: python
+   
+   from pdfnaut import PdfDocument
+
+   pdf = PdfDocument.from_filename("../tests/docs/sample.pdf")
+   first_page = list(pdf.flattened_pages)[0]
+   if "Contents" in first_page:
+      first_page_stream = pdf.resolve_reference(first_page["Contents"])
+      print(first_page_stream.decompress())
+
 
 .. toctree::
    :maxdepth: 2
@@ -74,7 +85,9 @@ The next example illustrates how ``pdfnaut`` can currently be used to read an ex
    PDF Tokenizer <reference/parsers/simple>
    PDF Parser <reference/parsers/pdf>
    PDF Serializer <reference/serializer>
+   PDF Document <reference/document>
    Standard Security Handler <reference/security_handler>
+   Typings <reference/typings>
    Objects <reference/objects>
    Exceptions <reference/exceptions>
    Filters <reference/filters>
