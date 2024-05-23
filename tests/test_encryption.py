@@ -39,6 +39,7 @@ def test_rc4_aes_decryption():
         parser.parse()
 
         parser.decrypt("null")
+        assert "Info" in parser.trailer
         metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
         assert metadata["Producer"].value == b"pypdf"
 

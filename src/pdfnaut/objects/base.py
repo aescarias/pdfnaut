@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from binascii import unhexlify, hexlify
-from typing import Union, List, Dict, TypeVar, Generic, Any
+from typing import Mapping, Union, List, TypeVar, Generic, TYPE_CHECKING, Any
 
 
 class PdfNull:
@@ -17,10 +17,18 @@ class PdfComment:
     value: bytes
 
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeVar
+
+    T = TypeVar("T", default=bytes)
+else:
+    T = TypeVar("T") # pytest complains if this is not here
+
+
 @dataclass
-class PdfName:
+class PdfName(Generic[T]):
     """A PDF name object (``§ 7.3.5 Name Objects``)."""
-    value: bytes
+    value: T
 
 
 @dataclass
@@ -63,7 +71,7 @@ class PdfOperator:
 
 PdfObject = Union[
     bool, int, float, bytes, 
-    List[Any], Dict[str, Any], 
+    List[Any], Mapping[str, Any], 
     PdfHexString, PdfName, 
     PdfIndirectRef, PdfNull
 ]

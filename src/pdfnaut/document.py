@@ -8,7 +8,6 @@ from pdfnaut.parsers.pdf import PdfParser, PermsAcquired
 from pdfnaut.typings.document import (Catalog, Info, Outlines, PageTree, Page, 
                                       Trailer, XRefStream)
 
-
 class PdfDocument:
     """A high-level interface over :class:`~pdfnaut.parsers.pdf.PdfParser`"""
     
@@ -57,9 +56,10 @@ class PdfDocument:
     def trailer(self) -> Trailer | XRefStream:
         """The PDF trailer which allows access to other core parts of the PDF structure. 
         
-        For documents using an XRef stream, the extent of the stream is returned 
-        (:class:`.XRefStream`).
-        
+        For documents using an XRef stream, the stream extent is returned. See 
+        ``§ 7.5.8.2 Cross-Reference Stream Dictionary`` and :class:`.XRefStream` 
+        for more details.
+                
         For details on the contents of the trailer, see ``§ 7.5.5 File Trailer`` in the 
         PDF spec."""
         return self._reader.trailer

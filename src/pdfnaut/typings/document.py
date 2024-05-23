@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict, Any
+from typing import TYPE_CHECKING, TypedDict, Literal, Any
 
 from pdfnaut.objects import PdfName, PdfHexString, PdfIndirectRef, PdfStream
 from pdfnaut.typings.encryption import Encrypt
@@ -32,7 +32,7 @@ class Trailer(TypedDict, total=False):
     Prev: int
     """The previous trailer if present."""
     Root: Required[PdfIndirectRef[Catalog]]
-    """A reference to the document's catalog.."""
+    """A reference to the document's catalog."""
     Encrypt: Encrypt | PdfIndirectRef[Encrypt]
     """The document's encryption dictionary."""
     Info: PdfIndirectRef[Info]
@@ -44,7 +44,7 @@ class Trailer(TypedDict, total=False):
 
 
 class XRefStream(StreamExtent, Trailer, total=False):
-    Type: Required[PdfName]
+    Type: Required[PdfName[Literal[b"XRef"]]]
     """Shall be 'XRef'."""
     Size: Required[int]
     """The total number of entries in the combined cross-reference table."""
@@ -58,8 +58,13 @@ class XRefStream(StreamExtent, Trailer, total=False):
     cross-reference entry. For PDF 1.5, this list contains 3 integers."""
 
 
+PageMode = Literal[b"UseNone", b"UseOutlines", b"UseThumbs", b"FullScreen", 
+                   b"UseOC", b"UseAttachments"]
+PageLayout = Literal[b"SinglePage", b"OneColumn", b"TwoColumnLeft", 
+                     b"TwoColumnRight", b"TwoPageLeft", b"TwoPageRight"]
+
 class Catalog(TypedDict, total=False):
-    Type: Required[PdfName]
+    Type: Required[PdfName[Literal[b"Catalog"]]]
     """Shall be 'Catalog'."""
     Version: PdfName
     """The version of the PDF document. Use this entry if it is later than the one 
@@ -77,9 +82,9 @@ class Catalog(TypedDict, total=False):
     """A dictionary of named destinations"""
     ViewerPreferences: dict[str, Any] # noimpl
     """Instructions on how the viewer should preferably display this document."""
-    PageLayout: PdfName # make more exact
+    PageLayout: PdfName[PageLayout]
     """The page layout to use when the document is opened."""
-    PageMode: PdfName # make more exact
+    PageMode: PdfName[PageMode]
     """The page mode -- how should the document be displayed when opened."""
     Outlines: PdfIndirectRef[Outlines]
     """The document's outline dictionary. (aka. bookmarks)"""
@@ -122,6 +127,8 @@ class Catalog(TypedDict, total=False):
     """Whether to expedite the display of PDF documents containing XFA forms."""
 
 
+Trapped = Literal[b"True", b"False", b"Unknown"]
+
 class Info(TypedDict, total=False):
     Title: bytes
     """The document's title."""
@@ -139,12 +146,12 @@ class Info(TypedDict, total=False):
     """The date and time the document was created."""
     ModDate: bytes
     """The date and time the document was most recently modified."""
-    Trapped: PdfName
+    Trapped: PdfName[Trapped]
     """Whether the document has been modified to include trapping information."""
 
 
 class PageTree(TypedDict, total=False):
-    Type: Required[PdfName]
+    Type: Required[PdfName[Literal[b"Pages"]]]
     """Shall be 'Pages'."""
     Parent: PdfIndirectRef[PageTree]
     """The page tree node that is the immediate parent of this node."""
@@ -155,7 +162,7 @@ class PageTree(TypedDict, total=False):
 
 
 class Page(TypedDict, total=False):
-    Type: Required[PdfName]
+    Type: Required[PdfName[Literal[b"Page"]]]
     """Shall be 'Page'."""
     Parent: Required[PdfIndirectRef[PageTree]]
     """The page tree node that is the immediate parent of this node."""
@@ -191,7 +198,7 @@ class Page(TypedDict, total=False):
     """The page's display duration until advancing to the next page when being presented."""
     Trans: dict[str, Any]
     """Transition effects to apply to the page when being presented."""
-    Annots: list[dict[str, Any]]
+    Annots: list[dict[str, Any] | PdfIndirectRef[dict[str, Any]]]
     """Annotation dictionaries for the document."""
     AA: dict[str, Any]
     """Additional Actions or trigger events defined for this page."""
@@ -222,7 +229,7 @@ class Page(TypedDict, total=False):
 
 
 class Outlines(TypedDict, total=False):
-    Type: PdfName
+    Type: PdfName[Literal[b"Outlines"]]
     """Shall be 'Outlines'."""
     First: PdfIndirectRef[OutlineItem]
     """The first top-level item in the outline."""
@@ -257,4 +264,3 @@ class OutlineItem(TypedDict, total=False):
     """The color that shall be used for the outline's text in RGB."""
     F: int
     """A set of flags specifying style characteristics for the outline's text."""
-

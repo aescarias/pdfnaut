@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict, TYPE_CHECKING
+from typing import TypedDict, Literal, TYPE_CHECKING
 
 from pdfnaut.objects import PdfName, PdfHexString
 
@@ -39,16 +39,16 @@ class Encrypt(TypedDict, total=False):
 
 
 class EncrCryptFilter(TypedDict, total=False):
-    Type: PdfName
+    Type: PdfName[Literal[b"CryptFilter"]]
     """Shall be 'CryptFilter'."""
-    CFM: PdfName
+    CFM: PdfName[Literal[b"None", b"V2", b"AESV2"]]
     """The method used, if any, to decrypt data.
     
     - None: The application shall not decrypt data.
     - V2: The application shall ask for an encryption key then decrypt the data using ARC4.
     - AESV2: The application shall ask for an encryption key then decrypt the data using 
     AES128 in CBC mode. """
-    AuthEvent: PdfName
+    AuthEvent: PdfName[Literal[b"DocOpen", b"EFOpen"]]
     """The event that triggers a request for authentication."""
     Length: int
     """The bit length of the encryption key. It shall be a multiple of 8."""

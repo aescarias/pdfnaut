@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from ..objects.base import PdfIndirectRef, PdfName
 
@@ -24,7 +24,7 @@ class LZWFlateParams(TypedDict, total=False):
 
 
 class CryptFilterParams(TypedDict, total=False):
-    Type: PdfName
+    Type: PdfName[Literal[b"CryptFilterDecodeParms"]]
     """Shall be 'CryptFilterDecodeParms'"""
     Name: PdfName
     """The crypt filter to use when decrypting this stream."""

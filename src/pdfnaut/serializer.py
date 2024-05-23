@@ -58,7 +58,7 @@ def serialize_literal_string(byte_str: bytes, *, keep_ascii: bool = False) -> by
     return b"(" + output + b")"
 
 
-def serialize_name(name: PdfName) -> bytes:
+def serialize_name(name: PdfName[bytes]) -> bytes:
     output = b"/"
 
     for char in name.value:
