@@ -244,7 +244,10 @@ class PdfParser:
                 else:
                     entries.append(FreeXRefEntry(offset, generation))
 
-                self._tokenizer.advance(20)
+                # some files do not respect the 20-byte length req. for entries
+                # hence this is here for tolerance
+                self._tokenizer.advance(entry.end())
+                self._tokenizer.advance_whitespace()
             
             table.sections.append(PdfXRefSubsection(
                 int(subsection.group("first_obj")),
