@@ -30,9 +30,20 @@ class PdfParser:
     
     It consumes the PDF's cross-reference tables and trailers. It merges the tables
     into a single one and provides an interface to individually parse each indirect 
-    object using :class:`~pdfnaut.parsers.simple.PdfTokenizer`."""
+    object using :class:`~pdfnaut.parsers.simple.PdfTokenizer`.
+    
+    Arguments:
+        data (bytes):
+            The document to be processed.
 
-    def __init__(self, data: bytes) -> None:
+    Keyword Arguments:
+        strict (bool, optional):
+            Whether to warn or fail at issues caused by non-spec-compliance.
+            Defaults to False.
+    """
+
+    def __init__(self, data: bytes, *, strict: bool = False) -> None:
+        self.strict = strict
         self._tokenizer = PdfTokenizer(data)
 
         self.updates: list[tuple[PdfXRefTable, Trailer | XRefStream]] = []
@@ -74,6 +85,9 @@ class PdfParser:
     T = TypeVar("T")
     def _ensure_resolved(self, obj: PdfIndirectRef[T] | T) -> T:
         return self.resolve_reference(obj) if isinstance(obj, PdfIndirectRef) else obj
+
+    def _get_closest(self, values: list[int], target: int) -> int:
+        return min(values, key=lambda offset: abs(offset - target))
 
     def parse(self, start_xref: int | None = None) -> None:
         """Parses the entire document.
@@ -191,9 +205,40 @@ class PdfParser:
             return xref, trailer
         elif re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", self._tokenizer.current_to_eol):
             return self.parse_compressed_xref()
+        elif not self.strict:
+            # let's attempt to locate a nearby xref table
+            target = self._tokenizer.position
+            table_offsets = self._find_xref_offsets()
+
+            # get the xref table nearest to our offset
+            self._tokenizer.position = self._get_closest(table_offsets, target)
+            xref, trailer = self.parse_xref_and_trailer()
+            # make sure the user can see our corrections
+            if "Prev" in trailer:
+                trailer["Prev"] = self._get_closest(table_offsets, trailer["Prev"])
+            return xref, trailer
         else:
             raise PdfParseError("XRef offset does not point to XRef table.")
 
+    def _find_xref_offsets(self) -> list[int]:
+        table_offsets = []
+        # looks for the start of a xref table
+        for mat in re.finditer(rb"(?<!start)xref(\W*)(\d+) (\d+)", self._tokenizer.data):
+            table_offsets.append(mat.start())
+
+        # looks for indirect objects, then checks if they are xref streams
+        for mat in re.finditer(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", self._tokenizer.data):
+            self._tokenizer.position = mat.start()
+            self._tokenizer.advance(mat.end() - mat.start())
+            self._tokenizer.advance_whitespace()
+            
+            if self._tokenizer.current + self._tokenizer.peek() == b"<<":
+                mapping = self._tokenizer.parse_dictionary()
+                if isinstance(typ := mapping.get("Type"), PdfName) and typ.value == b"XRef":
+                    table_offsets.append(mat.start())
+        
+        return sorted(table_offsets)
+        
     def parse_simple_trailer(self) -> Trailer:
         """Parses the PDF's standard trailer which is used to quickly locate other 
         cross reference tables and special objects.

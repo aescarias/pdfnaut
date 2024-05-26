@@ -63,3 +63,18 @@ def test_pdf_with_xref_stream() -> None:
         stream = parser.resolve_reference(first_page["Contents"]).decompress()
 
         assert stream.startswith(b"q\n0.000008871 0 595.32 841.92 re\n") 
+
+
+def test_pdf_with_strict_mode() -> None:
+    """Tests a PDF document with a wrong XRef offset. Asserts that it will not open with strict=True."""
+    with pytest.raises(PdfParseError):
+        with open("tests/docs/random-annots.pdf", "rb") as data:
+            parser = PdfParser(data.read(), strict=True)
+            parser.parse()
+
+    with open("tests/docs/random-annots.pdf", "rb") as data:
+        parser = PdfParser(data.read(), strict=False)
+        parser.parse()
+
+        root = parser.resolve_reference(parser.trailer["Root"])
+        assert root["Type"].value == b"Catalog"

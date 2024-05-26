@@ -12,13 +12,13 @@ class PdfDocument:
     """A high-level interface over :class:`~pdfnaut.parsers.pdf.PdfParser`"""
     
     @classmethod
-    def from_filename(cls, path: str) -> PdfDocument:
+    def from_filename(cls, path: str, *, strict: bool = False) -> PdfDocument:
         """Loads a PDF document from a file ``path``."""
         with open(path, "rb") as fp:
-            return PdfDocument(fp.read())
+            return PdfDocument(fp.read(), strict=strict)
 
-    def __init__(self, data: bytes) -> None:
-        self._reader = PdfParser(data)
+    def __init__(self, data: bytes, *, strict: bool = False) -> None:
+        self._reader = PdfParser(data, strict=strict)
         self._reader.parse()
 
         # some files use an empty string as a password
