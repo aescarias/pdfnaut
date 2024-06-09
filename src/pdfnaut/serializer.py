@@ -218,7 +218,8 @@ class PdfSerializer:
             _, second_key, *_ = subsections[first_obj_num][-2]
 
             if first_key != second_key and abs(first_key - second_key) != 1:
-                last = subsections[first_key].pop()
+                # last = subsections[first_key].pop()
+                last = subsections[first_obj_num].pop()
                 first_obj_num = last[1]
                 subsections[first_obj_num].append(last)
 
@@ -251,8 +252,7 @@ class PdfSerializer:
                     self.content += f"{entry.next_free_object:0>10} {entry.gen_if_used_again:0>5} f".encode()
                 else:
                     raise PdfWriteError("Cannot write compressed XRef entry within standard table")
-                self.content += self.eol
-
+                self.content += self.eol               
         return startxref
 
     def write_trailer(self, trailer: Trailer, startxref: int) -> None:
