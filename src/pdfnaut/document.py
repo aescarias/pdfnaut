@@ -21,10 +21,20 @@ class PdfDocument:
         self._reader = PdfParser(data, strict=strict)
         self._reader.parse()
 
+        self.access_level = PermsAcquired.OWNER
+        """The current access level of the document. It is a value of the 
+        :class:`.PermsAcquired` enum. In short:
+            
+        - Owner: Full access to the document. If the document is not encrypted,
+        this is the default value.
+        - User: Access to the document under restrictions.
+        - None: Document is currently encrypted.
+        """
+
         # some files use an empty string as a password
         if self.has_encryption:
-            self.decrypt("")
-    
+            self.access_level = self.decrypt("")
+
     T = TypeVar("T")
     @overload
     def resolve_reference(self, reference: PdfIndirectRef[T]) -> T:
@@ -133,7 +143,8 @@ class PdfDocument:
             - If the document is not encrypted, defaults to :attr:`.PermsAcquired.OWNER`
             - if the document was not decrypted, defaults to :attr:`.PermsAcquired.NONE`
         """
-        return self._reader.decrypt(password)
+        self.access_level = self._reader.decrypt(password)
+        return self.access_level
     
     def _flatten_pages(self, *, parent: PageTree | None = None) -> Generator[Page, None, None]:
         root = parent or self.page_tree
