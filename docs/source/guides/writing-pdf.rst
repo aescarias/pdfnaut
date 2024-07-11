@@ -25,7 +25,7 @@ Next, we define the objects in the PDF. The first object (1, 0) will include our
         "Pages": PdfIndirectRef(2, 0)
     }
 
-Object (2, 0)  will include our page tree. To keep things simple, our document will only have one page and will not use compression.
+Object (2, 0) will include our page tree. To keep things simple, our document will only have one page and will not use compression.
 
 .. code-block:: python
 
@@ -65,8 +65,8 @@ Object (4, 0) is the font specified in Resources. Again, for simplicity, we will
 Object (5, 0) is the content stream defining the page itself. 
 
 - The first line and last line delimit the text object.
-- The second line specifies the font which shall be used to draw text (Tf). The first operand is ``/F13`` (Helvetica) and the second operand is 12 which is the point size.
-- The third line tells the renderer to position the text at x=100, y=400.
+- The second line specifies the font which shall be used to draw text (Tf). The first operand is ``/F13`` (Helvetica) and the second operand is 12 which is the unit (point) size of the glyph.
+- The third line tells the renderer to position the text at x=100, y=400 (by default, x is the position to the left and y is the position to the top)
 - The fourth line tells the renderer to draw the text "Hello"
 
 .. code-block:: python
@@ -89,7 +89,8 @@ In the previous section, we defined the objects. This does not write them, thoug
 
 .. code-block:: python
 
-    # f|n object_number generation next_free|offset
+    # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation| idx
+    # for details, see :meth:`pdfnaut.serializer.PdfSerializer.generate_xref_table`
     table: list[tuple[str, int, int, int]] = []
 
     for (obj_num, gen_num), item in builder.objects.items():
@@ -98,11 +99,13 @@ In the previous section, we defined the objects. This does not write them, thoug
 
     table.insert(0, ("f", 0, 65535, 0))
 
-    xref_table = builder.generate_standard_xref_table(table)
+    xref_table = builder.generate_xref_table(table)
 
 Writing the XRef table and trailer
 ----------------------------------
-After generating the table, we can proceed to write it. :meth:`~pdfnaut.serializer.PdfSerializer.write_standard_xref_table` returns the startxref offset that we can use later. We then write the trailer and the startxref offset. To end the PDF, we add the ``%%EOF`` marker and write the new document as usual.
+After generating the table, we can proceed to write it. PDFs support two types of XRef tables: a traditional XRef table and an XRef stream. To keep things readable, we will use the traditional table. :meth:`~pdfnaut.serializer.PdfSerializer.write_standard_xref_table` produces such table and returns the startxref offset that we can use later. 
+
+We then write the trailer and the startxref offset using :meth:`~pdfnaut.serializer.write_trailer`. To end the PDF, we add the ``%%EOF`` marker and write the new document as usual.
 
 .. code-block:: python
 

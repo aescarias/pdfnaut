@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from .typings.document import Trailer
 from .objects.stream import PdfStream
-from .objects.xref import PdfXRefSubsection, PdfXRefTable, FreeXRefEntry, InUseXRefEntry
+from .objects.xref import CompressedXRefEntry, PdfXRefSubsection, PdfXRefTable, FreeXRefEntry, InUseXRefEntry
 from .objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
                            PdfHexString)
 from .parsers.simple import STRING_ESCAPE
@@ -138,7 +138,7 @@ def serialize(object_: PdfObject | PdfStream | PdfComment, *,
 
 
 class PdfSerializer:
-    """A PDF serializer that can create a valid PDF document.
+    """A serializer that is able to produce a valid PDF document.
 
     Arguments:
         eol (bytes, optional):
@@ -170,7 +170,7 @@ class PdfSerializer:
 
     def write_object(self, reference: PdfIndirectRef | tuple[int, int],
                      contents: PdfObject | PdfStream) -> int:
-        """Writes an indirect object to the stream.
+        """Writes an indirect object to the document.
 
         Arguments:
             reference (:class:`PdfIndirectRef` | :class:`tuple[int, int]`):
@@ -194,14 +194,21 @@ class PdfSerializer:
 
         return offset
 
-    def generate_standard_xref_table(self, rows: list[tuple[str, int, int, int]]) -> PdfXRefTable:
-        """Generates an uncompressed cross-reference table from a list of ``rows``.
+    def generate_xref_table(self, rows: list[tuple[str, int, int, int]]) -> PdfXRefTable:
+        """Generates a cross-reference table from a list of ``rows``.
 
-        Each row is a tuple of 4 values: a string that is either "f" (free) or "n" (in use);
-        the object number; the generation; and the value of the entry (next free or offset).
+        Each row is a tuple of 4 values: 
+            - a string indicating the type: either "f" (free), "n" (in use), or "c" (compressed)
+            - the object number
+            - the next two values differ depending on the type:
+                - if type is "f", the next free object and the generation if used again
+                - if type is "n", the object's offset and generation
+                - if type is "c", the object number of the object stream and the index of the 
+                object within the stream.
 
         Returns:
-            An XRef table that can be serialized by :meth:`.write_standard_xref_table`.
+            An XRef table that can be serialized by either :meth:`.write_standard_xref_table`
+            or :meth:`.write_compressed_xref_table`.
         """
         table = PdfXRefTable([])
         rows = sorted(rows, key=lambda sl: sl[1])  # sl[1] = object number
@@ -225,11 +232,13 @@ class PdfSerializer:
 
         for first_obj_num, raw_entries in subsections.items():
             entries = []
-            for typ_, _obj_num, gen_num, offset in raw_entries:
+            for typ_, _obj_num, first_val, second_val in raw_entries:
                 if typ_ == "f":
-                    entries.append(FreeXRefEntry(offset, gen_num))
+                    entries.append(FreeXRefEntry(first_val, second_val))
+                elif typ_ == "c":
+                    entries.append(CompressedXRefEntry(first_val, second_val))
                 else:
-                    entries.append(InUseXRefEntry(offset, gen_num))
+                    entries.append(InUseXRefEntry(first_val, second_val))
 
             table.sections.append(
                 PdfXRefSubsection(first_obj_num, len(entries), entries)
@@ -238,7 +247,7 @@ class PdfSerializer:
         return table
 
     def write_standard_xref_table(self, table: PdfXRefTable) -> int:
-        """Writes a standard XRef table (``§ 7.5.4 Cross-Reference Table``) to the stream.
+        """Writes a standard XRef table (``§ 7.5.4 Cross-Reference Table``) to the document.
         Returns the ``startxref`` offset that should be written to the document."""
         startxref = len(self.content)
         self.content += b"xref" + self.eol
@@ -255,13 +264,59 @@ class PdfSerializer:
                 self.content += self.eol               
         return startxref
 
-    def write_trailer(self, trailer: Trailer, startxref: int) -> None:
-        """Writes a standard ``trailer`` to the PDF alongisde the ``startxref`` offset."""
-        self.content += b"trailer" + self.eol
-        self.content += serialize_dictionary(trailer) + self.eol
-        self.content += b"startxref" + self.eol
-        self.content += str(startxref).encode() + self.eol
+    def write_compressed_xref_table(self, table: PdfXRefTable, trailer: Trailer) -> int:
+        """Writes a compressed XRef stream (``§ 7.5.8 Cross-Reference Streams``) from 
+        ``table`` and ``trailer`` (to use as part of the extent) to the document.
+        Returns the ``startxref`` offset that should be written to the document."""
+        indices = []
+        table_rows: list[list[int]] = []
+
+        for section in table.sections:
+            indices.append([section.first_obj_number, section.count])
+
+            for entry in section.entries:
+                if isinstance(entry, FreeXRefEntry):
+                    table_rows.append([0, entry.next_free_object, entry.gen_if_used_again])
+                elif isinstance(entry, InUseXRefEntry):
+                    table_rows.append([1, entry.offset, entry.generation])
+                elif isinstance(entry, CompressedXRefEntry):
+                    table_rows.append([2, entry.objstm_number, entry.index_within])
+
+        widths = [(max(column).bit_length() + 7) // 8 or 1 for column in zip(*table_rows)]
+        contents = b""
+        for row in table_rows:
+            contents += b"".join(item.to_bytes(widths[idx], "big") 
+                                 for idx, item in enumerate(row))
+
+        stream = PdfStream(
+            {
+                "Type": PdfName(b"XRef"), 
+                "W": widths, 
+                "Index": sum(indices, start=[]), 
+                "Length": len(contents), 
+                **trailer
+            },
+            contents
+        )
+
+        highest_objnum = sum(max(indices, key=sum))
+        return self.write_object((highest_objnum, 0), stream)
+
+    def write_trailer(self, trailer: Trailer | None = None, startxref: int | None = None) -> None:
+        """Writes a standard ``trailer`` to the document (``§ 7.5.5 File Trailer``) 
+        alongside the ``startxref`` offset.
+
+        Both arguments are optional, indicating their presence in the appended output
+        (the trailer could have been written previously, hence this option).
+        """
+        if trailer is not None:
+            self.content += b"trailer" + self.eol
+            self.content += serialize_dictionary(trailer) + self.eol
+        
+        if startxref is not None:
+            self.content += b"startxref" + self.eol
+            self.content += str(startxref).encode() + self.eol
 
     def write_eof(self) -> None:
-        """Writes the End-Of-File marker."""
+        """Writes the End-Of-File marker to the document."""
         self.content += b"%%EOF" + self.eol

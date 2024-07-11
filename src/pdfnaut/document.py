@@ -8,6 +8,7 @@ from pdfnaut.parsers.pdf import PdfParser, PermsAcquired
 from pdfnaut.typings.document import (Catalog, Info, Outlines, PageTree, Page, 
                                       Trailer, XRefStream)
 
+
 class PdfDocument:
     """A high-level interface over :class:`~pdfnaut.parsers.pdf.PdfParser`"""
     
@@ -22,10 +23,10 @@ class PdfDocument:
         self._reader.parse()
 
         self.access_level = PermsAcquired.OWNER
-        """The current access level of the document. It is a value of the 
-        :class:`.PermsAcquired` enum. In short:
-            
-        - Owner: Full access to the document. If the document is not encrypted,
+        """The current access level of the document, specified as a value from the
+        :class:`.PermsAcquired` enum.
+        
+        - Owner: Full access to the document. If the document is not encrypted, \
         this is the default value.
         - User: Access to the document under restrictions.
         - None: Document is currently encrypted.
@@ -95,11 +96,11 @@ class PdfDocument:
     
     @property
     def info(self) -> Info | None:
-        """The Info entry of the catalog which includes document-level information.
+        """The ``Info`` entry in the catalog which includes document-level information.
         
-        Newer documents may include a metadata stream which is accessed by :attr:`.PdfDocument.metadata`
-        rather than an Info entry. PDF 2.0 deprecates all attributes of this entry, except for CreationDate
-        and ModDate. 
+        Some documents may specify a metadata stream rather than an Info entry. This can be
+        accessed with :attr:`.PdfDocument.metadata`. PDF 2.0 deprecates all keys of this
+        entry except for ``CreationDate`` and ``ModDate``.
         """
         if "Info" not in self.trailer:
             return

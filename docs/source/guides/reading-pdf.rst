@@ -1,7 +1,7 @@
 Reading a PDF
 =============
 
-PDFs are, in essence, conformed of objects and references. You can access the objects of a PDF through means of its cross-reference table. Think of a PDF like JSON but with a form of tracking its objects.
+PDFs are, in essence, conformed of objects and references. You can access the objects of a PDF through means of its cross-reference table. Think of a PDF like JSON but with a way of tracking its objects.
 
 Opening a PDF
 -------------
@@ -73,7 +73,7 @@ The page tree is seen above. Given that this document only includes 2 pages, the
      'Type': PdfName(value=b'Page')
     }
 
-Above we see the actual page. This dictionary includes the *media box* which specifies the dimensions of the page when shown or printed (PDF is all about printing!), a reference to its parent, the resources used such as the font, and the contents of the page. We are looking for the contents of the page. Given that the Contents key includes a stream, it is set as an indirect reference. 
+Above we see the actual page. This dictionary includes the *media box* which specifies the dimensions of the page when shown, a reference to its parent, the resources used such as the font, and the contents of the page. We are looking for the contents of the page. Given that the Contents key includes a stream, it is set as an indirect reference. 
 
 .. code-block:: python
 

@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 from pdfnaut.objects import (PdfName, PdfIndirectRef, PdfHexString, PdfNull,
-                             PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry,)
+                             PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry)
 from pdfnaut.serializer import serialize, PdfSerializer
+from pdfnaut.parsers import PdfParser
 
 
 def test_comment() -> None:
@@ -84,8 +85,8 @@ def test_serialize_document() -> None:
     assert before_object == object_start
     assert serializer.content.endswith(b"1 0 obj\r\n<</A (BC) /D 10.24>>\r\nendobj\r\n")
 
-    table = serializer.generate_standard_xref_table(
-        [("f", 0, 65535, 0), ("n", 1, 0, object_start)]
+    table = serializer.generate_xref_table(
+        [("f", 0, 65535, 0), ("n", 1, object_start, 0)]
     )
     assert (
         len(table.sections)
@@ -105,3 +106,35 @@ def test_serialize_document() -> None:
                                        b"\r\n")
     serializer.write_eof()
     assert serializer.content.endswith(b"%%EOF\r\n")
+
+
+def test_serialize_compressed_table() -> None:
+    serializer = PdfSerializer()
+    serializer.write_header("1.7")
+
+    object_start = serializer.write_object((1, 0), {"A": b"BC", "D": 10.24})
+
+    table = serializer.generate_xref_table(
+        [("f", 0, 65535, 0), ("n", 1, object_start, 0)]
+    )
+
+    before_xref = len(serializer.content)
+    startxref = serializer.write_compressed_xref_table(table, {"Size": 2})
+    assert before_xref == startxref
+    
+    obj = PdfParser(serializer.content[startxref:]).parse_indirect_object(InUseXRefEntry(0, 0))
+    assert isinstance(obj, PdfStream)
+    assert obj.details == {
+        "Type": PdfName(b"XRef"), 
+        "W": [1, 2, 1], 
+        "Index": [0, 2], 
+        "Length": 8, 
+        "Size": 2
+    }
+    assert obj.decompress() == b"\x00\xff\xff\x00\x01\x00\x11\x00"
+
+    serializer.write_trailer(startxref=startxref)
+    serializer.write_eof()
+
+    assert serializer.content.endswith(b"startxref\r\n" + str(startxref).encode() + 
+                                       b"\r\n%%EOF\r\n")
