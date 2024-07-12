@@ -83,8 +83,8 @@ class PdfParser:
         self._encryption_key = None
 
     T = TypeVar("T")
-    def _ensure_resolved(self, obj: PdfIndirectRef[T] | T) -> T:
-        return self.resolve_reference(obj) if isinstance(obj, PdfIndirectRef) else obj
+    def _ensure_object(self, obj: PdfIndirectRef[T] | T) -> T:
+        return self.get_object(obj) if isinstance(obj, PdfIndirectRef) else obj
 
     def _get_closest(self, values: list[int], target: int) -> int:
         return min(values, key=lambda offset: abs(offset - target))
@@ -126,7 +126,7 @@ class PdfParser:
         # Is the document encrypted with a standard security handler?
         if "Encrypt" in self.trailer:
             assert "ID" in self.trailer
-            encryption = self._ensure_resolved(self.trailer["Encrypt"])
+            encryption = self._ensure_object(self.trailer["Encrypt"])
 
             if encryption["Filter"].value == b"Standard":
                 self.security_handler = StandardSecurityHandler(
@@ -311,7 +311,7 @@ class PdfParser:
             InUseXRefEntry(self._tokenizer.position, 0))
         assert isinstance(xref_stream, PdfStream)
 
-        contents = BytesIO(xref_stream.decompress())
+        contents = BytesIO(xref_stream.decode())
 
         xref_widths = xref_stream.details["W"]
         xref_indices = xref_stream.details.get("Index", [0, xref_stream.details["Size"]])
@@ -372,7 +372,7 @@ class PdfParser:
             length = tok["Length"]
             if isinstance(length, PdfIndirectRef):
                 _current = self._tokenizer.position
-                length = self.resolve_reference(length)
+                length = self.get_object(length)
                 self._tokenizer.position = _current 
             if not isinstance(length, int):
                 raise PdfParseError("\\Length entry of stream extent not an integer")
@@ -479,23 +479,23 @@ class PdfParser:
 
     T = TypeVar("T")
     @overload
-    def resolve_reference(self, reference: PdfIndirectRef[T]) -> T:
+    def get_object(self, reference: PdfIndirectRef[T]) -> T:
         ...
     
     @overload
-    def resolve_reference(self, reference: tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
+    def get_object(self, reference: tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
         ...
     
-    def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull | Any:
+    def get_object(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull | Any:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
-            reference (:class:`.PdfIndirectRef` | tuple[int, int]): 
-                An indirect reference object or a tuple of two integers representing, 
+            reference (:class:`.PdfIndirectRef` | :class:`tuple[int, int]`): 
+                A :class:`.PdfIndirectRef` object or a tuple of two integers representing, 
                 in order, the object number and the generation number.
   
         Returns:
-            A PDF object if the reference was found, otherwise :class:`.PdfNull`.
+            The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
         """
         if isinstance(reference, tuple):
             root_entry = self.xref.get(reference)
@@ -514,7 +514,7 @@ class PdfParser:
             objstm = self.parse_indirect_object(objstm_entry)
             assert isinstance(objstm, PdfStream)
 
-            seq = PdfTokenizer(objstm.decompress()[objstm.details["First"]:] or b"")
+            seq = PdfTokenizer(objstm.decode()[objstm.details["First"]:] or b"")
             
             for idx, token in enumerate(seq):
                 if idx == root_entry.index_within:

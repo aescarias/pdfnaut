@@ -1,10 +1,10 @@
 # Unit tests for PDF encryption routines and the Standard security handler
-
 from __future__ import annotations
-from typing import cast, Any
 
-from pdfnaut import PdfParser
-from pdfnaut.cos.parser import PermsAcquired
+from typing import Any, cast
+
+from pdfnaut.cos.parser import PdfParser, PermsAcquired
+from pdfnaut.typings.encryption import StandardEncrypt
 
 
 def test_std_security_handler():
@@ -40,7 +40,7 @@ def test_rc4_aes_decryption():
 
         parser.decrypt("null")
         assert "Info" in parser.trailer
-        metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
+        metadata = cast("dict[str, Any]", parser.get_object(parser.trailer["Info"]))
         assert metadata["Producer"].value == b"pypdf"
 
     with open("tests/docs/encrypted-aes128.pdf", "rb") as fp:
@@ -48,7 +48,7 @@ def test_rc4_aes_decryption():
         parser.parse()
 
         parser.decrypt("nil")
-        metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
+        metadata = cast("dict[str, Any]", parser.get_object(parser.trailer["Info"]))
         assert metadata["Producer"].value == b"pypdf"
 
 def test_rc4_aes_password_values():
@@ -56,9 +56,9 @@ def test_rc4_aes_password_values():
         parser = PdfParser(fp.read())
         parser.parse()
 
-        encr_metadata = cast("dict[str, Any]", parser.resolve_reference(parser.trailer["Info"]))
+        encr_metadata = cast("dict[str, Any]", parser.get_object(parser.trailer["Info"]))
         
-        encrypt_dict = parser.resolve_reference(parser.trailer["Encrypt"])
+        encrypt_dict = cast(StandardEncrypt, parser._ensure_object(parser.trailer["Encrypt"]))
         assert parser.security_handler is not None
 
         # Passwords

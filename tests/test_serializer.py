@@ -131,7 +131,7 @@ def test_serialize_compressed_table() -> None:
         "Length": 8, 
         "Size": 2
     }
-    assert obj.decompress() == b"\x00\xff\xff\x00\x01\x00\x11\x00"
+    assert obj.decode() == b"\x00\xff\xff\x00\x01\x00\x11\x00"
 
     serializer.write_trailer(startxref=startxref)
     serializer.write_eof()

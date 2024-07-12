@@ -16,8 +16,8 @@ class PdfStream:
     raw: bytes = field(repr=False)
     _sec_handler: dict[str, Any] = field(default_factory=dict, repr=False)
 
-    def decompress(self) -> bytes:
-        """Returns the contents of the stream decompressed. If no filter is defined, 
+    def decode(self) -> bytes:
+        """Returns the decoded contents of the stream. If no filter is defined, 
         it returns the original contents.
         
         Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""

@@ -19,7 +19,7 @@ def test_rle() -> None:
         pdf = PdfParser(fp.read())
         pdf.parse()
 
-        ref = pdf.resolve_reference((8, 0))
+        ref = pdf.get_object((8, 0))
 
         with open("tests/docs/shapes-decoded.bin", "rb") as binfp:
             assert RunLengthFilter().decode(ref.raw) == binfp.read()

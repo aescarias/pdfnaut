@@ -15,13 +15,13 @@ def test_simple_pdf() -> None:
 
         assert len(parser.xref) == parser.trailer["Size"]
 
-        catalog = parser.resolve_reference(parser.trailer["Root"])
-        metadata = parser.resolve_reference(parser.trailer["Info"])
+        catalog = parser.get_object(parser.trailer["Root"])
+        metadata = parser.get_object(parser.trailer["Info"])
         assert catalog is not None and metadata is not None
         
-        pages = parser.resolve_reference(catalog["Pages"])
-        first_page = parser.resolve_reference(pages["Kids"][0])
-        first_page_contents = parser.resolve_reference(first_page["Contents"])
+        pages = parser.get_object(catalog["Pages"])
+        first_page = parser.get_object(pages["Kids"][0])
+        first_page_contents = parser.get_object(first_page["Contents"])
         assert isinstance(first_page_contents, PdfStream)
 
 
@@ -37,7 +37,8 @@ def test_invalid_pdfs() -> None:
         with open("tests/docs/pdf-with-bad-stream.pdf", "rb") as data:
             parser = PdfParser(data.read())
             parser.parse()
-            parser.resolve_reference(PdfIndirectRef(1, 0))
+
+            parser.get_object((1, 0))
 
 
 def test_pdf_with_incremental() -> None:
@@ -57,10 +58,10 @@ def test_pdf_with_xref_stream() -> None:
         parser = PdfParser(data.read())
         parser.parse()
 
-        catalog = parser.resolve_reference(parser.trailer["Root"])
-        pages = parser.resolve_reference(catalog["Pages"])
-        first_page = parser.resolve_reference(pages["Kids"][0])
-        stream = parser.resolve_reference(first_page["Contents"]).decompress()
+        catalog = parser.get_object(parser.trailer["Root"])
+        pages = parser.get_object(catalog["Pages"])
+        first_page = parser.get_object(pages["Kids"][0])
+        stream = parser.get_object(first_page["Contents"]).decode()
 
         assert stream.startswith(b"q\n0.000008871 0 595.32 841.92 re\n") 
 
@@ -76,5 +77,5 @@ def test_pdf_with_strict_mode() -> None:
         parser = PdfParser(data.read(), strict=False)
         parser.parse()
 
-        root = parser.resolve_reference(parser.trailer["Root"])
+        root = parser.get_object(parser.trailer["Root"])
         assert root["Type"].value == b"Catalog"

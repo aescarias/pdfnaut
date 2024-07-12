@@ -22,8 +22,8 @@ from pdfnaut import PdfDocument
 pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
 first_page = list(pdf.flattened_pages)[0]
 if "Contents" in first_page:
-    first_page_stream = pdf.resolve_reference(first_page["Contents"])
-    print(first_page_stream.decompress())
+    first_page_stream = pdf.get_object(first_page["Contents"])
+    print(first_page_stream.decode())
 ```
 
 The more mature low-level API
@@ -36,13 +36,13 @@ with open("tests/docs/sample.pdf", "rb") as doc:
     pdf.parse()
 
     # Get the pages object from the trailer
-    root = pdf.resolve_reference(pdf.trailer["Root"])
-    pages = pdf.resolve_reference(root["Pages"])
+    root = pdf.get_object(pdf.trailer["Root"])
+    pages = pdf.get_object(root["Pages"])
     
     # Get the first page contents
-    first_page = pdf.resolve_reference(pages["Kids"][0])
-    first_page_stream = pdf.resolve_reference(first_page["Contents"])
-    print(first_page_stream.decompress())
+    first_page = pdf.get_object(pages["Kids"][0])
+    first_page_stream = pdf.get_object(first_page["Contents"])
+    print(first_page_stream.get_object())
 ```
 
 ## Coverage

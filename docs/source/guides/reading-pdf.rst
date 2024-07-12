@@ -6,7 +6,7 @@ PDFs are, in essence, conformed of objects and references. You can access the ob
 Opening a PDF
 -------------
 
-To read a PDF with pdfnaut, use the :class:`~pdfnaut.parsers.pdf.PdfParser` class which accepts a ``bytes`` string with the contents of your file.
+To read a PDF with pdfnaut, use the :class:`~pdfnaut.cos.parser.PdfParser` class which accepts a ``bytes`` string with the contents of your file.
 
 .. code-block:: python
 
@@ -16,12 +16,12 @@ To read a PDF with pdfnaut, use the :class:`~pdfnaut.parsers.pdf.PdfParser` clas
         pdf = pdfnaut.PdfParser(fp.read())
         pdf.parse()
 
-:meth:`~pdfnaut.parsers.pdf.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects from the document.
+:meth:`~pdfnaut.cos.parser.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects from the document.
 
 Inspecting objects
 ------------------
 
-The next set of steps will depend on the document being processed. To inspect the objects included in the PDF before going further, iterate over the :attr:`~pdfnaut.parsers.pdf.PdfParser.xref` attribute in :class:`~pdfnaut.parsers.pdf.PdfParser` as follows:
+The next set of steps will depend on the document being processed. To inspect the objects included in the PDF before going further, iterate over the :attr:`~pdfnaut.cos.parser.PdfParser.xref` attribute in :class:`~pdfnaut.cos.parser.PdfParser` as follows:
 
 .. code-block:: python
 
@@ -29,9 +29,9 @@ The next set of steps will depend on the document being processed. To inspect th
         if hasattr(entry, "next_free_object"):
             continue
 
-        print(pdf.resolve_reference(reference)) 
+        print(pdf.get_object(reference)) 
 
-Because the XRef table can also include "free" or unused entries, we avoid iterating over them. Then we provide the reference to :meth:`~pdfnaut.parsers.pdf.PdfParser.resolve_reference`. This should print all the objects in the PDF.
+Because the XRef table can also include "free" or unused entries, we avoid iterating over them. Then we provide the reference to :meth:`~pdfnaut.cos.parser.PdfParser.get_object`. This should print all the objects in the PDF.
 
 Traversing a document
 ---------------------
@@ -40,7 +40,7 @@ Let's take, for example, the ``sample.pdf`` file available in our `test suite <h
 
 .. code-block:: python
 
-    >>> root = pdf.resolve_reference(pdf.trailer["Root"])
+    >>> root = pdf.get_object(pdf.trailer["Root"])
     >>> root
     {'Outlines': PdfIndirectRef(object_number=2, generation=0),
      'Pages': PdfIndirectRef(object_number=3, generation=0),
@@ -50,7 +50,7 @@ Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what w
 
 .. code-block:: python
 
-    >>> page_tree = pdf.resolve_reference(root["Pages"]) 
+    >>> page_tree = pdf.get_object(root["Pages"]) 
     >>> page_tree
     {'Count': 2,
      'Kids': [PdfIndirectRef(object_number=4, generation=0),
@@ -61,7 +61,7 @@ The page tree is seen above. Given that this document only includes 2 pages, the
 
 .. code-block:: python
 
-    >>> first_page = pdf.resolve_reference(page_tree["Kids"][0])
+    >>> first_page = pdf.get_object(page_tree["Kids"][0])
     >>> first_page
     {'Contents': PdfIndirectRef(object_number=5, generation=0),
      'MediaBox': [0, 0, 612.0, 792.0],
@@ -77,7 +77,7 @@ Above we see the actual page. This dictionary includes the *media box* which spe
 
 .. code-block:: python
 
-    >>> page_contents = pdf.resolve_reference(first_page["Contents"])
+    >>> page_contents = pdf.get_object(first_page["Contents"])
     >>> page_contents
     PdfStream(details={'Length': 1074})
 
@@ -85,7 +85,7 @@ We find ourselves with a stream. The contents of pages are defined in streams kn
 
 .. code-block:: python
 
-    >>> page_contents.decompress()
+    >>> page_contents.decode()
     b'2 J\r\nBT\r\n0 0 0 rg\r\n/F1 0027 Tf\r\n57.3750 722.2800 Td\r\n( A Simple PDF File ) Tj\r\nET\r\nBT\r\n/F1 0010 Tf\r\n69.2500 688.6080 Td\r\n[...]ET\r\n'
 
 A content stream is comprised of operators and operands (where operands are specified first). In this case, it would simply write "A Simple PDF File" at the position defined by the Td operands (and with the font /F1 included in our Resources which, in this case, points to Helvetica).

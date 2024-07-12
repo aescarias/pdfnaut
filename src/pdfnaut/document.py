@@ -38,25 +38,25 @@ class PdfDocument:
 
     T = TypeVar("T")
     @overload
-    def resolve_reference(self, reference: PdfIndirectRef[T]) -> T:
+    def get_object(self, reference: PdfIndirectRef[T]) -> T:
         ...
     
     @overload
-    def resolve_reference(self, reference: tuple[int, int]) -> PdfObject | PdfStream:
+    def get_object(self, reference: tuple[int, int]) -> PdfObject | PdfStream:
         ...
     
-    def resolve_reference(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | Any:
+    def get_object(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | Any:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
             reference (:class:`.PdfIndirectRef` | :class:`tuple[int, int]`): 
-                An indirect reference object or a tuple of two integers representing, 
+                A :class:`.PdfIndirectRef` object or a tuple of two integers representing, 
                 in order, the object number and the generation number.
   
         Returns:
-            A PDF object if the reference was found, otherwise :class:`.PdfNull`.
+            The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
         """
-        return self._reader.resolve_reference(reference)
+        return self._reader.get_object(reference)
 
     @property
     def has_encryption(self) -> bool:
@@ -92,7 +92,7 @@ class PdfDocument:
         
         For details on the contents of the catalog, see ``§ 7.7.2 Document Catalog``. 
         """
-        return self._reader.resolve_reference(self._reader.trailer["Root"])
+        return self.get_object(self._reader.trailer["Root"])
     
     @property
     def info(self) -> Info | None:
@@ -104,7 +104,7 @@ class PdfDocument:
         """
         if "Info" not in self.trailer:
             return
-        return self._reader._ensure_resolved(self.trailer["Info"])
+        return self._reader._ensure_object(self.trailer["Info"])
 
     @property
     def metadata(self) -> PdfStream | None:
@@ -112,7 +112,7 @@ class PdfDocument:
         stored as XMP."""
         if "Metadata" not in self.catalog:
             return    
-        return self.resolve_reference(self.catalog["Metadata"])
+        return self.get_object(self.catalog["Metadata"])
 
     @property
     def page_tree(self) -> PageTree:
@@ -120,7 +120,7 @@ class PdfDocument:
 
         For iterating over the pages of a PDF, prefer :attr:`.PdfDocument.flattened_pages`.
         """
-        return self.resolve_reference(self.catalog["Pages"])
+        return self.get_object(self.catalog["Pages"])
 
     @property
     def outline_tree(self) -> Outlines | None:
@@ -129,7 +129,7 @@ class PdfDocument:
         See ``§ 12.3.3 Document Outline``."""
         if "Outlines" not in self.catalog:
             return
-        return self.resolve_reference(self.catalog["Outlines"])
+        return self.get_object(self.catalog["Outlines"])
 
     def decrypt(self, password: str) -> PermsAcquired:
         """Decrypts this document assuming it was encrypted with a ``password``.
@@ -151,7 +151,7 @@ class PdfDocument:
         root = parent or self.page_tree
 
         for child in root["Kids"]:
-            page = self.resolve_reference(child)
+            page = self.get_object(child)
             
             if page["Type"].value == b"Pages":
                 yield from self._flatten_pages(parent=cast(PageTree, page))
