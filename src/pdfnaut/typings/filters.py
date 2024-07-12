@@ -7,7 +7,7 @@ from ..objects.base import PdfIndirectRef, PdfName
 if TYPE_CHECKING:
     from typing_extensions import Required
 
-    from pdfnaut.security_handler import StandardSecurityHandler
+    from pdfnaut.security.standard_handler import StandardSecurityHandler
 
 
 class LZWFlateParams(TypedDict, total=False):

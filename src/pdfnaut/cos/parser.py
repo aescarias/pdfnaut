@@ -10,7 +10,7 @@ from ..objects.base import PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfOb
 from ..objects.stream import PdfStream
 from ..objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
                             PdfXRefEntry, PdfXRefSubsection, PdfXRefTable)
-from ..security_handler import StandardSecurityHandler
+from ..security.standard_handler import StandardSecurityHandler
 from ..typings.document import Trailer, XRefStream
 from ..typings.encryption import StandardEncrypt
 from .tokenizer import PdfTokenizer
