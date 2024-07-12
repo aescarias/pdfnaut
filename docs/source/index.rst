@@ -64,7 +64,7 @@ The low-level API, seen in the example below, illustrates how ``pdfnaut`` can be
       page_stream = pdf.resolve_reference(page["Contents"])
       print(page_stream.decompress())
 
-The high-level API currently provides some abstraction for :class:`~pdfnaut.parsers.pdf.PdfParser`. Notably, it includes a helper property for accessing pages called :attr:`~pdfnaut.document.PdfDocument.flattened_pages`.
+The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.parser.PdfParser`. Notably, it includes a helper property for accessing pages called :attr:`~pdfnaut.document.PdfDocument.flattened_pages`.
 
 .. code-block:: python
    
@@ -82,9 +82,9 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.pars
    :caption: Reference
    :hidden:
    
-   PDF Tokenizer <reference/parsers/simple>
-   PDF Parser <reference/parsers/pdf>
-   PDF Serializer <reference/serializer>
+   PDF Tokenizer <reference/cos/tokenizer>
+   PDF Parser <reference/cos/parser>
+   PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>
    Standard Security Handler <reference/security_handler>
    Typings <reference/typings>

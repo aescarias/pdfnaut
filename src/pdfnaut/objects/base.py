@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from binascii import hexlify, unhexlify
 from dataclasses import dataclass
-from binascii import unhexlify, hexlify
-from typing import Mapping, Union, List, TypeVar, Generic, TYPE_CHECKING, Any
+from typing import Any, Generic, List, Mapping, TYPE_CHECKING, TypeVar, Union 
 
 
 class PdfNull:

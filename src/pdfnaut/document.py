@@ -1,16 +1,16 @@
 from __future__ import annotations
+
 from typing import Any, Generator, TypeVar, cast, overload
 
-from pdfnaut.objects.base import PdfIndirectRef, PdfObject
-from pdfnaut.objects.stream import PdfStream
-from pdfnaut.objects.xref import PdfXRefEntry
-from pdfnaut.cos.parser import PdfParser, PermsAcquired
-from pdfnaut.typings.document import (Catalog, Info, Outlines, PageTree, Page, 
-                                      Trailer, XRefStream)
+from .cos.parser import PdfParser, PermsAcquired
+from .objects.base import PdfIndirectRef, PdfObject
+from .objects.stream import PdfStream
+from .objects.xref import PdfXRefEntry
+from .typings.document import Catalog, Info, Outlines, Page, PageTree, Trailer, XRefStream
 
 
 class PdfDocument:
-    """A high-level interface over :class:`~pdfnaut.parsers.pdf.PdfParser`"""
+    """A high-level interface over :class:`~pdfnaut.cos.parser.PdfParser`"""
     
     @classmethod
     def from_filename(cls, path: str, *, strict: bool = False) -> PdfDocument:

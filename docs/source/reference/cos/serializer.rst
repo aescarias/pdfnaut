@@ -1,5 +1,5 @@
 PDF Serializer Reference
 ========================
 
-.. automodule:: pdfnaut.serializer
+.. automodule:: pdfnaut.cos.serializer
     :members:

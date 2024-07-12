@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import zlib
+from base64 import a85decode, a85encode, b16decode, b16encode
+from math import ceil, floor
 from typing import Any, Mapping, Protocol
-from math import floor, ceil
-from base64 import b16decode, b16encode, a85decode, a85encode
 
-from .typings.filters import CryptFilterParams, LZWFlateParams
 from .cos.tokenizer import WHITESPACE
 from .exceptions import PdfFilterError
 from .objects.base import PdfName
+from .typings.filters import CryptFilterParams, LZWFlateParams
 
 
 class PdfFilter(Protocol):
@@ -45,7 +45,7 @@ class ASCII85Filter(PdfFilter):
         return a85decode(contents, ignorechars=WHITESPACE, adobe=True)
 
     def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
-        # the PDF spec does not need the starting delimiter
+        # we do not need the starting delimiter with PDFs
         return a85encode(contents, adobe=True)[2:]
 
 
@@ -100,9 +100,9 @@ class FlateFilter(PdfFilter):
     - **BitsPerComponent**: Bit length of each of the color components. Values: 1, 2, 4, 8 (default), 16.
     - **Columns**: Amount of samples per row. Any value greater than 1 (default=1).
 
-    Given these values, the length of a sample in bytes is obtained by 
+    Given these values, the length of a sample in bytes is given by 
         ``Length(Sample) = ceil((Colors * BitsPerComponent) / 8)`` 
-    and the length of a row is obtained by 
+    and the length of a row is given by 
         ``Length(Row) = Length(Sample) * Columns``
     """
 
@@ -146,7 +146,6 @@ class FlateFilter(PdfFilter):
         else:
             raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
 
-
     def _predict_paeth(self, a: int, b: int, c: int) -> int:
         p = a + b - c
         pa = abs(p - a)
@@ -162,7 +161,8 @@ class FlateFilter(PdfFilter):
     def _process_png_row(self, encode: bool, row: bytearray, filter_type: int, 
                          previous: bytearray, sample_length: int) -> bytearray:
         for c in range(len(row)):
-            # (Fig. 19) cur_byte is x, byte_left is a, byte_up is b, byte_up_left is c
+            # (Fig. 19 in the PNG spec) 
+            # cur_byte is x, byte_left is a, byte_up is b, byte_up_left is c
             cur_byte = row[c]
             byte_left = row[c - sample_length] if c >= sample_length else 0
             byte_up = previous[c]

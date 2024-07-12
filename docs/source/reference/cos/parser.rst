@@ -1,5 +1,5 @@
 PDF Parser Reference
 ====================
 
-.. automodule:: pdfnaut.parsers.pdf
+.. automodule:: pdfnaut.cos.parser
     :members:

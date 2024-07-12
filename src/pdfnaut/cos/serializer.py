@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Mapping
 from collections import defaultdict
+from typing import Any, Literal, Mapping
 
-from ..typings.document import Trailer
-from ..objects.stream import PdfStream
-from ..objects.xref import CompressedXRefEntry, PdfXRefSubsection, PdfXRefTable, FreeXRefEntry, InUseXRefEntry
+from ..exceptions import PdfWriteError
 from ..objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
                            PdfHexString)
+from ..objects.stream import PdfStream
+from ..objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry, 
+                            PdfXRefSubsection, PdfXRefTable)
+from ..typings.document import Trailer
 from .tokenizer import STRING_ESCAPE
-from ..exceptions import PdfWriteError
 
 
 def serialize_comment(comment: PdfComment) -> bytes:
@@ -170,7 +171,7 @@ class PdfSerializer:
 
     def write_object(self, reference: PdfIndirectRef | tuple[int, int],
                      contents: PdfObject | PdfStream) -> int:
-        """Writes an indirect object to the document.
+        """Appends an indirect object to the document.
 
         Arguments:
             reference (:class:`PdfIndirectRef` | :class:`tuple[int, int]`):
@@ -203,7 +204,7 @@ class PdfSerializer:
             - the next two values differ depending on the type:
                 - if type is "f", the next free object and the generation if used again
                 - if type is "n", the object's offset and generation
-                - if type is "c", the object number of the object stream and the index of the 
+                - if type is "c", the object number of the object stream and the index of the \
                 object within the stream.
 
         Returns:
@@ -247,7 +248,7 @@ class PdfSerializer:
         return table
 
     def write_standard_xref_table(self, table: PdfXRefTable) -> int:
-        """Writes a standard XRef table (``§ 7.5.4 Cross-Reference Table``) to the document.
+        """Appends a standard XRef table (``§ 7.5.4 Cross-Reference Table``) to the document.
         Returns the ``startxref`` offset that should be written to the document."""
         startxref = len(self.content)
         self.content += b"xref" + self.eol
@@ -265,7 +266,7 @@ class PdfSerializer:
         return startxref
 
     def write_compressed_xref_table(self, table: PdfXRefTable, trailer: Trailer) -> int:
-        """Writes a compressed XRef stream (``§ 7.5.8 Cross-Reference Streams``) from 
+        """Appends a compressed XRef stream (``§ 7.5.8 Cross-Reference Streams``) from 
         ``table`` and ``trailer`` (to use as part of the extent) to the document.
         Returns the ``startxref`` offset that should be written to the document."""
         indices = []
@@ -303,7 +304,7 @@ class PdfSerializer:
         return self.write_object((highest_objnum, 0), stream)
 
     def write_trailer(self, trailer: Trailer | None = None, startxref: int | None = None) -> None:
-        """Writes a standard ``trailer`` to the document (``§ 7.5.5 File Trailer``) 
+        """Appends a standard ``trailer`` to the document (``§ 7.5.5 File Trailer``) 
         alongside the ``startxref`` offset.
 
         Both arguments are optional, indicating their presence in the appended output
@@ -318,5 +319,5 @@ class PdfSerializer:
             self.content += str(startxref).encode() + self.eol
 
     def write_eof(self) -> None:
-        """Writes the End-Of-File marker to the document."""
+        """Appends the End-Of-File marker to the document."""
         self.content += b"%%EOF" + self.eol

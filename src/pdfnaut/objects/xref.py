@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Union
 
 from dataclasses import dataclass
+from typing import Union
 
 
 @dataclass

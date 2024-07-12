@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
 from dataclasses import dataclass, field
-
+from typing import Any
 
 from .base import PdfName, PdfNull
 from ..filters import SUPPORTED_FILTERS
@@ -18,9 +17,8 @@ class PdfStream:
     _sec_handler: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def decompress(self) -> bytes:
-        """Returns the contents of the stream decompressed.
-        
-        If no filter is defined, it returns the original contents.
+        """Returns the contents of the stream decompressed. If no filter is defined, 
+        it returns the original contents.
         
         Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
 

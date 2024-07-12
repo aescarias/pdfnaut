@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast, TypeVar, overload
 from enum import IntEnum
 from io import BytesIO
+from typing import Any, TypeVar, cast, overload
 
-from ..objects.base import PdfNull, PdfIndirectRef, PdfObject, PdfName, PdfHexString
-from ..objects.stream import PdfStream
-from ..objects.xref import (PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, 
-                            FreeXRefEntry, InUseXRefEntry, CompressedXRefEntry)
 from ..exceptions import PdfParseError
+from ..objects.base import PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfObject
+from ..objects.stream import PdfStream
+from ..objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
+                            PdfXRefEntry, PdfXRefSubsection, PdfXRefTable)
 from ..security_handler import StandardSecurityHandler
-from .tokenizer import PdfTokenizer
 from ..typings.document import Trailer, XRefStream
 from ..typings.encryption import StandardEncrypt
+from .tokenizer import PdfTokenizer
 
 
 class PermsAcquired(IntEnum):
@@ -30,7 +30,7 @@ class PdfParser:
     
     It consumes the PDF's cross-reference tables and trailers. It merges the tables
     into a single one and provides an interface to individually parse each indirect 
-    object using :class:`~pdfnaut.parsers.simple.PdfTokenizer`.
+    object using :class:`~pdfnaut.cos.tokenizer.PdfTokenizer`.
     
     Arguments:
         data (bytes):

@@ -25,26 +25,26 @@ STRING_ESCAPE = {
 
 class PdfTokenizer:
     """A parser designed to consume objects that do not depend on cross reference 
-    tables. It is used by :class:`~pdfnaut.parsers.pdf.PdfParser` for this purpose.
+    tables. It is used by :class:`~pdfnaut.cos.parser.PdfParser` for this purpose.
     
     This parser will not parse indirect objects or streams because those do depend on XRef 
     and are effectively not sequentially parsable. Because of this limitation, it is not 
-    intended for parsing the entire document, but rather its simpler objects.
+    intended for parsing the entire document, but rather its individual objects.
             
     Arguments:
         data (bytes): 
             The contents to be parsed.
-    
-        is_content_stream (bool, optional):
-            Whether to parse ``data`` as if part of a content stream. This notably parses 
-            the operators present in these streams. Defaults to False.
+
+        parse_operators (bool, optional):
+            Whether to also parse the operators present in content streams.
+            Defaults to False.
     """
 
-    def __init__(self, data: bytes, *, is_content_stream: bool = False) -> None:
+    def __init__(self, data: bytes, *, parse_operators: bool = False) -> None:
         self.data = data
         self.position = 0
 
-        self.is_content_stream = is_content_stream
+        self.parse_operators = parse_operators
     
     def __iter__(self):
         return self
@@ -147,7 +147,7 @@ class PdfTokenizer:
                 return self.parse_literal_string()
             elif self.current == b"%":
                 return self.parse_comment()
-            elif self.is_content_stream and self.current.isalpha() or self.current in ("'", "\""):
+            elif self.parse_operators and self.current.isalpha() or self.current in ("'", "\""):
                 return self.parse_operator()
 
             return None        
@@ -155,9 +155,8 @@ class PdfTokenizer:
     def parse_numeric(self) -> int | float:
         """Parses a numeric object.
         
-        PDFs have two types of numbers: integers (40, -30) and real numbers (3.14).
-        The range and precision of numbers depends on the machine used to process the PDF.
-        Errors may occur if values exceed these imposed limits.
+        PDF has two types of numbers: integers (40, -30) and real numbers (3.14). The range 
+        and precision of these numbers may depend on the machine used to process the PDF.
         """
         number = self.current # either a digit or a sign prefix
         self.advance()
@@ -175,8 +174,7 @@ class PdfTokenizer:
     
     def parse_name(self) -> PdfName:
         """Parses a name -- a uniquely defined atomic symbol introduced with a slash 
-        and ending before a delimiter or whitespace.
-        """
+        and ending before a delimiter or whitespace."""
         self.advance() # past the /
 
         atom = b""        
@@ -318,7 +316,7 @@ class PdfTokenizer:
     
     def parse_operator(self) -> PdfOperator:
         """Parses a PDF operator. Operators can be found in content streams and are only 
-        parsed if :attr:`.is_content_stream` is true."""
+        parsed if :attr:`.parse_operators` is true."""
         accumulated = b""
         while not self.at_end() and self.current not in DELIMITERS + WHITESPACE:
             accumulated += self.current

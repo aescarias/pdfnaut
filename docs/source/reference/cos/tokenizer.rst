@@ -1,5 +1,5 @@
 PDF Tokenizer Reference
 =======================
 
-.. automodule:: pdfnaut.parsers.simple
+.. automodule:: pdfnaut.cos.tokenizer
     :members:
