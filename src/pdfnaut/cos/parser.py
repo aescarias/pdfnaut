@@ -11,7 +11,7 @@ from ..objects.xref import (PdfXRefEntry, PdfXRefSubsection, PdfXRefTable,
                             FreeXRefEntry, InUseXRefEntry, CompressedXRefEntry)
 from ..exceptions import PdfParseError
 from ..security_handler import StandardSecurityHandler
-from .simple import PdfTokenizer
+from .tokenizer import PdfTokenizer
 from ..typings.document import Trailer, XRefStream
 from ..typings.encryption import StandardEncrypt
 

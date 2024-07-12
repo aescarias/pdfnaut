@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from pdfnaut.parsers import PdfTokenizer
+from pdfnaut.cos import PdfTokenizer
 from pdfnaut.objects import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
 
 

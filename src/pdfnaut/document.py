@@ -4,7 +4,7 @@ from typing import Any, Generator, TypeVar, cast, overload
 from pdfnaut.objects.base import PdfIndirectRef, PdfObject
 from pdfnaut.objects.stream import PdfStream
 from pdfnaut.objects.xref import PdfXRefEntry
-from pdfnaut.parsers.pdf import PdfParser, PermsAcquired
+from pdfnaut.cos.parser import PdfParser, PermsAcquired
 from pdfnaut.typings.document import (Catalog, Info, Outlines, PageTree, Page, 
                                       Trailer, XRefStream)
 

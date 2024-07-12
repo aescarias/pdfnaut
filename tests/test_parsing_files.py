@@ -1,7 +1,7 @@
 # Unit tests for parsing a subset of handcrafted and example files.
 import pytest
 
-from pdfnaut.parsers import PdfParser
+from pdfnaut.cos import PdfParser
 from pdfnaut.objects import PdfStream, PdfIndirectRef
 from pdfnaut.exceptions import PdfParseError
 

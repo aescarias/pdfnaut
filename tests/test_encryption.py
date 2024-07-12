@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import cast, Any
 
 from pdfnaut import PdfParser
-from pdfnaut.parsers.pdf import PermsAcquired
+from pdfnaut.cos.parser import PermsAcquired
 
 
 def test_std_security_handler():

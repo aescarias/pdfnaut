@@ -6,7 +6,7 @@ from math import floor, ceil
 from base64 import b16decode, b16encode, a85decode, a85encode
 
 from .typings.filters import CryptFilterParams, LZWFlateParams
-from .parsers.simple import WHITESPACE
+from .cos.tokenizer import WHITESPACE
 from .exceptions import PdfFilterError
 from .objects.base import PdfName
 

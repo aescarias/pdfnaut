@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Any, Literal, Mapping
 from collections import defaultdict
 
-from .typings.document import Trailer
-from .objects.stream import PdfStream
-from .objects.xref import CompressedXRefEntry, PdfXRefSubsection, PdfXRefTable, FreeXRefEntry, InUseXRefEntry
-from .objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
+from ..typings.document import Trailer
+from ..objects.stream import PdfStream
+from ..objects.xref import CompressedXRefEntry, PdfXRefSubsection, PdfXRefTable, FreeXRefEntry, InUseXRefEntry
+from ..objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
                            PdfHexString)
-from .parsers.simple import STRING_ESCAPE
-from .exceptions import PdfWriteError
+from .tokenizer import STRING_ESCAPE
+from ..exceptions import PdfWriteError
 
 
 def serialize_comment(comment: PdfComment) -> bytes:
