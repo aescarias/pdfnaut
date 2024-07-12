@@ -86,7 +86,7 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    PDF Parser <reference/cos/parser>
    PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>
-   Standard Security Handler <reference/security_handler>
+   Standard Security Handler <reference/standard_handler>
    Typings <reference/typings>
    Objects <reference/objects>
    Exceptions <reference/exceptions>

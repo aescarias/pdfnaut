@@ -15,7 +15,7 @@ def pad_password(password: bytes) -> bytes:
     """Pads or truncates the input ``password`` to exactly 32 bytes. 
     
     - If ``password`` is longer than 32 bytes, it shall be truncated. 
-    - If ``password`` is shorter than 32 bytes, it shall be padded by appending data
+    - If ``password`` is shorter than 32 bytes, it shall be padded by appending data \
     from :const:`.PASSWORD_PADDING` as needed.
     """
     return password[:32] + PASSWORD_PADDING[:32 - len(password)]
