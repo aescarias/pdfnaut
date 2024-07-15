@@ -6,7 +6,7 @@ from typing import Any
 from ..objects.base import (PdfHexString, PdfName, PdfNull, PdfComment, 
                             PdfIndirectRef, PdfObject, PdfOperator)
 
-# as defined in § 7.2.2 Character Set, Table 1 & Table 2
+# as defined in § 7.2.3 Character Set, Table 1 & Table 2
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
 

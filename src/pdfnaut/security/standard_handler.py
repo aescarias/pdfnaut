@@ -53,7 +53,7 @@ class StandardSecurityHandler:
 
     def compute_encryption_key(self, password: bytes) -> bytes:  
         """Computes an encryption key from ``password`` according to Algorithm 2 in 
-        ``§ 7.6.3.3 Encryption Key Algorithm``"""      
+        ``§ 7.6.4.3.1 File encryption key algorithm``"""      
         # a)
         padded_password = pad_password(password) # a)
 
@@ -80,7 +80,7 @@ class StandardSecurityHandler:
     
     def compute_owner_password(self, owner_password: bytes, user_password: bytes) -> bytes:
         """Computes the O (``owner_password``) value in the Encrypt dictionary according
-        to Algorithm 3 in ``§ 7.6.3.4 Password Algorithms``.
+        to Algorithm 3 in ``§ 7.6.4.4 Password algorithms``.
         
         As a fallback if there is no owner password, ``user_password`` is also specified.
         """
@@ -112,7 +112,8 @@ class StandardSecurityHandler:
     
     def compute_user_password(self, password: bytes) -> bytes:
         """Computes the U (user password) value in the Encrypt dictionary according to 
-        Algorithms 4 and 5 in ``§ 7.6.3.4 Password Algorithms``."""   
+        Algorithm 4 (rev. 2) and Algorithm 5 (rev. 3 and 4) in ``§ 7.6.4.4 Password algorithms``.
+        """   
         # 4 & 5. a)
         encr_key = self.compute_encryption_key(password)
 
@@ -136,8 +137,8 @@ class StandardSecurityHandler:
             return pad_password(user_cipher)
          
     def authenticate_user_password(self, password: bytes) -> tuple[bytes, bool]:  
-        """Authenticates the provided user ``password`` according to Algorithms 4, 5, and 6 in 
-        ``§ 7.6.3.4 Password Algorithms``.
+        """Authenticates the provided user ``password`` according to Algorithms 6 
+        (based on Algos. 4 and 5) in ``§ 7.6.4.4 Password Algorithms``.
         
         Returns:
             A tuple of two values: the encryption key that should decrypt the document and
@@ -169,7 +170,7 @@ class StandardSecurityHandler:
 
     def authenticate_owner_password(self, password: bytes) -> tuple[bytes, bool]:
         """Authenticates the provided owner ``password`` (or user ``password`` if none) 
-        according to Algorithms 3 and 7 in ``§ 7.6.3.4 Password Algorithms`` of the PDF spec.
+        according to Algorithm 7 (based on Algo. 3) in ``§ 7.6.4.4 Password Algorithms``.
         
         Returns:
             A tuple of two values: the encryption key that should decrypt the document and
@@ -200,7 +201,7 @@ class StandardSecurityHandler:
                              reference: PdfIndirectRef, *, 
                              crypt_filter: EncrCryptFilter | None = None) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to 
-        Algorithm 1 in ``§ 7.6.2 General Encryption Algorithm``
+        Algorithm 1 in ``§ 7.6.3 General Encryption Algorithm``
         
         Arguments:
             encryption_key (bytes):
@@ -249,7 +250,7 @@ class StandardSecurityHandler:
                        reference: PdfIndirectRef, *, 
                        crypt_filter: EncrCryptFilter | None = None) -> bytes:
         """Encrypts the specified ``contents`` according to Algorithm 1 in 
-        ``§ 7.6.2 General Encryption Algorithm``.
+        ``§ 7.6.3 General Encryption Algorithm``.
         
         For details on arguments, please see :meth:`.compute_object_crypt`"""
         
@@ -263,7 +264,7 @@ class StandardSecurityHandler:
                        reference: PdfIndirectRef, *, 
                        crypt_filter: EncrCryptFilter | None = None) -> bytes:
         """Decrypts the specified ``contents`` according to Algorithm 1 in 
-        ``§ 7.6.2 General Encryption Algorithm``.
+        ``§ 7.6.3 General Encryption Algorithm``.
         
         For details on arguments, please see :meth:`.compute_object_crypt`"""
         

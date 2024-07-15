@@ -254,7 +254,7 @@ class PdfParser:
 
     def parse_simple_xref(self) -> PdfXRefTable:
         """Parses a standard, uncompressed XRef table of the format described in 
-        ``§ 7.5.4 Cross-Reference Table`` in the PDF spec.
+        ``§ 7.5.4 Cross-Reference Table``.
 
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         should be called instead.

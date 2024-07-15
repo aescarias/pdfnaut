@@ -6,11 +6,11 @@
 ![PyPI - Version](https://img.shields.io/pypi/v/pdfnaut)
 
 > [!Warning]
-> pdfnaut is currently in an early stage of development and has only been tested with a small set of compliant documents. Expect bugs or issues.
+> pdfnaut is currently in an early stage of development and has only been tested with a small set of compliant documents. Some non-compliant documents may work under strict=False. Expect bugs or issues.
 
-pdfnaut is a Python library for parsing PDF 1.7 files.
+pdfnaut aims to become a PDF processor for parsing PDF 2.0 files.
 
-pdfnaut provides a low-level interface for reading and writing PDF objects as defined in the [PDF 1.7 specification](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf). pdfnaut currently does not attempt to deviate from the specification. There's no guarantee that valid documents not fully conforming to the standard will be processed correctly.
+Currently, pdfnaut provides a low-level interface for reading and writing PDF objects as defined in the [PDF 2.0 specification](https://developer.adobe.com/document-services/docs/assets/5b15559b96303194340b99820d3a70fa/PDF_ISO_32000-2.pdf).
 
 ## Examples
 
@@ -52,4 +52,4 @@ The following tracks coverage of certain portions of the PDF standard.
 - Compression filters: **Supported** -- FlateDecode, ASCII85, ASCIIHex, Crypt (decode only), and RunLength (decode only).
 - Reading from encrypted PDFs: **Supported** (ARC4 and AES; requires a user-supplied implementation or availability of a compatible module -- `pycryptodome` for now)
 - XRef streams: **Supported**
-- File specifications: **Not supported**
+- File specifications, dates & other common data structures: **Not supported**
