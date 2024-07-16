@@ -122,7 +122,7 @@ def test_serialize_compressed_table() -> None:
     startxref = serializer.write_compressed_xref_table(table, {"Size": 2})
     assert before_xref == startxref
     
-    obj = PdfParser(serializer.content[startxref:]).parse_indirect_object(InUseXRefEntry(0, 0))
+    obj = PdfParser(serializer.content[startxref:]).parse_indirect_object(InUseXRefEntry(0, 0), None)
     assert isinstance(obj, PdfStream)
     assert obj.details == {
         "Type": PdfName(b"XRef"), 

@@ -50,7 +50,7 @@ class PdfTokenizer:
         return self
     
     def __next__(self) -> PdfObject | PdfComment | PdfOperator:
-        while not self.at_end():
+        while not self.done:
             if (tok := self.next_token()) is not None:
                 return tok
             self.advance()
@@ -61,26 +61,38 @@ class PdfTokenizer:
         """The character at the current position"""
         return self.data[self.position:self.position + 1]
 
-    def at_end(self) -> bool:
-        """Checks whether the parser has reached the end of data"""
+    @property
+    def done(self) -> bool:
+        """Whether the parser has reached the end of data"""
         return self.position >= len(self.data)
 
     def advance(self, n: int = 1) -> None:
-        """Advances ``n`` steps through the parser"""
-        if not self.at_end():
+        """Advances ``n`` characters in the tokenizer"""
+        if not self.done:
             self.position += n
 
-    def advance_if_next(self, keyword: bytes) -> bool:
-        """Checks if ``keyword`` starts at the current position. If so, returns True 
-        and advances through the keyword."""
-        if self.current + self.peek(len(keyword) - 1) == keyword:
+    def consume(self, n: int = 1) -> bytes:
+        """Consumes ``n`` characters and returns them"""
+        consumed = self.current + self.peek(n - 1)
+        self.advance(len(consumed))
+
+        return consumed
+
+    def matches(self, keyword: bytes) -> bool:
+        """Checks whether ``keyword`` starts at the current position"""
+        return self.current + self.peek(len(keyword) - 1) == keyword
+
+    def advance_if_matches(self, keyword: bytes) -> bool:
+        """Advances ``len(keyword)`` characters if ``keyword`` starts at the current
+        position. Returns whether the match was successful."""
+        if self.matches(keyword):
             self.advance(len(keyword))
             return True
         return False
-    
+        
     def advance_whitespace(self) -> None:
         """Advances through PDF whitespace."""
-        while self.current in WHITESPACE and not self.at_end():
+        while not self.done and self.current in WHITESPACE:
             self.advance()
 
     def next_eol(self) -> tuple[int, str]:
@@ -124,33 +136,33 @@ class PdfTokenizer:
 
     def next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
         """Parses and returns the next token"""
-        while not self.at_end():
-            if self.advance_if_next(b"true"):
-                return True
-            elif self.advance_if_next(b"false"):
-                return False
-            elif self.advance_if_next(b"null"):
-                return PdfNull()
-            elif self.current.isdigit() and (mat := re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.current_to_eol)):
-                return self.parse_indirect_reference(mat)
-            elif self.current.isdigit() or self.current in b"+-":
-                return self.parse_numeric()
-            elif self.current == b"[":
-                return self.parse_array()
-            elif self.current == b"/":
-                return self.parse_name()
-            elif self.current + self.peek() == b"<<":
-                return self.parse_dictionary()
-            elif self.current == b"<":
-                return self.parse_hex_string()
-            elif self.current == b"(":
-                return self.parse_literal_string()
-            elif self.current == b"%":
-                return self.parse_comment()
-            elif self.parse_operators and self.current.isalpha() or self.current in ("'", "\""):
-                return self.parse_operator()
-
-            return None        
+        if self.done:
+            return
+        
+        if self.advance_if_matches(b"true"):
+            return True
+        elif self.advance_if_matches(b"false"):
+            return False
+        elif self.advance_if_matches(b"null"):
+            return PdfNull()
+        elif self.current.isdigit() and (mat := re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.current_to_eol)):
+            return self.parse_indirect_reference(mat)
+        elif self.current.isdigit() or self.current in b"+-":
+            return self.parse_numeric()
+        elif self.current == b"[":
+            return self.parse_array()
+        elif self.current == b"/":
+            return self.parse_name()
+        elif self.current + self.peek() == b"<<":
+            return self.parse_dictionary()
+        elif self.current == b"<":
+            return self.parse_hex_string()
+        elif self.current == b"(":
+            return self.parse_literal_string()
+        elif self.current == b"%":
+            return self.parse_comment()
+        elif self.parse_operators and self.current.isalpha() or self.current in ("'", "\""):
+            return self.parse_operator()
 
     def parse_numeric(self) -> int | float:
         """Parses a numeric object.
@@ -161,7 +173,7 @@ class PdfTokenizer:
         number = self.current # either a digit or a sign prefix
         self.advance()
 
-        while not self.at_end():
+        while not self.done:
             if not self.current.isdigit() and self.current != b".":
                 break
             number += self.current
@@ -178,13 +190,12 @@ class PdfTokenizer:
         self.advance() # past the /
 
         atom = b""        
-        while not self.at_end() and self.current not in DELIMITERS + WHITESPACE:
+        while not self.done and self.current not in DELIMITERS + WHITESPACE:
             # Escape character logic
             if self.current == b"#":
                 self.advance()
                 # consume and add the 2 digit code to the atom
-                atom += chr(int(self.current + self.peek(), 16)).encode()
-                self.advance(2)
+                atom += chr(int(self.consume(2), 16)).encode()
                 continue
 
             atom += self.current
@@ -198,7 +209,7 @@ class PdfTokenizer:
         self.advance(1) # adv. past the <
 
         content = b""
-        while not self.at_end():
+        while not self.done:
             if self.current == b">":
                 self.advance()
                 break
@@ -216,7 +227,7 @@ class PdfTokenizer:
 
         kv_pairs: list[PdfObject] = []
 
-        while not self.at_end():
+        while not self.done:
             if self.current + self.peek() == b">>":
                 self.advance(2)
                 break
@@ -239,7 +250,7 @@ class PdfTokenizer:
         self.advance() # past the [ 
         items: list[Any] = []
 
-        while not self.at_end():
+        while not self.done:
             if (tok := self.next_token()) is not None:
                 items.append(tok)
             
@@ -269,7 +280,7 @@ class PdfTokenizer:
         # this is used to handle parenthesis pairs which do not require escaping 
         paren_depth = 1
 
-        while not self.at_end() and paren_depth >= 1:
+        while not self.done and paren_depth >= 1:
             # escape character logic
             if self.current == b"\\":
                 escape = STRING_ESCAPE.get(self.current + self.peek())
@@ -289,7 +300,7 @@ class PdfTokenizer:
                     self.advance() # past the \
                     code = b""
                     # The sequence can be at most 3 digits
-                    while not self.at_end() and len(code) < 3 and self.current.isdigit():
+                    while not self.done and len(code) < 3 and self.current.isdigit():
                         code += self.current
                         self.advance()
                     # Convert the code from octal into a codepoint and append
@@ -318,7 +329,7 @@ class PdfTokenizer:
         """Parses a PDF operator. Operators can be found in content streams and are only 
         parsed if :attr:`.parse_operators` is true."""
         accumulated = b""
-        while not self.at_end() and self.current not in DELIMITERS + WHITESPACE:
+        while not self.done and self.current not in DELIMITERS + WHITESPACE:
             accumulated += self.current
             self.advance()
         

@@ -15,7 +15,10 @@ from ..typings.document import Trailer, XRefStream
 from ..typings.encryption import StandardEncrypt
 from .tokenizer import PdfTokenizer
 
+PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
+INDIRECT_OBJ_HEADER_REGEX = re.compile(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj")
 
+ 
 class PermsAcquired(IntEnum):
     NONE = 0
     """No permissions acquired, document is still encrypted."""
@@ -89,6 +92,12 @@ class PdfParser:
     def _get_closest(self, values: list[int], target: int) -> int:
         return min(values, key=lambda offset: abs(offset - target))
 
+    def _match_object_header(self) -> re.Match[bytes] | None:
+        if not self._tokenizer.current.isdigit():
+            return
+        
+        return re.match(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.current_to_eol)
+    
     def parse(self, start_xref: int | None = None) -> None:
         """Parses the entire document.
         
@@ -135,8 +144,7 @@ class PdfParser:
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
         header = self._tokenizer.parse_comment()
-        mat = re.match(rb"PDF-(?P<major>\d+).(?P<minor>\d+)", header.value)
-        if mat:
+        if (mat := re.match(PDF_HEADER_REGEX, header.value)):
             return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
         raise PdfParseError("Expected PDF header at start of file.")
@@ -203,7 +211,7 @@ class PdfParser:
             self._tokenizer.advance_whitespace()
             trailer = self.parse_simple_trailer()
             return xref, trailer
-        elif re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", self._tokenizer.current_to_eol):
+        elif self._match_object_header():
             return self.parse_compressed_xref()
         elif not self.strict:
             # let's attempt to locate a nearby xref table
@@ -227,7 +235,7 @@ class PdfParser:
             table_offsets.append(mat.start())
 
         # looks for indirect objects, then checks if they are xref streams
-        for mat in re.finditer(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", self._tokenizer.data):
+        for mat in re.finditer(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.data):
             self._tokenizer.position = mat.start()
             self._tokenizer.advance(mat.end() - mat.start())
             self._tokenizer.advance_whitespace()
@@ -264,7 +272,7 @@ class PdfParser:
 
         table = PdfXRefTable([])
 
-        while not self._tokenizer.at_end():
+        while not self._tokenizer.done:
             # subsection
             subsection = re.match(rb"(?P<first_obj>\d+)\s(?P<count>\d+)", 
                                 self._tokenizer.current_to_eol)
@@ -308,7 +316,7 @@ class PdfParser:
         
         Described in ``§ 7.5.4 Cross-Reference Streams``."""
         xref_stream = self.parse_indirect_object(
-            InUseXRefEntry(self._tokenizer.position, 0))
+            InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)
 
         contents = BytesIO(xref_stream.decode())
@@ -341,54 +349,45 @@ class PdfParser:
 
         return table, cast(XRefStream, xref_stream.details)
 
-    def parse_indirect_object(self, xref_entry: InUseXRefEntry) -> PdfObject | PdfStream:
+    def parse_indirect_object(self, xref_entry: InUseXRefEntry, 
+                              reference: PdfIndirectRef | None) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object 
-        that is directly referred to by an ``xref_entry``"""
+        that is directly referred to by an ``xref_entry`` and ``ref``"""
         self._tokenizer.position = xref_entry.offset
         self._tokenizer.advance_whitespace()
-        mat = re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", 
-                       self._tokenizer.current_to_eol)
+
+        mat = self._match_object_header()
         if not mat:
             raise PdfParseError("XRef entry does not point to indirect object.")
         self._tokenizer.advance(mat.end())
         self._tokenizer.advance_whitespace()
 
-        tok = self._tokenizer.next_token()
+        contents = self._tokenizer.next_token()
         self._tokenizer.advance_whitespace()
 
-        try:
-            indirect_ref = PdfIndirectRef(
-                *list(self.xref.keys())[list(self.xref.values()).index(xref_entry)]
-            )
-        except ValueError:
-            # The only way I know indirect_ref can be None is if we are parsing a compressed
-            # XRef stream. XRef streams do not appear in the XRef and XRef streams cannot be 
-            # encrypted so we do not need an indirect ref.
-            indirect_ref = None
-
         # uh oh, a stream?
-        if self._tokenizer.current + self._tokenizer.peek(5) == b"stream":   
-            tok = cast("dict[str, Any]", tok)
-            length = tok["Length"]
+        if self._tokenizer.matches(b"stream"):   
+            extent = cast(dict[str, Any], contents)
+            length = extent["Length"]
             if isinstance(length, PdfIndirectRef):
                 _current = self._tokenizer.position
                 length = self.get_object(length)
                 self._tokenizer.position = _current 
+            
             if not isinstance(length, int):
                 raise PdfParseError("\\Length entry of stream extent not an integer")
 
-            stream = PdfStream(tok, self.parse_stream(xref_entry, length))
-            if indirect_ref is None:
-                return stream
-            return self._get_decrypted(stream, indirect_ref)
+            item = PdfStream(extent, self.parse_stream(xref_entry, length))
+        else:
+            item = contents
 
-        return self._get_decrypted(tok, indirect_ref) # type: ignore
+        return self._get_decrypted(item, reference) # type: ignore
 
     _WrapsEncryptable = TypeVar("_WrapsEncryptable", PdfObject, PdfStream)
-    def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfIndirectRef) -> _WrapsEncryptable:        
-        if self.security_handler is None or not self._encryption_key:
+    def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfIndirectRef | None) -> _WrapsEncryptable:        
+        if self.security_handler is None or not self._encryption_key or reference is None:
             return pdf_object
-        
+
         if isinstance(pdf_object, PdfStream):
             use_stmf = True
             # Don't use StmF if the stream handles its own encryption
@@ -453,26 +452,25 @@ class PdfParser:
 
         if self.xref:
             # As a bounds check, we get the offset of the entry directly following the current one.
-            index_after = list(self.xref.values()).index(xref_entry)
-            next_entry_hold = filter(
-                lambda e: isinstance(e, InUseXRefEntry) and e.offset > xref_entry.offset, 
-                list(self.xref.values())[index_after + 1:]
+            next_entry_at = iter(
+                val for idx, val in enumerate(self.xref.values()) if 
+                isinstance(val, InUseXRefEntry) and val.offset > xref_entry.offset
             )
         else:
             # The stream being parsed is (most likely) part of an XRef object
-            next_entry_hold = iter([])
+            next_entry_at = iter([])
 
         # Check if we have consumed the appropriate bytes
         # Have we gone way beyond?
         try:
-            if self._tokenizer.position >= next(next_entry_hold).offset:
+            if self._tokenizer.position >= next(next_entry_at).offset:
                 raise PdfParseError("\\Length key in stream extent parses beyond object.")
         except StopIteration:
             pass
 
         self._tokenizer.advance_whitespace()
         # Have we not reached the end?
-        if not self._tokenizer.advance_if_next(b"endstream"):
+        if not self._tokenizer.advance_if_matches(b"endstream"):
             raise PdfParseError("\\Length key in stream extent does not match end of stream.")
         
         return contents
@@ -498,20 +496,21 @@ class PdfParser:
             The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
         """
         if isinstance(reference, tuple):
-            root_entry = self.xref.get(reference)
-        else:
-            root_entry = self.xref.get((reference.object_number, reference.generation))
-        
+            reference = PdfIndirectRef(*reference)
+
+        root_entry = self.xref.get((reference.object_number, reference.generation))        
         if root_entry is None:
             return PdfNull()
         
         if isinstance(root_entry, InUseXRefEntry):
-            return self.parse_indirect_object(root_entry)
+            return self.parse_indirect_object(root_entry, reference)
         elif isinstance(root_entry, CompressedXRefEntry):
             # Get the object stream it's part of (gen always 0)
-            objstm_entry = self.xref[(root_entry.objstm_number, 0)]
+            objstm_ref = (root_entry.objstm_number, 0)
+            objstm_entry = self.xref[objstm_ref]
             assert isinstance(objstm_entry, InUseXRefEntry)
-            objstm = self.parse_indirect_object(objstm_entry)
+
+            objstm = self.parse_indirect_object(objstm_entry, PdfIndirectRef(*objstm_ref))
             assert isinstance(objstm, PdfStream)
 
             seq = PdfTokenizer(objstm.decode()[objstm.details["First"]:] or b"")
