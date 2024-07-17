@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
+from collections.abc import Callable
 
 from ..objects.base import (PdfHexString, PdfName, PdfNull, PdfComment, 
                             PdfIndirectRef, PdfObject, PdfOperator)
@@ -9,6 +10,9 @@ from ..objects.base import (PdfHexString, PdfName, PdfNull, PdfComment,
 # as defined in § 7.2.3 Character Set, Table 1 & Table 2
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
+EOL_CR = b"\r" 
+EOL_LF = b"\n"
+EOL_CRLF = b"\r\n" 
 
 # as defined in § 7.3.4.2 Literal Strings, Table 3
 STRING_ESCAPE = {
@@ -51,117 +55,126 @@ class PdfTokenizer:
     
     def __next__(self) -> PdfObject | PdfComment | PdfOperator:
         while not self.done:
-            if (tok := self.next_token()) is not None:
+            if (tok := self.get_next_token()) is not None:
                 return tok
-            self.advance()
+            self.skip()
         raise StopIteration
-    
-    @property
-    def current(self) -> bytes:
-        """The character at the current position"""
-        return self.data[self.position:self.position + 1]
 
+    # * Scanning
     @property
     def done(self) -> bool:
         """Whether the parser has reached the end of data"""
         return self.position >= len(self.data)
 
-    def advance(self, n: int = 1) -> None:
-        """Advances ``n`` characters in the tokenizer"""
+    def skip(self, n: int = 1) -> None:
+        """Skips/advances ``n`` characters in the tokenizer"""
         if not self.done:
             self.position += n
 
+    def peek(self, n: int = 1) -> bytes:
+        """Peeks ``n`` characters into ``data`` without advancing through"""
+        return self.data[self.position:self.position + n]
+    
+    def peek_line(self) -> bytes:
+        """Peeks from the current position until a EOL marker is found (not included)"""
+        start_pos = self.position 
+        line = self.consume_while(
+            lambda _: not self.peek(2).startswith((EOL_CRLF, EOL_CR, EOL_LF))
+        )
+        self.position = start_pos
+        return line
+
     def consume(self, n: int = 1) -> bytes:
-        """Consumes ``n`` characters and returns them"""
-        consumed = self.current + self.peek(n - 1)
-        self.advance(len(consumed))
+        """Consumes and returns ``n`` characters"""
+        consumed = self.peek(n)
+        self.skip(len(consumed))
 
         return consumed
 
     def matches(self, keyword: bytes) -> bool:
         """Checks whether ``keyword`` starts at the current position"""
-        return self.current + self.peek(len(keyword) - 1) == keyword
+        return self.peek(len(keyword)) == keyword
+    
+    def _get_reference_if_matched(self) -> re.Match[bytes] | None:
+        """Returns the Regex match if an indirect reference is at the current position 
+        otherwise None"""
+        if not self.peek().isdigit():
+            return
+        
+        return re.match(rb"^(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.peek_line())
 
-    def advance_if_matches(self, keyword: bytes) -> bool:
+    def skip_if_matches(self, keyword: bytes) -> bool:
         """Advances ``len(keyword)`` characters if ``keyword`` starts at the current
         position. Returns whether the match was successful."""
         if self.matches(keyword):
-            self.advance(len(keyword))
+            self.skip(len(keyword))
             return True
         return False
         
-    def advance_whitespace(self) -> None:
+    def skip_whitespace(self) -> None:
         """Advances through PDF whitespace."""
-        while not self.done and self.current in WHITESPACE:
-            self.advance()
+        self.skip_while(lambda ch: ch in WHITESPACE)
 
-    def next_eol(self) -> tuple[int, str]:
-        """Returns a tuple containing the position where the next End-Of-Line 
-        Marker occurs along with the EOL marker itself. If none is found, ``(-1, "")``
-        is returned.
-         
-        The spec defines the EOL marker as either ``\\r`` (except in some cases), 
-        ``\\n`` or ``\\r\\n``.
-        """
-        carriage = self.data.find(b"\r", self.position)
-        newline = self.data.find(b"\n", self.position)
+    def skip_next_eol(self, no_cr: bool = False) -> None:
+        """Skips the next EOL marker if matched. If :param:`no_cr` is True, CR (``\r``) will 
+        not be treated as a newline."""
+        matched = self.skip_if_matches(EOL_CRLF)
+        if no_cr and self.matches(EOL_CR):
+            return
 
-        # If both a carriage and newline were found
-        if carriage != -1 and newline != -1:
-            first = min(carriage, newline)
-            if self.data[first:first + 1] == b"\r" and carriage + 1 == newline:
-                return first, "\r\n"
+        if not matched and self.peek() in EOL_CRLF:
+            self.skip() 
 
-            return first, chr(self.data[first])
-        elif carriage != -1:
-            return carriage, "\r"
-        elif newline != -1:
-            return newline, "\n" 
+    def skip_while(self, callback: Callable[[bytes], bool], *, limit: int = -1) -> int:
+        """Skips while ``callback`` returns True for an input character. If specified,
+        it will only skip ``limit`` characters. Returns how many characters were skipped."""
+        if limit == -1:
+            limit = len(self.data)
+        
+        start = self.position
+        while not self.done and callback(self.peek()) and self.position - start < limit:
+            self.position += 1
+        return self.position - start
 
-        return (-1, "")
+    def consume_while(self, callback: Callable[[bytes], bool], *, limit: int = -1) -> bytes:
+        """Consumes while ``callback`` returns True for an input character. If specified,
+        it will only consume up to ``limit`` characters."""
+        if limit == -1:
+            limit = len(self.data)
+        
+        consumed = b""
+        while not self.done and callback(self.peek()) and len(consumed) < limit:
+            consumed += self.consume()
+        return consumed
 
-    def peek(self, n: int = 1) -> bytes:
-        """Peeks ``n`` bytes into the parser without advancing"""
-        return self.data[self.position + 1:self.position + 1 + n]
-    
-    @property
-    def current_to_eol(self) -> bytes:
-        """A substring starting from the current character and ending at the 
-        next end of line marker (included)"""
-        pos, eol = self.next_eol()
-        line = self.data[self.position:pos + len(eol)]
-        if pos == -1:
-            line = self.data[self.position:]
-        return line
-
-    def next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
+    def get_next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
         """Parses and returns the next token"""
         if self.done:
             return
         
-        if self.advance_if_matches(b"true"):
+        if self.skip_if_matches(b"true"):
             return True
-        elif self.advance_if_matches(b"false"):
+        elif self.skip_if_matches(b"false"):
             return False
-        elif self.advance_if_matches(b"null"):
+        elif self.skip_if_matches(b"null"):
             return PdfNull()
-        elif self.current.isdigit() and (mat := re.match(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.current_to_eol)):
+        elif (mat := self._get_reference_if_matched()):
             return self.parse_indirect_reference(mat)
-        elif self.current.isdigit() or self.current in b"+-":
+        elif self.peek().isdigit() or self.peek() in b"+-":
             return self.parse_numeric()
-        elif self.current == b"[":
+        elif self.matches(b"["):
             return self.parse_array()
-        elif self.current == b"/":
+        elif self.matches(b"/"):
             return self.parse_name()
-        elif self.current + self.peek() == b"<<":
+        elif self.matches(b"<<"):
             return self.parse_dictionary()
-        elif self.current == b"<":
+        elif self.matches(b"<"):
             return self.parse_hex_string()
-        elif self.current == b"(":
+        elif self.matches(b"("):
             return self.parse_literal_string()
-        elif self.current == b"%":
+        elif self.matches(b"%"):
             return self.parse_comment()
-        elif self.parse_operators and self.current.isalpha() or self.current in ("'", "\""):
+        elif self.parse_operators and self.peek().isalpha() or self.peek() in b"'\"":
             return self.parse_operator()
 
     def parse_numeric(self) -> int | float:
@@ -170,16 +183,12 @@ class PdfTokenizer:
         PDF has two types of numbers: integers (40, -30) and real numbers (3.14). The range 
         and precision of these numbers may depend on the machine used to process the PDF.
         """
-        number = self.current # either a digit or a sign prefix
-        self.advance()
+        prefix_or_digit = self.consume() # either a digit or a sign prefix
+        number = prefix_or_digit + self.consume_while(
+            lambda ch: ch.isdigit() or ch == b"."
+        )
 
-        while not self.done:
-            if not self.current.isdigit() and self.current != b".":
-                break
-            number += self.current
-            self.advance()
-
-        # is this a float (a real value)?
+        # is this a float (a real number)?
         if b"." in number:
             return float(number)
         return int(number)
@@ -187,86 +196,76 @@ class PdfTokenizer:
     def parse_name(self) -> PdfName:
         """Parses a name -- a uniquely defined atomic symbol introduced with a slash 
         and ending before a delimiter or whitespace."""
-        self.advance() # past the /
+        self.skip() # past the /
 
         atom = b""        
-        while not self.done and self.current not in DELIMITERS + WHITESPACE:
-            # Escape character logic
-            if self.current == b"#":
-                self.advance()
-                # consume and add the 2 digit code to the atom
+        while not self.done and self.peek() not in DELIMITERS + WHITESPACE:
+            if self.matches(b"#"):
+                # escape sequence matched
+                self.skip()
+
                 atom += chr(int(self.consume(2), 16)).encode()
                 continue
 
-            atom += self.current
-            self.advance()
+            atom += self.consume()
         
         return PdfName(atom)
     
     def parse_hex_string(self) -> PdfHexString:
         """Parses a hexadecimal string. Hexadecimal strings usually include arbitrary binary
         data in a PDF. If the sequence is uneven, the last character is assumed to be 0."""
-        self.advance(1) # adv. past the <
+        self.skip() # adv. past the <
 
-        content = b""
-        while not self.done:
-            if self.current == b">":
-                self.advance()
-                break
-
-            content += self.current
-            self.advance()
+        content = self.consume_while(lambda ch: ch != b">")
+        self.skip() # adv. past the >
 
         return PdfHexString(content)
 
-    def parse_dictionary(self) -> dict[str, Any]:
+    def parse_dictionary(self) -> dict[str, PdfObject]:
         """Parses a dictionary object. In a PDF, dictionary keys are name objects and 
         dictionary values are any object or reference. This parser maps name objects to
         strings in this context."""
-        self.advance(2) # adv. past the <<
+        self.skip(2) # adv. past the <<
 
         kv_pairs: list[PdfObject] = []
 
-        while not self.done:
-            if self.current + self.peek() == b">>":
-                self.advance(2)
-                break
-
-            if (tok := self.next_token()) is not None:
-                kv_pairs.append(tok)
+        while not self.done and not self.matches(b">>"):
+            if (token := self.get_next_token()) is not None:
+                kv_pairs.append(cast(PdfObject, token))
 
             # Only advance when no token matches. The individual object 
             # parsers already advance and this avoids advancing past delimiters.
-            if tok is None:
-                self.advance()
-        
+            if token is None:
+                self.skip()
+
+        self.skip(2) # adv. past the >>
+
         return {
-            kv_pairs[i].value.decode(): kv_pairs[i + 1] # type: ignore
+            cast(PdfName, kv_pairs[i]).value.decode(): kv_pairs[i + 1]
             for i in range(0, len(kv_pairs), 2)
         } 
 
-    def parse_array(self) -> list[Any]:
+    def parse_array(self) -> list[PdfObject]:
         """Parses an array. Arrays are heterogenous in PDF so they are mapped to Python lists."""
-        self.advance() # past the [ 
-        items: list[Any] = []
+        self.skip() # past the [ 
 
-        while not self.done:
-            if (tok := self.next_token()) is not None:
-                items.append(tok)
+        items: list[PdfObject] = []
+
+        while not self.done and not self.matches(b"]"):
+            if (token := self.get_next_token()) is not None:
+                items.append(cast(PdfObject, token))
             
-            if self.current == b"]":
-                self.advance()
-                break
+            if token is None:
+                self.skip()
 
-            if tok is None:
-                self.advance()
+        self.skip() # past the ]
 
         return items
     
     def parse_indirect_reference(self, mat: re.Match[bytes]) -> PdfIndirectRef:
         """Parses an indirect reference. Indirect references allow locating an object in a PDF."""
-        self.advance(mat.end()) # consume the reference
-        self.advance_whitespace()
+        self.skip(mat.end()) # consume the reference
+        self.skip_whitespace()
         
         return PdfIndirectRef(int(mat.group("num")), int(mat.group("gen")))
 
@@ -274,63 +273,57 @@ class PdfTokenizer:
         """Parses a literal string. Literal strings may be entirely ASCII or may include 
         arbitrary binary data (usually when they are encrypted). This parser does not currently
         distinguish between different encodings."""
-        self.advance() # past the (
+        self.skip() # past the (
         
         string = b""
-        # this is used to handle parenthesis pairs which do not require escaping 
+        # balanced parentheses do not require escaping 
         paren_depth = 1
 
         while not self.done and paren_depth >= 1:
-            # escape character logic
-            if self.current == b"\\":
-                escape = STRING_ESCAPE.get(self.current + self.peek())
+            if self.matches(b"\\"):
+                # Is this a default escape? (Table 3 § 7.3.4.2)
+                escape = STRING_ESCAPE.get(self.peek(2))
                 if escape is not None:
                     string += escape
-                    self.advance(2) # past the escape code
+                    self.skip(2) # past the escape code
                     continue
+                
+                # Otherwise, match a newline or a \ddd sequence
+                self.skip(1)
+                
+                matched = self.skip_if_matches(EOL_CRLF)
+                if not matched and self.peek() in EOL_CRLF:
+                    self.skip()
+                elif self.peek().isdigit():
+                    self.skip()
 
-                # The next checks are for escape codes that need additional handling
-                pos, eol = self.next_eol()
-                # Is the next character a newline?
-                if self.position + 1 == pos:
-                    # A single \ indicates that the string is continued
-                    self.advance(1 + len(eol))
-                # Is this an octal character code? (\ddd notation)
-                elif self.peek(1).isdigit():
-                    self.advance() # past the \
-                    code = b""
-                    # The sequence can be at most 3 digits
-                    while not self.done and len(code) < 3 and self.current.isdigit():
-                        code += self.current
-                        self.advance()
-                    # Convert the code from octal into a codepoint and append
-                    string += chr(int(code, 8)).encode()
+                    octal_code = self.consume_while(bytes.isdigit, limit=3)
+                    string += chr(int(octal_code, 8)).encode()
 
-            if self.current == b"(":
+            if self.matches(b"("):
                 paren_depth += 1
-            elif self.current == b")":
+            elif self.matches(b")"):
                 paren_depth -= 1
             
             # This avoids appending the delimiting paren
             if paren_depth != 0:
-                string += self.current
-            self.advance()
+                string += self.peek()
+            self.skip()
 
         return string
 
     def parse_comment(self) -> PdfComment:
         """Parses a PDF comment. Comments have no syntactical meaning."""
-        self.advance() # past the %
-        line = self.current_to_eol
-        self.advance(len(line))
-        return PdfComment(line.strip(b"\r\n"))
+        self.skip() # past the %
+
+        line = self.consume_while(lambda ch: ch not in EOL_CRLF)
+        self.skip_whitespace()
+
+        return PdfComment(line)
     
     def parse_operator(self) -> PdfOperator:
         """Parses a PDF operator. Operators can be found in content streams and are only 
         parsed if :attr:`.parse_operators` is true."""
-        accumulated = b""
-        while not self.done and self.current not in DELIMITERS + WHITESPACE:
-            accumulated += self.current
-            self.advance()
-        
-        return PdfOperator(accumulated)
+
+        operator = self.consume_while(lambda ch: ch not in DELIMITERS + WHITESPACE)
+        return PdfOperator(operator)

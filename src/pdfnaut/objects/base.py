@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from binascii import hexlify, unhexlify
 from dataclasses import dataclass
-from typing import Any, Generic, List, Mapping, TYPE_CHECKING, TypeVar, Union 
+from typing import Generic, List, Mapping, TYPE_CHECKING, TypeVar, Union 
 
 
 class PdfNull:
@@ -71,7 +71,6 @@ class PdfOperator:
 
 PdfObject = Union[
     bool, int, float, bytes, 
-    List[Any], Mapping[str, Any], 
-    PdfHexString, PdfName, 
-    PdfIndirectRef, PdfNull
+    List["PdfObject"], Mapping[str, "PdfObject"], 
+    PdfHexString, PdfName, PdfIndirectRef, PdfNull
 ]

@@ -33,24 +33,24 @@ def test_name_object() -> None:
 def test_literal_string() -> None:
     # Basic string
     lexer = PdfTokenizer(b"(The quick brown fox jumps over the lazy dog.)")
-    assert lexer.next_token() == b"The quick brown fox jumps over the lazy dog."
+    assert lexer.get_next_token() == b"The quick brown fox jumps over the lazy dog."
 
     # String with nested parentheses
     lexer = PdfTokenizer(b"(This is a string with a (few) nested ((parentheses)))")
-    assert lexer.next_token() == b"This is a string with a (few) nested ((parentheses))"
+    assert lexer.get_next_token() == b"This is a string with a (few) nested ((parentheses))"
 
     # String continued in next line
     lexer = PdfTokenizer(b"(This is a string that is \r\n"
-                                b"continued on the next line)")
-    assert lexer.next_token() == b"This is a string that is \r\ncontinued on the next line"
+                         b"continued on the next line)")
+    assert lexer.get_next_token() == b"This is a string that is \r\ncontinued on the next line"
 
     # String ending with a \ at the EOL and followed next line
     lexer = PdfTokenizer(b"(This is a string \\\r\nwith no newlines.)")
-    assert lexer.next_token() == b"This is a string with no newlines."
+    assert lexer.get_next_token() == b"This is a string with no newlines."
 
     # String with escape characters
     lexer = PdfTokenizer(b"(This is a string with a \\t tab character and a \\053 plus.))")
-    assert lexer.next_token() == b"This is a string with a \t tab character and a + plus."
+    assert lexer.get_next_token() == b"This is a string with a \t tab character and a + plus."
 
 
 def test_hex_string() -> None:
@@ -62,7 +62,7 @@ def test_hex_string() -> None:
 
 def test_dictionary() -> None:
     lexer = PdfTokenizer(b"""<< /Type /Catalog /Metadata 2 0 R /Pages 3 0 R >>""")
-    assert lexer.next_token() == { 
+    assert lexer.get_next_token() == { 
         "Type": PdfName(b"Catalog"), 
         "Metadata": PdfIndirectRef(2, 0), 
         "Pages": PdfIndirectRef(3, 0) 
@@ -82,19 +82,19 @@ def test_comment() -> None:
     assert next(lexer) == 25
 
     lexer = PdfTokenizer(b"% This is a comment ending with \\r\r")
-    assert isinstance(com := lexer.next_token(), PdfComment) \
+    assert isinstance(com := lexer.get_next_token(), PdfComment) \
         and com.value == b" This is a comment ending with \\r"
 
 
 def test_array() -> None:
     # Simple array
     lexer = PdfTokenizer(b"[45 <</Size 40>> (42)]") 
-    assert lexer.next_token() == [45, {"Size": 40}, b"42"]
+    assert lexer.get_next_token() == [45, {"Size": 40}, b"42"]
     
     # Nested array
     lexer = PdfTokenizer(b"[/XYZ [45 32 76] /Great]")
-    assert lexer.next_token() == [PdfName(b"XYZ"), [45, 32, 76], PdfName(b"Great")]
+    assert lexer.get_next_token() == [PdfName(b"XYZ"), [45, 32, 76], PdfName(b"Great")]
 
 def test_indirect_reference() -> None:
     lexer = PdfTokenizer(b"2 0 R")
-    assert lexer.next_token() == PdfIndirectRef(2, 0)
+    assert lexer.get_next_token() == PdfIndirectRef(2, 0)

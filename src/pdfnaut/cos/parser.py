@@ -93,10 +93,10 @@ class PdfParser:
         return min(values, key=lambda offset: abs(offset - target))
 
     def _match_object_header(self) -> re.Match[bytes] | None:
-        if not self._tokenizer.current.isdigit():
+        if not self._tokenizer.peek().isdigit():
             return
         
-        return re.match(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.current_to_eol)
+        return re.match(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.peek_line())
     
     def parse(self, start_xref: int | None = None) -> None:
         """Parses the entire document.
@@ -186,7 +186,7 @@ class PdfParser:
         self._tokenizer.position = len(self._tokenizer.data) - 1
 
         while self._tokenizer.position > 0:
-            contents.insert(0, ord(self._tokenizer.current))
+            contents.insert(0, ord(self._tokenizer.peek()))
             if contents.startswith(b"startxref"):
                 break
             self._tokenizer.position -= 1
@@ -195,8 +195,8 @@ class PdfParser:
             raise PdfParseError("Cannot locate XRef table. 'startxref' offset missing.")
         
         # advance to the startxref offset, we know it's there.
-        self._tokenizer.advance(9)
-        self._tokenizer.advance_whitespace()
+        self._tokenizer.skip(9)
+        self._tokenizer.skip_whitespace()
 
         return int(self._tokenizer.parse_numeric()) # startxref
 
@@ -206,9 +206,9 @@ class PdfParser:
         PDFs may include a typical uncompressed XRef table (and hence separate XRefs and
         trailers) or an XRef stream that combines both.
         """
-        if self._tokenizer.current + self._tokenizer.peek(3) == b"xref":
+        if self._tokenizer.matches(b"xref"):
             xref = self.parse_simple_xref()
-            self._tokenizer.advance_whitespace()
+            self._tokenizer.skip_whitespace()
             trailer = self.parse_simple_trailer()
             return xref, trailer
         elif self._match_object_header():
@@ -237,10 +237,10 @@ class PdfParser:
         # looks for indirect objects, then checks if they are xref streams
         for mat in re.finditer(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.data):
             self._tokenizer.position = mat.start()
-            self._tokenizer.advance(mat.end() - mat.start())
-            self._tokenizer.advance_whitespace()
+            self._tokenizer.skip(mat.end() - mat.start())
+            self._tokenizer.skip_whitespace()
             
-            if self._tokenizer.current + self._tokenizer.peek() == b"<<":
+            if self._tokenizer.matches(b"<<"):
                 mapping = self._tokenizer.parse_dictionary()
                 if isinstance(typ := mapping.get("Type"), PdfName) and typ.value == b"XRef":
                     table_offsets.append(mat.start())
@@ -253,8 +253,8 @@ class PdfParser:
         
         The trailer is separate if the XRef table is standard (uncompressed).
         Otherwise it is part of the XRef object."""
-        self._tokenizer.advance(7) # past the 'trailer' keyword
-        self._tokenizer.advance_whitespace()
+        self._tokenizer.skip(7) # past the 'trailer' keyword
+        self._tokenizer.skip_whitespace()
         
         # next token is a dictionary
         trailer = cast(Trailer, self._tokenizer.parse_dictionary()) 
@@ -267,25 +267,25 @@ class PdfParser:
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         should be called instead.
         """
-        self._tokenizer.advance(4)
-        self._tokenizer.advance_whitespace()
+        self._tokenizer.skip(4)
+        self._tokenizer.skip_whitespace()
 
         table = PdfXRefTable([])
 
         while not self._tokenizer.done:
             # subsection
             subsection = re.match(rb"(?P<first_obj>\d+)\s(?P<count>\d+)", 
-                                self._tokenizer.current_to_eol)
+                                  self._tokenizer.peek_line())
             if subsection is None:
                 break
-            self._tokenizer.advance(subsection.end())
-            self._tokenizer.advance_whitespace()
+            self._tokenizer.skip(subsection.end())
+            self._tokenizer.skip_whitespace()
 
             # xref entries
             entries: list[PdfXRefEntry] = []
             for i in range(int(subsection.group("count"))):
                 entry = re.match(rb"(?P<offset>\d{10}) (?P<gen>\d{5}) (?P<status>f|n)", 
-                    self._tokenizer.current + self._tokenizer.peek(19))
+                                 self._tokenizer.peek(20))
                 if entry is None:
                     raise PdfParseError(f"Expected valid XRef entry at row {i + 1}")
                 
@@ -299,8 +299,8 @@ class PdfParser:
 
                 # some files do not respect the 20-byte length req. for entries
                 # hence this is here for tolerance
-                self._tokenizer.advance(entry.end())
-                self._tokenizer.advance_whitespace()
+                self._tokenizer.skip(entry.end())
+                self._tokenizer.skip_whitespace()
             
             table.sections.append(PdfXRefSubsection(
                 int(subsection.group("first_obj")),
@@ -354,16 +354,16 @@ class PdfParser:
         """Parses an indirect object not within an object stream, or basically, an object 
         that is directly referred to by an ``xref_entry`` and ``ref``"""
         self._tokenizer.position = xref_entry.offset
-        self._tokenizer.advance_whitespace()
+        self._tokenizer.skip_whitespace()
 
         mat = self._match_object_header()
         if not mat:
             raise PdfParseError("XRef entry does not point to indirect object.")
-        self._tokenizer.advance(mat.end())
-        self._tokenizer.advance_whitespace()
+        self._tokenizer.skip(mat.end())
+        self._tokenizer.skip_whitespace()
 
-        contents = self._tokenizer.next_token()
-        self._tokenizer.advance_whitespace()
+        contents = self._tokenizer.get_next_token()
+        self._tokenizer.skip_whitespace()
 
         # uh oh, a stream?
         if self._tokenizer.matches(b"stream"):   
@@ -427,31 +427,22 @@ class PdfParser:
             # we do not need to decrypt them
             if reference == self.trailer.get("Encrypt", {}):
                 return pdf_object
-            return {name: self._get_decrypted(value, reference) for name, value in pdf_object.items()}         
+            return {name: self._get_decrypted(value, reference) 
+                    for name, value in pdf_object.items()}         
 
         # Why would a number be encrypted?
         return pdf_object
 
     def parse_stream(self, xref_entry: InUseXRefEntry, extent: int) -> bytes:
         """Parses a PDF stream of length ``extent``"""
-        self._tokenizer.advance(6) # past the 'stream' keyword
-
-        # If the current character is LF or CRLF (but not just CR), skip.
-        pos, eol = self._tokenizer.next_eol()
-        if pos == self._tokenizer.position and eol != "\r":
-            self._tokenizer.advance(len(eol))
-
-        contents = self._tokenizer.data[self._tokenizer.position:
-                                            self._tokenizer.position + extent]
-        self._tokenizer.advance(len(contents))
-
-        # Same check as earlier
-        pos, eol = self._tokenizer.next_eol()
-        if pos == self._tokenizer.position and eol != "\r":
-            self._tokenizer.advance(len(eol))
+        self._tokenizer.skip(6) # past the 'stream' keyword
+        self._tokenizer.skip_next_eol(no_cr=True)
+        
+        contents = self._tokenizer.consume(extent)
+        self._tokenizer.skip_next_eol(no_cr=True)
 
         if self.xref:
-            # As a bounds check, we get the offset of the entry directly following the current one.
+            # We get the offset of the entry directly following this one as a bounds check
             next_entry_at = iter(
                 val for idx, val in enumerate(self.xref.values()) if 
                 isinstance(val, InUseXRefEntry) and val.offset > xref_entry.offset
@@ -460,17 +451,16 @@ class PdfParser:
             # The stream being parsed is (most likely) part of an XRef object
             next_entry_at = iter([])
 
-        # Check if we have consumed the appropriate bytes
-        # Have we gone way beyond?
+        # Have we gone way beyond the stream?
         try:
             if self._tokenizer.position >= next(next_entry_at).offset:
                 raise PdfParseError("\\Length key in stream extent parses beyond object.")
         except StopIteration:
             pass
 
-        self._tokenizer.advance_whitespace()
-        # Have we not reached the end?
-        if not self._tokenizer.advance_if_matches(b"endstream"):
+        self._tokenizer.skip_whitespace()
+        # Are we done?
+        if not self._tokenizer.skip_if_matches(b"endstream"):
             raise PdfParseError("\\Length key in stream extent does not match end of stream.")
         
         return contents
