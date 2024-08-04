@@ -15,6 +15,7 @@ from ..typings.document import Trailer, XRefStream
 from ..typings.encryption import StandardEncrypt
 from .tokenizer import PdfTokenizer
 
+
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
 INDIRECT_OBJ_HEADER_REGEX = re.compile(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj")
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast
+from typing import cast
 from collections.abc import Callable
 
 from ..objects.base import (PdfHexString, PdfName, PdfNull, PdfComment, 
@@ -25,6 +25,31 @@ STRING_ESCAPE = {
     b"\\)":  b")",
     b"\\\\": b"\\"
 }
+
+
+class ContentStreamIterator:
+    """An iterator designed to consume the operators of a content stream.
+    
+    For each instruction in the stream, this iterator will yield a tuple including, in order,
+    the name of the operator and a list of operands.
+    """
+    def __init__(self, contents: bytes) -> None:
+        self.contents = contents
+        self.tokenizer = PdfTokenizer(contents, parse_operators=True)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> tuple[str, list[PdfObject]]:
+        operands = []
+
+        for tok in self.tokenizer:
+            if not isinstance(tok, PdfOperator):
+                operands.append(tok)
+            else:
+                return (tok.value.decode(), operands)
+            
+        raise StopIteration
 
 
 class PdfTokenizer:
@@ -116,7 +141,7 @@ class PdfTokenizer:
         self.skip_while(lambda ch: ch in WHITESPACE)
 
     def skip_next_eol(self, no_cr: bool = False) -> None:
-        """Skips the next EOL marker if matched. If :param:`no_cr` is True, CR (``\r``) will 
+        """Skips the next EOL marker if matched. If ``no_cr`` is True, CR (``\\r``) will 
         not be treated as a newline."""
         matched = self.skip_if_matches(EOL_CRLF)
         if no_cr and self.matches(EOL_CR):
