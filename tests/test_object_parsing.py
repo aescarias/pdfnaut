@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import cast
 
 from pdfnaut.cos import PdfTokenizer
-from pdfnaut.objects import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
+from pdfnaut.cos.objects import PdfName, PdfIndirectRef, PdfHexString, PdfNull, PdfComment
 
 
 def test_null_and_boolean() -> None:
@@ -94,6 +94,7 @@ def test_array() -> None:
     # Nested array
     lexer = PdfTokenizer(b"[/XYZ [45 32 76] /Great]")
     assert lexer.get_next_token() == [PdfName(b"XYZ"), [45, 32, 76], PdfName(b"Great")]
+
 
 def test_indirect_reference() -> None:
     lexer = PdfTokenizer(b"2 0 R")

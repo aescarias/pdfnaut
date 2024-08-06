@@ -5,9 +5,9 @@ from base64 import a85decode, a85encode, b16decode, b16encode
 from math import ceil, floor
 from typing import Any, Mapping, Protocol
 
+from .cos.objects import PdfName
 from .cos.tokenizer import WHITESPACE
 from .exceptions import PdfFilterError
-from .objects.base import PdfName
 from .typings.filters import CryptFilterParams, LZWFlateParams
 
 

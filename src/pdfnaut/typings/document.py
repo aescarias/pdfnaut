@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypedDict, Literal, Any
 
-from pdfnaut.objects import PdfName, PdfHexString, PdfIndirectRef, PdfStream
-from pdfnaut.typings.encryption import Encrypt
+from ..cos.objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
+from .encryption import Encrypt
 
 if TYPE_CHECKING:
     from typing_extensions import Required

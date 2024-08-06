@@ -4,10 +4,10 @@
 
 from __future__ import annotations
 
-from pdfnaut.objects import (PdfName, PdfIndirectRef, PdfHexString, PdfNull,
-                             PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry)
-from pdfnaut.cos.serializer import serialize, PdfSerializer
 from pdfnaut.cos import PdfParser
+from pdfnaut.cos.objects import (PdfName, PdfIndirectRef, PdfHexString, PdfNull,
+                                 PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry)
+from pdfnaut.cos.serializer import serialize, PdfSerializer
 
 
 def test_comment() -> None:

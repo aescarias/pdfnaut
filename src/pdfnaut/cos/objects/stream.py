@@ -4,13 +4,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .base import PdfName, PdfNull
-from ..filters import SUPPORTED_FILTERS
-from ..exceptions import PdfFilterError
+from ...filters import SUPPORTED_FILTERS
+from ...exceptions import PdfFilterError
 
 
 @dataclass
 class PdfStream:
-    """A stream object in a PDF"""
+    """A sequence of bytes that may be of unlimited length. Objects with a large 
+    amount of data like images or fonts are usually represented by streams 
+    (``§ 7.3.8 Stream objects``)."""
     # we don't yet use a type here given details can have a lot of other things
     details: dict[str, Any]
     raw: bytes = field(repr=False)
@@ -49,3 +51,4 @@ class PdfStream:
             output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
 
         return output
+

@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from binascii import hexlify, unhexlify
 from dataclasses import dataclass
-from typing import Generic, List, Mapping, TYPE_CHECKING, TypeVar, Union 
+from typing import Generic, List, Mapping, TYPE_CHECKING, TypeVar, Union
 
 
 class PdfNull:
-    """A PDF null object (``§ 7.3.9 Null Object``)."""
+    """A PDF object representing nothing (``§ 7.3.9 Null Object``)."""
     pass
 
 
 @dataclass
 class PdfComment:
-    """A PDF comment (``§ 7.2.3 Comments``). Comments have no syntactical meaning and shall 
-    be interpreted as whitespace."""
+    """A comment introduced by the presence of the percent sign (``%``) outside a string or 
+    inside a string. Comments have no syntactical meaning and shall be interpreted as 
+    whitespace (``§ 7.2.4 Comments``)."""
     value: bytes
 
 
@@ -27,7 +28,8 @@ else:
 
 @dataclass
 class PdfName(Generic[T]):
-    """A PDF name object (``§ 7.3.5 Name Objects``)."""
+    """An atomic symbol uniquely defined by a sequence of 8-bit characters 
+    (``§ 7.3.5 Name Objects``)."""
     value: T
 
 
@@ -58,14 +60,14 @@ class PdfHexString:
 T = TypeVar("T")
 @dataclass
 class PdfIndirectRef(Generic[T]):
-    """A reference to a PDF indirect object."""
+    """A reference to a PDF indirect object (``§ 7.3.10 Indirect objects``)."""
     object_number: int
     generation: int
 
 
 @dataclass
 class PdfOperator:
-    """A PDF operator within a content stream."""
+    """A PDF operator within a content stream (``§ 7.8.2 Content streams``)."""
     value: bytes
 
 

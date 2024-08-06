@@ -2,7 +2,7 @@
 import pytest
 
 from pdfnaut.cos import PdfParser
-from pdfnaut.objects import PdfStream, PdfIndirectRef
+from pdfnaut.cos.objects import PdfStream
 from pdfnaut.exceptions import PdfParseError
 
 

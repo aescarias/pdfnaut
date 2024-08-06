@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import re
-from typing import cast
 from collections.abc import Callable
+from typing import cast
+import re
 
-from ..objects.base import (PdfHexString, PdfName, PdfNull, PdfComment, 
-                            PdfIndirectRef, PdfObject, PdfOperator)
+from ..cos.objects import (PdfHexString, PdfName, PdfNull, PdfComment, PdfIndirectRef, 
+                           PdfObject, PdfOperator)
 
 # as defined in § 7.2.3 Character Set, Table 1 & Table 2
 DELIMITERS = b"()<>[]{}/%"

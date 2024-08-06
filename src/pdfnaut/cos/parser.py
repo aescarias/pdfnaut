@@ -6,14 +6,14 @@ from io import BytesIO
 from typing import Any, TypeVar, cast, overload
 
 from ..exceptions import PdfParseError
-from ..objects.base import PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfObject
-from ..objects.stream import PdfStream
-from ..objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
-                            PdfXRefEntry, PdfXRefSubsection, PdfXRefTable)
+from ..cos.objects.base import PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfObject
+from ..cos.objects.stream import PdfStream
+from ..cos.objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
+                                PdfXRefEntry, PdfXRefSubsection, PdfXRefTable)
 from ..security.standard_handler import StandardSecurityHandler
+from .tokenizer import PdfTokenizer
 from ..typings.document import Trailer, XRefStream
 from ..typings.encryption import StandardEncrypt
-from .tokenizer import PdfTokenizer
 
 
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")

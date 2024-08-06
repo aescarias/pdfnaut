@@ -3,7 +3,7 @@ from __future__ import annotations
 from hashlib import md5
 from typing import Literal, Union
 
-from ..objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
+from ..cos.objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
 from ..typings.encryption import EncrCryptFilter, StandardEncrypt
 from .providers import CRYPT_PROVIDERS, CryptProvider
 

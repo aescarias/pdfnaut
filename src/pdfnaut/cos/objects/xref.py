@@ -6,7 +6,8 @@ from typing import Union
 
 @dataclass
 class PdfXRefTable:
-    """A cross-reference table which permits random access to objects across a PDF.
+    """A cross-reference table which permits random access to objects across a PDF
+    (``§ 7.5.4 Cross-reference table``).
     
     It is conformed of subsections indicating where objects are located. A PDF file
     starts with one section (table) containing one subsection (or two if linearized). 
@@ -26,14 +27,14 @@ class PdfXRefSubsection:
 
 @dataclass
 class FreeXRefEntry:
-    """A Type 0 (f) entry. These entries are members of the linked list of free objects."""
+    """A Type 0 (``f``) entry. These entries are members of the linked list of free objects."""
     next_free_object: int
     gen_if_used_again: int
 
 
 @dataclass
 class InUseXRefEntry:
-    """A Type 1 (n) entry. These entries point to indirect objects currently in use."""
+    """A Type 1 (``n``) entry. These entries point to indirect objects currently in use."""
     offset: int
     generation: int
 
@@ -41,7 +42,7 @@ class InUseXRefEntry:
 @dataclass
 class CompressedXRefEntry:
     """A Type 2 entry. These entries point to objects that are within an object stream 
-    which is assumed "compressed" although it may not be."""
+    which is assumed to be "compressed" although it may not be."""
     objstm_number: int
     index_within: int
 

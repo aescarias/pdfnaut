@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypedDict, Literal, TYPE_CHECKING
 
-from pdfnaut.objects import PdfName, PdfHexString
+from ..cos.objects import PdfName, PdfHexString
 
 if TYPE_CHECKING:
     from typing_extensions import Required

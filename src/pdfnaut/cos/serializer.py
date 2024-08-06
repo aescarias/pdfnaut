@@ -4,11 +4,11 @@ from collections import defaultdict
 from typing import Any, Literal, Mapping
 
 from ..exceptions import PdfWriteError
-from ..objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
-                           PdfHexString)
-from ..objects.stream import PdfStream
-from ..objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry, 
-                            PdfXRefSubsection, PdfXRefTable)
+from ..cos.objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
+                                PdfHexString)
+from ..cos.objects.stream import PdfStream
+from ..cos.objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry, 
+                                PdfXRefSubsection, PdfXRefTable)
 from ..typings.document import Trailer
 from .tokenizer import STRING_ESCAPE
 

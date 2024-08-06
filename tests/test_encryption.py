@@ -51,6 +51,7 @@ def test_rc4_aes_decryption():
         metadata = cast("dict[str, Any]", parser.get_object(parser.trailer["Info"]))
         assert metadata["Producer"].value == b"pypdf"
 
+
 def test_rc4_aes_password_values():
     with open("tests/docs/encrypted-arc4.pdf", "rb") as fp:
         parser = PdfParser(fp.read())

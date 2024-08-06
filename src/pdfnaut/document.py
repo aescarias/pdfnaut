@@ -3,9 +3,7 @@ from __future__ import annotations
 from typing import Any, Generator, TypeVar, cast, overload
 
 from .cos.parser import PdfParser, PermsAcquired
-from .objects.base import PdfIndirectRef, PdfObject
-from .objects.stream import PdfStream
-from .objects.xref import PdfXRefEntry
+from .cos.objects import PdfIndirectRef, PdfObject, PdfStream, PdfXRefEntry
 from .typings.document import Catalog, Info, Outlines, Page, PageTree, Trailer, XRefStream
 
 
