@@ -69,11 +69,10 @@ def test_dictionary() -> None:
     }
 
 
-def test_comment() -> None:
-    # This also counts as an EOL test
+def test_comment_and_eol() -> None:
     lexer = PdfTokenizer(b"% This is a comment\r\n"
-                                b"12 % This is another comment\r"
-                                b"25\n")
+                         b"12 % This is another comment\r"
+                         b"25\n")
     assert isinstance(com := next(lexer), PdfComment) \
         and com.value == b" This is a comment"
     assert next(lexer) == 12

@@ -42,8 +42,8 @@ Let's take, for example, the ``sample.pdf`` file available in our `test suite <h
 
     >>> root = pdf.get_object(pdf.trailer["Root"])
     >>> root
-    {'Outlines': PdfIndirectRef(object_number=2, generation=0),
-     'Pages': PdfIndirectRef(object_number=3, generation=0),
+    {'Outlines': PdfReference(object_number=2, generation=0),
+     'Pages': PdfReference(object_number=3, generation=0),
      'Type': PdfName(value=b'Catalog')}
 
 Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what we commonly refer to as bookmarks. ``Pages`` stores the page tree, which is what we are interested in:
@@ -53,8 +53,8 @@ Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what w
     >>> page_tree = pdf.get_object(root["Pages"]) 
     >>> page_tree
     {'Count': 2,
-     'Kids': [PdfIndirectRef(object_number=4, generation=0),
-              PdfIndirectRef(object_number=6, generation=0)],
+     'Kids': [PdfReference(object_number=4, generation=0),
+              PdfReference(object_number=6, generation=0)],
      'Type': PdfName(value=b'Pages')}
 
 The page tree is seen above. Given that this document only includes 2 pages, they are specified as "kids" in the root node. For larger documents, it is not uncommon to divide the pages into multiple nodes for performance reasons. Next, we can extract the first page of the document:
@@ -63,12 +63,12 @@ The page tree is seen above. Given that this document only includes 2 pages, the
 
     >>> first_page = pdf.get_object(page_tree["Kids"][0])
     >>> first_page
-    {'Contents': PdfIndirectRef(object_number=5, generation=0),
+    {'Contents': PdfReference(object_number=5, generation=0),
      'MediaBox': [0, 0, 612.0, 792.0],
-     'Parent': PdfIndirectRef(object_number=3, generation=0),
+     'Parent': PdfReference(object_number=3, generation=0),
      'Resources': {
-        'Font': {'F1': PdfIndirectRef(object_number=9, generation=0)},
-        'ProcSet': PdfIndirectRef(object_number=8, generation=0)
+        'Font': {'F1': PdfReference(object_number=9, generation=0)},
+        'ProcSet': PdfReference(object_number=8, generation=0)
      },
      'Type': PdfName(value=b'Page')
     }

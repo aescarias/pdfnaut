@@ -22,7 +22,7 @@ Next, we define the objects in the PDF. The first object (1, 0) will include our
 
     builder.objects[(1, 0)] = {
         "Type": PdfName(b"Catalog"),
-        "Pages": PdfIndirectRef(2, 0)
+        "Pages": PdfReference(2, 0)
     }
 
 Object (2, 0) will include our page tree. To keep things simple, our document will only have one page and will not use compression.
@@ -31,24 +31,24 @@ Object (2, 0) will include our page tree. To keep things simple, our document wi
 
     builder.objects[(2, 0)] = {
         "Type": PdfName(b"Pages"),
-        "Kids": [PdfIndirectRef(3, 0)],
+        "Kids": [PdfReference(3, 0)],
         "Count": 1
     }
 
-Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch or a "point"). We also specify where the Contents of this page are and the font used.
+Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the font used.
 
 .. code-block:: python
 
     builder.objects[(3, 0)] = {
         "Type": PdfName(b"Page"),
-        "Parent": PdfIndirectRef(2, 0),
+        "Parent": PdfReference(2, 0),
         "MediaBox": [0, 0, 500, 500],
         "Resources": { 
             "Font": { 
-                "F13": PdfIndirectRef(4, 0) 
+                "F13": PdfReference(4, 0) 
             } 
         },
-        "Contents": PdfIndirectRef(5, 0)
+        "Contents": PdfReference(5, 0)
     }
 
 Object (4, 0) is the font specified in Resources. Again, for simplicity, we will specify Helvetica -- one of a few standard fonts that a PDF renderer should support by default.
@@ -113,7 +113,7 @@ We then write the trailer and the startxref offset using :meth:`~pdfnaut.seriali
 
     builder.write_trailer({ 
         "Size": xref_table.sections[0].count, 
-        "Root": PdfIndirectRef(1, 0)
+        "Root": PdfReference(1, 0)
     }, startxref)
 
     builder.write_eof()

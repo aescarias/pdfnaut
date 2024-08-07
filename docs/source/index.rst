@@ -86,11 +86,11 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    PDF Parser <reference/cos/parser>
    PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>
+   Objects <reference/cos/objects>
+   Filters <reference/filters>
+   Exceptions <reference/exceptions>
    Standard Security Handler <reference/standard_handler>
    Typings <reference/typings>
-   Objects <reference/objects>
-   Exceptions <reference/exceptions>
-   Filters <reference/filters>
 
 .. toctree::
    :maxdepth: 2
