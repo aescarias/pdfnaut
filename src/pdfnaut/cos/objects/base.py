@@ -59,7 +59,7 @@ class PdfHexString:
 
 T = TypeVar("T")
 @dataclass
-class PdfIndirectRef(Generic[T]):
+class PdfReference(Generic[T]):
     """A reference to a PDF indirect object (``§ 7.3.10 Indirect objects``)."""
     object_number: int
     generation: int
@@ -74,5 +74,5 @@ class PdfOperator:
 PdfObject = Union[
     bool, int, float, bytes, 
     List["PdfObject"], Mapping[str, "PdfObject"], 
-    PdfHexString, PdfName, PdfIndirectRef, PdfNull
+    PdfHexString, PdfName, PdfReference, PdfNull
 ]

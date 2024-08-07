@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import cast
 import re
 
-from ..cos.objects import (PdfHexString, PdfName, PdfNull, PdfComment, PdfIndirectRef, 
+from ..cos.objects import (PdfHexString, PdfName, PdfNull, PdfComment, PdfReference, 
                            PdfObject, PdfOperator)
 
 # as defined in § 7.2.3 Character Set, Table 1 & Table 2
@@ -287,12 +287,12 @@ class PdfTokenizer:
 
         return items
     
-    def parse_indirect_reference(self, mat: re.Match[bytes]) -> PdfIndirectRef:
+    def parse_indirect_reference(self, mat: re.Match[bytes]) -> PdfReference:
         """Parses an indirect reference. Indirect references allow locating an object in a PDF."""
         self.skip(mat.end()) # consume the reference
         self.skip_whitespace()
         
-        return PdfIndirectRef(int(mat.group("num")), int(mat.group("gen")))
+        return PdfReference(int(mat.group("num")), int(mat.group("gen")))
 
     def parse_literal_string(self) -> bytes:
         """Parses a literal string. Literal strings may be entirely ASCII or may include 

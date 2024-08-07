@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Generator, TypeVar, cast, overload
 
 from .cos.parser import PdfParser, PermsAcquired
-from .cos.objects import PdfIndirectRef, PdfObject, PdfStream, PdfXRefEntry
+from .cos.objects import PdfReference, PdfObject, PdfStream, PdfXRefEntry
 from .typings.document import Catalog, Info, Outlines, Page, PageTree, Trailer, XRefStream
 
 
@@ -36,14 +36,14 @@ class PdfDocument:
 
     T = TypeVar("T")
     @overload
-    def get_object(self, reference: PdfIndirectRef[T]) -> T:
+    def get_object(self, reference: PdfReference[T]) -> T:
         ...
     
     @overload
     def get_object(self, reference: tuple[int, int]) -> PdfObject | PdfStream:
         ...
     
-    def get_object(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | Any:
+    def get_object(self, reference: PdfReference | tuple[int, int]) -> PdfObject | PdfStream | Any:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:

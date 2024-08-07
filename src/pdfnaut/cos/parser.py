@@ -6,7 +6,7 @@ from io import BytesIO
 from typing import Any, TypeVar, cast, overload
 
 from ..exceptions import PdfParseError
-from ..cos.objects.base import PdfHexString, PdfIndirectRef, PdfName, PdfNull, PdfObject
+from ..cos.objects.base import PdfHexString, PdfReference, PdfName, PdfNull, PdfObject
 from ..cos.objects.stream import PdfStream
 from ..cos.objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
                                 PdfXRefEntry, PdfXRefSubsection, PdfXRefTable)
@@ -55,7 +55,7 @@ class PdfParser:
         tuples: first, the XRef table; second, the trailer. (most recent/last update first)"""
 
         # placeholder to make the type checker happy
-        self.trailer: Trailer | XRefStream = { "Size": 0, "Root": PdfIndirectRef(0, 0) }
+        self.trailer: Trailer | XRefStream = { "Size": 0, "Root": PdfReference(0, 0) }
         """The most recent trailer in the PDF document.
         
         For details on the contents of the trailer, see ``§ 7.5.5 File Trailer`` in the PDF spec.
@@ -87,8 +87,8 @@ class PdfParser:
         self._encryption_key = None
 
     T = TypeVar("T")
-    def _ensure_object(self, obj: PdfIndirectRef[T] | T) -> T:
-        return self.get_object(obj) if isinstance(obj, PdfIndirectRef) else obj
+    def _ensure_object(self, obj: PdfReference[T] | T) -> T:
+        return self.get_object(obj) if isinstance(obj, PdfReference) else obj
 
     def _get_closest(self, values: list[int], target: int) -> int:
         return min(values, key=lambda offset: abs(offset - target))
@@ -351,7 +351,7 @@ class PdfParser:
         return table, cast(XRefStream, xref_stream.details)
 
     def parse_indirect_object(self, xref_entry: InUseXRefEntry, 
-                              reference: PdfIndirectRef | None) -> PdfObject | PdfStream:
+                              reference: PdfReference | None) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object 
         that is directly referred to by an ``xref_entry`` and ``ref``"""
         self._tokenizer.position = xref_entry.offset
@@ -370,7 +370,7 @@ class PdfParser:
         if self._tokenizer.matches(b"stream"):   
             extent = cast(dict[str, Any], contents)
             length = extent["Length"]
-            if isinstance(length, PdfIndirectRef):
+            if isinstance(length, PdfReference):
                 _current = self._tokenizer.position
                 length = self.get_object(length)
                 self._tokenizer.position = _current 
@@ -385,7 +385,7 @@ class PdfParser:
         return self._get_decrypted(item, reference) # type: ignore
 
     _WrapsEncryptable = TypeVar("_WrapsEncryptable", PdfObject, PdfStream)
-    def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfIndirectRef | None) -> _WrapsEncryptable:        
+    def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfReference | None) -> _WrapsEncryptable:        
         if self.security_handler is None or not self._encryption_key or reference is None:
             return pdf_object
 
@@ -468,14 +468,14 @@ class PdfParser:
 
     T = TypeVar("T")
     @overload
-    def get_object(self, reference: PdfIndirectRef[T]) -> T:
+    def get_object(self, reference: PdfReference[T]) -> T:
         ...
     
     @overload
     def get_object(self, reference: tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
         ...
     
-    def get_object(self, reference: PdfIndirectRef | tuple[int, int]) -> PdfObject | PdfStream | PdfNull | Any:
+    def get_object(self, reference: PdfReference | tuple[int, int]) -> PdfObject | PdfStream | PdfNull | Any:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
@@ -487,7 +487,7 @@ class PdfParser:
             The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
         """
         if isinstance(reference, tuple):
-            reference = PdfIndirectRef(*reference)
+            reference = PdfReference(*reference)
 
         root_entry = self.xref.get((reference.object_number, reference.generation))        
         if root_entry is None:
@@ -501,7 +501,7 @@ class PdfParser:
             objstm_entry = self.xref[objstm_ref]
             assert isinstance(objstm_entry, InUseXRefEntry)
 
-            objstm = self.parse_indirect_object(objstm_entry, PdfIndirectRef(*objstm_ref))
+            objstm = self.parse_indirect_object(objstm_entry, PdfReference(*objstm_ref))
             assert isinstance(objstm, PdfStream)
 
             seq = PdfTokenizer(objstm.decode()[objstm.details["First"]:] or b"")

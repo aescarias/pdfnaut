@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypedDict
 
-from ..cos.objects.base import PdfIndirectRef, PdfName
+from ..cos.objects.base import PdfReference, PdfName
 
 if TYPE_CHECKING:
     from typing_extensions import Required
@@ -30,6 +30,6 @@ class CryptFilterParams(TypedDict, total=False):
     """The crypt filter to use when decrypting this stream."""
     # These are internal parameters received by pdfnaut
     _Handler: Required[StandardSecurityHandler]
-    _IndirectRef: Required[PdfIndirectRef]
+    _IndirectRef: Required[PdfReference]
     _EncryptionKey: Required[bytes]
 

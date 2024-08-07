@@ -3,7 +3,7 @@ from __future__ import annotations
 from hashlib import md5
 from typing import Literal, Union
 
-from ..cos.objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
+from ..cos.objects import PdfHexString, PdfReference, PdfName, PdfStream
 from ..typings.encryption import EncrCryptFilter, StandardEncrypt
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
@@ -198,7 +198,7 @@ class StandardSecurityHandler:
 
     _Encryptable = Union[PdfStream, PdfHexString, bytes]
     def compute_object_crypt(self, encryption_key: bytes, contents: _Encryptable, 
-                             reference: PdfIndirectRef, *, 
+                             reference: PdfReference, *, 
                              crypt_filter: EncrCryptFilter | None = None) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to 
         Algorithm 1 in ``§ 7.6.3 General Encryption Algorithm``
@@ -247,7 +247,7 @@ class StandardSecurityHandler:
         return (method, crypt_key, data)
 
     def encrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
-                       reference: PdfIndirectRef, *, 
+                       reference: PdfReference, *, 
                        crypt_filter: EncrCryptFilter | None = None) -> bytes:
         """Encrypts the specified ``contents`` according to Algorithm 1 in 
         ``§ 7.6.3 General Encryption Algorithm``.
@@ -261,7 +261,7 @@ class StandardSecurityHandler:
         return self._get_provider(crypt_method)(key).encrypt(decrypted)
 
     def decrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
-                       reference: PdfIndirectRef, *, 
+                       reference: PdfReference, *, 
                        crypt_filter: EncrCryptFilter | None = None) -> bytes:
         """Decrypts the specified ``contents`` according to Algorithm 1 in 
         ``§ 7.6.3 General Encryption Algorithm``.

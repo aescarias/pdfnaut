@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import Any, Literal, Mapping
 
 from ..exceptions import PdfWriteError
-from ..cos.objects.base import (PdfComment, PdfIndirectRef, PdfObject, PdfNull, PdfName,
+from ..cos.objects.base import (PdfComment, PdfReference, PdfObject, PdfNull, PdfName,
                                 PdfHexString)
 from ..cos.objects.stream import PdfStream
 from ..cos.objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry, 
@@ -76,7 +76,7 @@ def serialize_hex_string(string: PdfHexString) -> bytes:
     return b"<" + string.raw + b">"
 
 
-def serialize_indirect_ref(reference: PdfIndirectRef) -> bytes:
+def serialize_indirect_ref(reference: PdfReference) -> bytes:
     return f"{reference.object_number} {reference.generation} R".encode()
 
 
@@ -124,7 +124,7 @@ def serialize(object_: PdfObject | PdfStream | PdfComment, *,
         return serialize_null(object_)
     elif isinstance(object_, PdfHexString):
         return serialize_hex_string(object_)
-    elif isinstance(object_, PdfIndirectRef):
+    elif isinstance(object_, PdfReference):
         return serialize_indirect_ref(object_)
     elif isinstance(object_, (int, float)):
         return serialize_numeric(object_)
@@ -169,7 +169,7 @@ class PdfSerializer:
             marker = PdfComment(b"\xee\xe1\xf5\xf4")
             self.content += serialize_comment(marker) + self.eol
 
-    def write_object(self, reference: PdfIndirectRef | tuple[int, int],
+    def write_object(self, reference: PdfReference | tuple[int, int],
                      contents: PdfObject | PdfStream) -> int:
         """Appends an indirect object to the document.
 
@@ -184,7 +184,7 @@ class PdfSerializer:
             The offset where the indirect object starts.
         """
         if isinstance(reference, tuple):
-            reference = PdfIndirectRef(*reference)
+            reference = PdfReference(*reference)
 
         offset = len(self.content)
         self.content += (

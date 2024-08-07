@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypedDict, Literal, Any
 
-from ..cos.objects import PdfHexString, PdfIndirectRef, PdfName, PdfStream
+from ..cos.objects import PdfHexString, PdfReference, PdfName, PdfStream
 from .encryption import Encrypt
 
 if TYPE_CHECKING:
@@ -31,11 +31,11 @@ class Trailer(TypedDict, total=False):
     """The total number of entries in the combined cross-reference table."""
     Prev: int
     """The previous trailer if present."""
-    Root: Required[PdfIndirectRef[Catalog]]
+    Root: Required[PdfReference[Catalog]]
     """A reference to the document's catalog."""
-    Encrypt: Encrypt | PdfIndirectRef[Encrypt]
+    Encrypt: Encrypt | PdfReference[Encrypt]
     """The document's encryption dictionary."""
-    Info: PdfIndirectRef[Info]
+    Info: PdfReference[Info]
     """The document-level information dictionary."""
     ID: list[PdfHexString | bytes]
     """A list of two bytestrings constituting a file identifier. The first bytestring is 
@@ -72,7 +72,7 @@ class Catalog(TypedDict, total=False):
     use the file header instead."""
     Extensions: dict[str, Any] # noimpl
     """The extensions dictionary. (``§ 7.12 Extensions Dictionary``)"""
-    Pages: Required[PdfIndirectRef[PageTree]]
+    Pages: Required[PdfReference[PageTree]]
     """The root of the pages tree. (``§ 7.7.3 Page Tree``)"""
     PageLabels: dict[str, Any] # number tree, noimpl
     """A number tree specifying how the pages are labelled."""
@@ -86,7 +86,7 @@ class Catalog(TypedDict, total=False):
     """The page layout to use when the document is opened."""
     PageMode: PdfName[PageMode]
     """The page mode -- how should the document be displayed when opened."""
-    Outlines: PdfIndirectRef[Outlines]
+    Outlines: PdfReference[Outlines]
     """The document's outline dictionary. (aka. bookmarks)"""
     Threads: list[dict[str, Any]] # noimpl
     """The document's article threads."""
@@ -98,7 +98,7 @@ class Catalog(TypedDict, total=False):
     """URI Actions affecting the document as a whole."""
     AcroForm: dict[str, Any] # noimpl
     """The document's interactive form dictionary."""
-    Metadata: PdfIndirectRef[PdfStream]
+    Metadata: PdfReference[PdfStream]
     """The document-level metadata stream."""
     StructTreeRoot: dict[str, Any] # noimpl
     """The document's structure tree root dictionary."""
@@ -153,9 +153,9 @@ class Info(TypedDict, total=False):
 class PageTree(TypedDict, total=False):
     Type: Required[PdfName[Literal[b"Pages"]]]
     """Shall be 'Pages'."""
-    Parent: PdfIndirectRef[PageTree]
+    Parent: PdfReference[PageTree]
     """The page tree node that is the immediate parent of this node."""
-    Kids: Required[list[PdfIndirectRef[PageTree | Page]]]
+    Kids: Required[list[PdfReference[PageTree | Page]]]
     """The immediate children of this node."""
     Count: Required[int]
     """The number of page objects that are descendants of this node."""
@@ -164,7 +164,7 @@ class PageTree(TypedDict, total=False):
 class Page(TypedDict, total=False):
     Type: Required[PdfName[Literal[b"Page"]]]
     """Shall be 'Page'."""
-    Parent: Required[PdfIndirectRef[PageTree]]
+    Parent: Required[PdfReference[PageTree]]
     """The page tree node that is the immediate parent of this node."""
     LastModified: bytes 
     """The date and time this page was most recently modified."""
@@ -184,31 +184,31 @@ class Page(TypedDict, total=False):
     BoxColorInfo: dict[str, Any] # noimpl
     """The colors and visual characteristics to be used when displaying guidelines 
     on the screen for the boundaries."""
-    Contents: PdfIndirectRef[PdfStream] | list[PdfIndirectRef[PdfStream]]
+    Contents: PdfReference[PdfStream] | list[PdfReference[PdfStream]]
     """A content stream describing the contents of the page."""
     Rotate: int
     """The number of degrees by which the page shall be rotated clockwise."""
     Group: dict[str, Any] # noimpl
     """The attributes of the page's page group for use in the transparent imaging model."""
-    Thumb: PdfIndirectRef[PdfStream]
+    Thumb: PdfReference[PdfStream]
     """The page's thumbnail image."""
-    B: list[PdfIndirectRef[Any]]
+    B: list[PdfReference[Any]]
     """A list of indirect references to article beads."""
     Dur: int
     """The page's display duration until advancing to the next page when being presented."""
     Trans: dict[str, Any]
     """Transition effects to apply to the page when being presented."""
-    Annots: list[dict[str, Any] | PdfIndirectRef[dict[str, Any]]]
+    Annots: list[dict[str, Any] | PdfReference[dict[str, Any]]]
     """Annotation dictionaries for the document."""
     AA: dict[str, Any]
     """Additional Actions or trigger events defined for this page."""
-    Metadata: PdfIndirectRef[PdfStream]
+    Metadata: PdfReference[PdfStream]
     """The metadata stream for this page."""
     PieceInfo: dict[str, Any]
     """A page piece dictionary for this page."""
     StructParents: int
     """The integer key of the page's entry in the structural parent tree."""
-    ID: PdfIndirectRef[bytes | PdfHexString] | bytes | PdfHexString
+    ID: PdfReference[bytes | PdfHexString] | bytes | PdfHexString
     """The digital identifier of the page's parent Web Capture content set."""
     PZ: int
     """The page's Preferred Zoom magnification factor."""
@@ -231,9 +231,9 @@ class Page(TypedDict, total=False):
 class Outlines(TypedDict, total=False):
     Type: PdfName[Literal[b"Outlines"]]
     """Shall be 'Outlines'."""
-    First: PdfIndirectRef[OutlineItem]
+    First: PdfReference[OutlineItem]
     """The first top-level item in the outline."""
-    Last: PdfIndirectRef[OutlineItem]
+    Last: PdfReference[OutlineItem]
     """The last top-level item in the outline."""
     Count: int
     """The total number of visible outline items at all levels of the outline."""
@@ -242,15 +242,15 @@ class Outlines(TypedDict, total=False):
 class OutlineItem(TypedDict, total=False):
     Title: Required[bytes]
     """The text that shall be displayed for this outline."""
-    Parent: Required[PdfIndirectRef[OutlineItem | Outlines]]
+    Parent: Required[PdfReference[OutlineItem | Outlines]]
     """The parent of this item in the outline hierarchy."""
-    Prev: PdfIndirectRef[OutlineItem]
+    Prev: PdfReference[OutlineItem]
     """The previous item at this outline level"""
-    Next: PdfIndirectRef[OutlineItem]
+    Next: PdfReference[OutlineItem]
     """The next item at this outline level."""
-    First: PdfIndirectRef[OutlineItem]
+    First: PdfReference[OutlineItem]
     """The first of this item's immediate children in the outline hierarchy."""
-    Last: PdfIndirectRef[OutlineItem]
+    Last: PdfReference[OutlineItem]
     """The last of this item's immediate children in the outline hierarchy."""
     Count: int
     """The sum of the number of visible descendant outline items at all levels."""
@@ -258,7 +258,7 @@ class OutlineItem(TypedDict, total=False):
     """The destination that shall be displayed when the outline is activated."""
     A: dict[str, Any] # noimpl
     """The Action that shall be performed when the outline is activated."""
-    SE: PdfIndirectRef[dict[str, Any]] # noimpl
+    SE: PdfReference[dict[str, Any]] # noimpl
     """The Structure Element to which the item refers."""
     C: list[int | float]
     """The color that shall be used for the outline's text in RGB."""

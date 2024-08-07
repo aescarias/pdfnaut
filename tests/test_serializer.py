@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from pdfnaut.cos import PdfParser
-from pdfnaut.cos.objects import (PdfName, PdfIndirectRef, PdfHexString, PdfNull,
+from pdfnaut.cos.objects import (PdfName, PdfReference, PdfHexString, PdfNull,
                                  PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry)
 from pdfnaut.cos.serializer import serialize, PdfSerializer
 
@@ -59,8 +59,8 @@ def test_dictionary() -> None:
     assert serialize(
         {
             "Type": PdfName(b"Catalog"),
-            "Metadata": PdfIndirectRef(2, 0),
-            "Pages": PdfIndirectRef(3, 0),
+            "Metadata": PdfReference(2, 0),
+            "Pages": PdfReference(3, 0),
         }
     ) == b"<</Type /Catalog /Metadata 2 0 R /Pages 3 0 R>>"
 
