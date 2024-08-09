@@ -212,7 +212,7 @@ class StandardSecurityHandler:
                 crypt filter will be used for decryption (StmF for streams, StrF for 
                 hex and literal strings).
 
-            reference (:class:`.PdfIndirectRef`):
+            reference (:class:`.PdfReference`):
                 The reference of either the object itself (in the case of a stream) or 
                 the object containing it (in the case of a string)
 

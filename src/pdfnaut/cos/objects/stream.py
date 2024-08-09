@@ -13,7 +13,7 @@ class PdfStream:
     """A sequence of bytes that may be of unlimited length. Objects with a large 
     amount of data like images or fonts are usually represented by streams 
     (``§ 7.3.8 Stream objects``)."""
-    # we don't yet use a type here given details can have a lot of other things
+    # no type here yet because details can be an extent plus a lot of other things
     details: dict[str, Any]
     raw: bytes = field(repr=False)
     _sec_handler: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -51,4 +51,3 @@ class PdfStream:
             output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
 
         return output
-

@@ -91,14 +91,16 @@ class FlateFilter(PdfFilter):
     
     This filter supports predictors which can increase predictability of data and hence
     improve compression. 2 predictor groups are supported: the PNG filters specified in 
-    ``§ 9. Filtering`` in the PNG spec and TIFF Predictor 2 specified in the TIFF 6.0 spec.
+    ``§ 9. Filtering`` of the PNG spec and TIFF Predictor 2 in the TIFF 6.0 spec.
 
     The predictor is specified by means of the Predictor key in ``params`` (default: 1).
     If the Predictor is not 1, the following parameters can be provided: 
     
-    - **Colors**: Amount of color components per sample. Any value greater than 1 (default=1).
-    - **BitsPerComponent**: Bit length of each of the color components. Values: 1, 2, 4, 8 (default), 16.
-    - **Columns**: Amount of samples per row. Any value greater than 1 (default=1).
+    - **Colors**: Amount of color components per sample. Can be any value greater than 1 \
+        (default: 1).
+    - **BitsPerComponent**: Bit length of each of the color components. \
+        Possible values are: 1, 2, 4, 8 (default), and 16.
+    - **Columns**: Amount of samples per row. Can be any value greater than 1 (default: 1).
 
     Given these values, the length of a sample in bytes is given by 
         ``Length(Sample) = ceil((Colors * BitsPerComponent) / 8)`` 

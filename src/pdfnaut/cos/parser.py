@@ -58,7 +58,7 @@ class PdfParser:
         self.trailer: Trailer | XRefStream = { "Size": 0, "Root": PdfReference(0, 0) }
         """The most recent trailer in the PDF document.
         
-        For details on the contents of the trailer, see ``§ 7.5.5 File Trailer`` in the PDF spec.
+        For details on the contents of the trailer, see ``§ 7.5.5 File Trailer``.
         """
 
         self.xref: dict[tuple[int, int], PdfXRefEntry] = {}
@@ -66,14 +66,14 @@ class PdfParser:
         in the document.
         
         The key is a tuple of two integers: object number and generation number. 
-        The value is any of the 3 types of XRef entries (free, in use, compressed)
+        The value is any of the 3 types of XRef entries (free, in use, compressed).
         """
 
-        self.version = ""
+        self.header_version = ""
         """The document's PDF version as seen in the header.
-        
-        To retrieve the PDF's version properly, access the Version entry part of the 
-        document catalog. If not present, you can reliably depend on the header.
+
+        This value should be used if no Version entry exists in the document catalog or 
+        if the header's version is newer. Otherwise, use the Version entry.
         """
 
         self.security_handler = None
@@ -106,13 +106,16 @@ class PdfParser:
         points to a previous XRef, this function is called again with a ``start_xref``
         offset until no more XRefs are found.
 
+        It also sets up the Standard security handler for use in case the document 
+        is encrypted.
+
         Arguments:
             start_xref (int, optional):
                 The offset where the most recent XRef can be found.
         """
         # Move back for the header
         self._tokenizer.position = 0
-        self.version = self.parse_header()
+        self.header_version = self.parse_header()
 
         # Because the function may be called recursively, we check if this is the first call.
         if start_xref is None:
@@ -315,7 +318,7 @@ class PdfParser:
         """Parses a compressed cross-reference stream which includes both the XRef table 
         and information from the PDF trailer. 
         
-        Described in ``§ 7.5.4 Cross-Reference Streams``."""
+        Described in ``§ 7.5.8 Cross-Reference Streams``."""
         xref_stream = self.parse_indirect_object(
             InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)
@@ -353,7 +356,7 @@ class PdfParser:
     def parse_indirect_object(self, xref_entry: InUseXRefEntry, 
                               reference: PdfReference | None) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object 
-        that is directly referred to by an ``xref_entry`` and ``ref``"""
+        that is directly referred to by an ``xref_entry`` and a ``reference``"""
         self._tokenizer.position = xref_entry.offset
         self._tokenizer.skip_whitespace()
 
@@ -445,7 +448,7 @@ class PdfParser:
         if self.xref:
             # We get the offset of the entry directly following this one as a bounds check
             next_entry_at = iter(
-                val for idx, val in enumerate(self.xref.values()) if 
+                val for val in self.xref.values() if 
                 isinstance(val, InUseXRefEntry) and val.offset > xref_entry.offset
             )
         else:
@@ -479,8 +482,8 @@ class PdfParser:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
-            reference (:class:`.PdfIndirectRef` | :class:`tuple[int, int]`): 
-                A :class:`.PdfIndirectRef` object or a tuple of two integers representing, 
+            reference (:class:`.PdfReference` | :class:`tuple[int, int]`): 
+                A :class:`.PdfReference` object or a tuple of two integers representing, 
                 in order, the object number and the generation number.
   
         Returns:
@@ -513,7 +516,8 @@ class PdfParser:
         return PdfNull()
 
     def decrypt(self, password: str) -> PermsAcquired:
-        """Decrypts this document using the provided ``password``.
+        """Decrypts this document through the Standard security handler using the 
+        provided ``password``.
 
         The standard security handler may specify 2 passwords: an owner password and a user 
         password. The owner password would allow full access to the PDF and the user password 
