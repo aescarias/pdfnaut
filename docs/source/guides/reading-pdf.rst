@@ -16,7 +16,7 @@ To read a PDF with pdfnaut, use the :class:`~pdfnaut.cos.parser.PdfParser` class
         pdf = pdfnaut.PdfParser(fp.read())
         pdf.parse()
 
-:meth:`~pdfnaut.cos.parser.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects from the document.
+:meth:`~pdfnaut.cos.parser.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects from the document. 
 
 Inspecting objects
 ------------------
@@ -25,7 +25,7 @@ The next set of steps will depend on the document being processed. To inspect th
 
 .. code-block:: python
 
-    for reference, entry in parser.xref.itms():
+    for reference, entry in parser.xref.items():
         if hasattr(entry, "next_free_object"):
             continue
 
@@ -40,18 +40,20 @@ Let's take, for example, the ``sample.pdf`` file available in our `test suite <h
 
 .. code-block:: python
 
-    >>> root = pdf.get_object(pdf.trailer["Root"])
-    >>> root
+    >>> pdf.trailer["Root"]
     {'Outlines': PdfReference(object_number=2, generation=0),
      'Pages': PdfReference(object_number=3, generation=0),
      'Type': PdfName(value=b'Catalog')}
 
 Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what we commonly refer to as bookmarks. ``Pages`` stores the page tree, which is what we are interested in:
 
+.. note::
+
+    To avoid wrapping each dictionary or array index call with :meth:`~pdfnaut.cos.parser.PdfParser.get_object`, pdfnaut and similar packages will automatically resolve these references when indexing. If you are interested in the actual references, both :class:`~pdfnaut.cos.objects.containers.PdfArray` and :class:`~pdfnaut.cos.objects.containers.PdfDictionary` have a ``raw_at`` method available.
+
 .. code-block:: python
 
-    >>> page_tree = pdf.get_object(root["Pages"]) 
-    >>> page_tree
+    >>> root["Pages"]
     {'Count': 2,
      'Kids': [PdfReference(object_number=4, generation=0),
               PdfReference(object_number=6, generation=0)],
@@ -61,7 +63,7 @@ The page tree is seen above. Given that this document only includes 2 pages, the
 
 .. code-block:: python
 
-    >>> first_page = pdf.get_object(page_tree["Kids"][0])
+    >>> first_page = root["Pages"]["Kids"][0]
     >>> first_page
     {'Contents': PdfReference(object_number=5, generation=0),
      'MediaBox': [0, 0, 612.0, 792.0],
@@ -77,15 +79,14 @@ Above we see the actual page. This dictionary includes the *media box* which spe
 
 .. code-block:: python
 
-    >>> page_contents = pdf.get_object(first_page["Contents"])
-    >>> page_contents
+    >>> first_page["Contents"]
     PdfStream(details={'Length': 1074})
 
 We find ourselves with a stream. The contents of pages are defined in streams known as **content streams**. This kind of stream includes instructions on how a PDF processor should render this page. In this case, it is not compressed (it does not have a Filter). So we can easily read it:
 
 .. code-block:: python
 
-    >>> page_contents.decode()
+    >>> first_page["Contents"].decode()
     b'2 J\r\nBT\r\n0 0 0 rg\r\n/F1 0027 Tf\r\n57.3750 722.2800 Td\r\n( A Simple PDF File ) Tj\r\nET\r\nBT\r\n/F1 0010 Tf\r\n69.2500 688.6080 Td\r\n[...]ET\r\n'
 
 A content stream is comprised of operators and operands (where operands are specified first). In this case, it would simply write "A Simple PDF File" at the position defined by the Td operands (and with the font /F1 included in our Resources which, in this case, points to Helvetica).

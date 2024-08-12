@@ -3,8 +3,7 @@ from __future__ import annotations
 from hashlib import md5
 from typing import Literal, Union
 
-from ..cos.objects import PdfHexString, PdfReference, PdfName, PdfStream
-from ..typings.encryption import EncrCryptFilter, StandardEncrypt
+from ..cos.objects import PdfHexString, PdfReference, PdfName, PdfStream, PdfDictionary
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
 
@@ -34,11 +33,12 @@ class StandardSecurityHandler:
     the owner password which has all permissions and the user password which should only 
     have the permissions specified by the document.
     """
-    def __init__(self, encryption: StandardEncrypt, ids: list[PdfHexString | bytes]) -> None:
+    def __init__(self, encryption: PdfDictionary, ids: list[PdfHexString | bytes]) -> None:
         """
         Arguments:
-            encryption (:class:`.StandardEncrypt`):
+            encryption (:class:`.PdfDictionary`):
                 The Standard encryption dictionary specified in the document's trailer.
+                (``§ 7.6.4 Standard encryption dictionary``)
             
             ids (:class:`list[PdfHexString | bytes]`).
                 The ID array specified in the document's trailer.
@@ -199,7 +199,7 @@ class StandardSecurityHandler:
     _Encryptable = Union[PdfStream, PdfHexString, bytes]
     def compute_object_crypt(self, encryption_key: bytes, contents: _Encryptable, 
                              reference: PdfReference, *, 
-                             crypt_filter: EncrCryptFilter | None = None) -> tuple[CryptMethod, bytes, bytes]:
+                             crypt_filter: PdfDictionary | None = None) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to 
         Algorithm 1 in ``§ 7.6.3 General Encryption Algorithm``
         
@@ -216,7 +216,7 @@ class StandardSecurityHandler:
                 The reference of either the object itself (in the case of a stream) or 
                 the object containing it (in the case of a string)
 
-            crypt_filter (dict[str, Any], optional):
+            crypt_filter (:class:`.PdfDictionary`, optional):
                 The specific crypt filter to be referenced when decrypting the document.
                 If not specified, the default for this type of ``contents`` will be used.
 
@@ -248,7 +248,7 @@ class StandardSecurityHandler:
 
     def encrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
                        reference: PdfReference, *, 
-                       crypt_filter: EncrCryptFilter | None = None) -> bytes:
+                       crypt_filter: PdfDictionary | None = None) -> bytes:
         """Encrypts the specified ``contents`` according to Algorithm 1 in 
         ``§ 7.6.3 General Encryption Algorithm``.
         
@@ -262,7 +262,7 @@ class StandardSecurityHandler:
 
     def decrypt_object(self, encryption_key: bytes, contents: _Encryptable, 
                        reference: PdfReference, *, 
-                       crypt_filter: EncrCryptFilter | None = None) -> bytes:
+                       crypt_filter: PdfDictionary | None = None) -> bytes:
         """Decrypts the specified ``contents`` according to Algorithm 1 in 
         ``§ 7.6.3 General Encryption Algorithm``.
         
@@ -302,7 +302,7 @@ class StandardSecurityHandler:
         
         return self._get_cfm_method(crypter)
 
-    def _get_cfm_method(self, crypt_filter: EncrCryptFilter) -> CryptMethod:
+    def _get_cfm_method(self, crypt_filter: PdfDictionary) -> CryptMethod:
         cf_name = crypt_filter.get("CFM", PdfName(b"Identity"))
         if cf_name.value == b"Identity":
             return "Identity"

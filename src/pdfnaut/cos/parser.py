@@ -10,10 +10,9 @@ from ..cos.objects.base import PdfHexString, PdfReference, PdfName, PdfNull, Pdf
 from ..cos.objects.stream import PdfStream
 from ..cos.objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry,
                                 PdfXRefEntry, PdfXRefSubsection, PdfXRefTable)
+from ..cos.objects.containers import PdfDictionary, PdfArray
 from ..security.standard_handler import StandardSecurityHandler
 from .tokenizer import PdfTokenizer
-from ..typings.document import Trailer, XRefStream
-from ..typings.encryption import StandardEncrypt
 
 
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
@@ -49,13 +48,14 @@ class PdfParser:
     def __init__(self, data: bytes, *, strict: bool = False) -> None:
         self.strict = strict
         self._tokenizer = PdfTokenizer(data)
+        self._tokenizer.resolver = self.get_object
 
-        self.updates: list[tuple[PdfXRefTable, Trailer | XRefStream]] = []
+        self.updates: list[tuple[PdfXRefTable, PdfDictionary]] = []
         """A list of all incremental updates present in the document. The items are two-element 
         tuples: first, the XRef table; second, the trailer. (most recent/last update first)"""
 
         # placeholder to make the type checker happy
-        self.trailer: Trailer | XRefStream = { "Size": 0, "Root": PdfReference(0, 0) }
+        self.trailer = PdfDictionary({ "Size": 0, "Root": PdfReference(0, 0) })
         """The most recent trailer in the PDF document.
         
         For details on the contents of the trailer, see ``§ 7.5.5 File Trailer``.
@@ -130,7 +130,7 @@ class PdfParser:
         if "Prev" in trailer:
             # More XRefs were found. Recurse!
             self._tokenizer.position = 0
-            self.parse(trailer["Prev"])
+            self.parse(cast(int, trailer["Prev"]))
         else:
             # That's it. Merge them together.
             self.xref = self.get_merged_xrefs()
@@ -139,11 +139,11 @@ class PdfParser:
         # Is the document encrypted with a standard security handler?
         if "Encrypt" in self.trailer:
             assert "ID" in self.trailer
-            encryption = self._ensure_object(self.trailer["Encrypt"])
+            encryption = cast(PdfDictionary, self.trailer["Encrypt"])
 
-            if encryption["Filter"].value == b"Standard":
+            if cast(PdfName, encryption["Filter"]).value == b"Standard":
                 self.security_handler = StandardSecurityHandler(
-                    cast(StandardEncrypt, encryption), self.trailer["ID"])
+                    encryption, cast("list[PdfHexString | bytes]", self.trailer["ID"]))
 
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
@@ -204,7 +204,7 @@ class PdfParser:
 
         return int(self._tokenizer.parse_numeric()) # startxref
 
-    def parse_xref_and_trailer(self) -> tuple[PdfXRefTable, Trailer | XRefStream]:
+    def parse_xref_and_trailer(self) -> tuple[PdfXRefTable, PdfDictionary]:
         """Parses both the cross-reference table and the PDF trailer.
         
         PDFs may include a typical uncompressed XRef table (and hence separate XRefs and
@@ -227,7 +227,7 @@ class PdfParser:
             xref, trailer = self.parse_xref_and_trailer()
             # make sure the user can see our corrections
             if "Prev" in trailer:
-                trailer["Prev"] = self._get_closest(table_offsets, trailer["Prev"])
+                trailer["Prev"] = self._get_closest(table_offsets, cast(int, trailer["Prev"]))
             return xref, trailer
         else:
             raise PdfParseError("XRef offset does not point to XRef table.")
@@ -251,7 +251,7 @@ class PdfParser:
         
         return sorted(table_offsets)
         
-    def parse_simple_trailer(self) -> Trailer:
+    def parse_simple_trailer(self) -> PdfDictionary:
         """Parses the PDF's standard trailer which is used to quickly locate other 
         cross reference tables and special objects.
         
@@ -261,8 +261,7 @@ class PdfParser:
         self._tokenizer.skip_whitespace()
         
         # next token is a dictionary
-        trailer = cast(Trailer, self._tokenizer.parse_dictionary()) 
-        return trailer
+        return self._tokenizer.parse_dictionary()
 
     def parse_simple_xref(self) -> PdfXRefTable:
         """Parses a standard, uncompressed XRef table of the format described in 
@@ -314,7 +313,7 @@ class PdfParser:
             
         return table
 
-    def parse_compressed_xref(self) -> tuple[PdfXRefTable, XRefStream]:
+    def parse_compressed_xref(self) -> tuple[PdfXRefTable, PdfDictionary]:
         """Parses a compressed cross-reference stream which includes both the XRef table 
         and information from the PDF trailer. 
         
@@ -326,7 +325,8 @@ class PdfParser:
         contents = BytesIO(xref_stream.decode())
 
         xref_widths = xref_stream.details["W"]
-        xref_indices = xref_stream.details.get("Index", [0, xref_stream.details["Size"]])
+        xref_indices = xref_stream.details.get("Index", 
+                                               PdfArray([0, xref_stream.details["Size"]]))
 
         table = PdfXRefTable([])
 
@@ -351,7 +351,7 @@ class PdfParser:
 
             table.sections.append(section)
 
-        return table, cast(XRefStream, xref_stream.details)
+        return table, xref_stream.details
 
     def parse_indirect_object(self, xref_entry: InUseXRefEntry, 
                               reference: PdfReference | None) -> PdfObject | PdfStream:
@@ -370,13 +370,13 @@ class PdfParser:
         self._tokenizer.skip_whitespace()
 
         # uh oh, a stream?
-        if self._tokenizer.matches(b"stream"):   
-            extent = cast(dict[str, Any], contents)
+        if self._tokenizer.matches(b"stream"): 
+            extent = cast(PdfDictionary, contents)  
+            # the implicit get_object call might move us around so we must save and then 
+            # restore the previous position
+            _current = self._tokenizer.position
             length = extent["Length"]
-            if isinstance(length, PdfReference):
-                _current = self._tokenizer.position
-                length = self.get_object(length)
-                self._tokenizer.position = _current 
+            self._tokenizer.position = _current 
             
             if not isinstance(length, int):
                 raise PdfParseError("\\Length entry of stream extent not an integer")
@@ -425,15 +425,18 @@ class PdfParser:
                 self._encryption_key, pdf_object, reference
             )
         elif isinstance(pdf_object, list):
-            return [self._get_decrypted(obj, reference) for obj in pdf_object]
+            return PdfArray(self._get_decrypted(obj, reference) for obj in pdf_object)
         elif isinstance(pdf_object, dict):
-            # make a special exception if the dictionary is the Encrypt key in the trailer
-            # we do not need to decrypt them
-            if reference == self.trailer.get("Encrypt", {}):
+            # The Encrypt key does not need decrypting.
+            # get_raw is here to avoid recursion (get calls get_object)
+            if reference == self.trailer.get_raw("Encrypt"):
                 return pdf_object
-            return {name: self._get_decrypted(value, reference) 
-                    for name, value in pdf_object.items()}         
-
+            
+            return PdfDictionary({
+                name: self._get_decrypted(value, reference) 
+                for name, value in pdf_object.items()
+            })
+            
         # Why would a number be encrypted?
         return pdf_object
 
@@ -490,7 +493,7 @@ class PdfParser:
             The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
         """
         if isinstance(reference, tuple):
-            reference = PdfReference(*reference)
+            reference = PdfReference(*reference).with_resolver(self.get_object)
 
         root_entry = self.xref.get((reference.object_number, reference.generation))        
         if root_entry is None:
@@ -504,11 +507,13 @@ class PdfParser:
             objstm_entry = self.xref[objstm_ref]
             assert isinstance(objstm_entry, InUseXRefEntry)
 
-            objstm = self.parse_indirect_object(objstm_entry, PdfReference(*objstm_ref))
+            objstm = self.parse_indirect_object(
+                objstm_entry, PdfReference(*objstm_ref).with_resolver(self.get_object))
             assert isinstance(objstm, PdfStream)
 
             seq = PdfTokenizer(objstm.decode()[objstm.details["First"]:] or b"")
-            
+            seq.resolver = self.get_object
+
             for idx, token in enumerate(seq):
                 if idx == root_entry.index_within:
                     return token

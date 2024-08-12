@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Literal, Mapping
+from typing import cast, Any, Literal, Mapping
 
 from ..exceptions import PdfWriteError
 from ..cos.objects.base import (PdfComment, PdfReference, PdfObject, PdfNull, PdfName,
                                 PdfHexString)
+from ..cos.objects.containers import PdfDictionary, PdfArray
 from ..cos.objects.stream import PdfStream
 from ..cos.objects.xref import (CompressedXRefEntry, FreeXRefEntry, InUseXRefEntry, 
                                 PdfXRefSubsection, PdfXRefTable)
-from ..typings.document import Trailer
 from .tokenizer import STRING_ESCAPE
 
 
@@ -59,7 +59,7 @@ def serialize_literal_string(byte_str: bytes, *, keep_ascii: bool = False) -> by
     return b"(" + output + b")"
 
 
-def serialize_name(name: PdfName[bytes]) -> bytes:
+def serialize_name(name: PdfName) -> bytes:
     output = b"/"
 
     for char in name.value:
@@ -174,10 +174,10 @@ class PdfSerializer:
         """Appends an indirect object to the document.
 
         Arguments:
-            reference (:class:`PdfIndirectRef` | :class:`tuple[int, int]`):
+            reference (:class:`.PdfReference` | :class:`tuple[int, int]`):
                 The object number and generation to which the object should be assigned.
 
-            contents (:class:`PdfObject` | :class:`PdfStream`):
+            contents (:class:`.PdfObject` | :class:`.PdfStream`):
                 The contents to associate with the reference.
 
         Returns:
@@ -226,7 +226,6 @@ class PdfSerializer:
             _, second_key, *_ = subsections[first_obj_num][-2]
 
             if first_key != second_key and abs(first_key - second_key) != 1:
-                # last = subsections[first_key].pop()
                 last = subsections[first_obj_num].pop()
                 first_obj_num = last[1]
                 subsections[first_obj_num].append(last)
@@ -265,15 +264,15 @@ class PdfSerializer:
                 self.content += self.eol               
         return startxref
 
-    def write_compressed_xref_table(self, table: PdfXRefTable, trailer: Trailer) -> int:
+    def write_compressed_xref_table(self, table: PdfXRefTable, trailer: PdfDictionary) -> int:
         """Appends a compressed XRef stream (``§ 7.5.8 Cross-Reference Streams``) from 
         ``table`` and ``trailer`` (to use as part of the extent) to the document.
         Returns the ``startxref`` offset that should be written to the document."""
-        indices = []
+        indices: PdfArray[PdfArray[int]] = PdfArray()
         table_rows: list[list[int]] = []
 
         for section in table.sections:
-            indices.append([section.first_obj_number, section.count])
+            indices.append(PdfArray([section.first_obj_number, section.count]))
 
             for entry in section.entries:
                 if isinstance(entry, FreeXRefEntry):
@@ -283,27 +282,29 @@ class PdfSerializer:
                 elif isinstance(entry, CompressedXRefEntry):
                     table_rows.append([2, entry.objstm_number, entry.index_within])
 
-        widths = [(max(column).bit_length() + 7) // 8 or 1 for column in zip(*table_rows)]
+        widths = [(max(cast(list[int], column)).bit_length() + 7) // 8 or 1 
+                  for column in zip(*table_rows)]
         contents = b""
         for row in table_rows:
             contents += b"".join(item.to_bytes(widths[idx], "big") 
                                  for idx, item in enumerate(row))
-
+        
         stream = PdfStream(
-            {
-                "Type": PdfName(b"XRef"), 
-                "W": widths, 
-                "Index": sum(indices, start=[]), 
-                "Length": len(contents), 
+            PdfDictionary({
+                "Type": PdfName(b"XRef"),
+                "W": PdfArray(widths),
+                "Index": PdfArray(sum(indices, start=PdfArray())),
+                "Length": len(contents),
                 **trailer
-            },
+            }),
             contents
         )
 
         highest_objnum = sum(max(indices, key=sum))
         return self.write_object((highest_objnum, 0), stream)
 
-    def write_trailer(self, trailer: Trailer | None = None, startxref: int | None = None) -> None:
+    def write_trailer(self, trailer: PdfDictionary | None = None, 
+                      startxref: int | None = None) -> None:
         """Appends a standard ``trailer`` to the document (``§ 7.5.5 File Trailer``) 
         alongside the ``startxref`` offset.
 

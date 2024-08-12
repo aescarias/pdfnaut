@@ -8,6 +8,12 @@ class PdfFilterError(PdfParseError):
     pass
 
 
+class PdfResolutionError(Exception):
+    """The document was unable to resolve a reference because no resolution method 
+    is available."""
+    pass
+
+
 class PdfWriteError(Exception):
     """The writer was unable to serialize an object"""
     pass

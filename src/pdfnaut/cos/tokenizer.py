@@ -5,7 +5,7 @@ from typing import cast
 import re
 
 from ..cos.objects import (PdfHexString, PdfName, PdfNull, PdfComment, PdfReference, 
-                           PdfObject, PdfOperator)
+                           PdfObject, PdfOperator, ObjectGetter, PdfArray, PdfDictionary)
 
 # as defined in § 7.2.3 Character Set, Table 1 & Table 2
 DELIMITERS = b"()<>[]{}/%"
@@ -40,12 +40,12 @@ class ContentStreamIterator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> tuple[str, list[PdfObject]]:
-        operands = []
+    def __next__(self) -> tuple[str, PdfArray]:
+        operands = PdfArray()
 
         for tok in self.tokenizer:
             if not isinstance(tok, PdfOperator):
-                operands.append(tok)
+                operands.append(cast(PdfObject, tok))
             else:
                 return (tok.value.decode(), operands)
             
@@ -72,6 +72,7 @@ class PdfTokenizer:
     def __init__(self, data: bytes, *, parse_operators: bool = False) -> None:
         self.data = data
         self.position = 0
+        self.resolver: ObjectGetter | None = None
 
         self.parse_operators = parse_operators
     
@@ -246,7 +247,7 @@ class PdfTokenizer:
 
         return PdfHexString(content)
 
-    def parse_dictionary(self) -> dict[str, PdfObject]:
+    def parse_dictionary(self) -> PdfDictionary:
         """Parses a dictionary object. In a PDF, dictionary keys are name objects and 
         dictionary values are any object or reference. This parser maps name objects to
         strings in this context."""
@@ -265,16 +266,16 @@ class PdfTokenizer:
 
         self.skip(2) # adv. past the >>
 
-        return {
+        return PdfDictionary({
             cast(PdfName, kv_pairs[i]).value.decode(): kv_pairs[i + 1]
             for i in range(0, len(kv_pairs), 2)
-        } 
+        })
 
-    def parse_array(self) -> list[PdfObject]:
+    def parse_array(self) -> PdfArray:
         """Parses an array. Arrays are heterogenous in PDF so they are mapped to Python lists."""
         self.skip() # past the [ 
 
-        items: list[PdfObject] = []
+        items = PdfArray[PdfObject]()
 
         while not self.done and not self.matches(b"]"):
             if (token := self.get_next_token()) is not None:
@@ -292,7 +293,11 @@ class PdfTokenizer:
         self.skip(mat.end()) # consume the reference
         self.skip_whitespace()
         
-        return PdfReference(int(mat.group("num")), int(mat.group("gen")))
+        reference = PdfReference(int(mat.group("num")), int(mat.group("gen")))
+        if self.resolver:
+            reference._resolver = self.resolver
+
+        return reference
 
     def parse_literal_string(self) -> bytes:
         """Parses a literal string. Literal strings may be entirely ASCII or may include 

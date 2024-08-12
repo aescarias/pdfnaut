@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from .base import PdfName, PdfNull
+from .containers import PdfDictionary, PdfArray
 from ...filters import SUPPORTED_FILTERS
 from ...exceptions import PdfFilterError
 
@@ -13,8 +14,8 @@ class PdfStream:
     """A sequence of bytes that may be of unlimited length. Objects with a large 
     amount of data like images or fonts are usually represented by streams 
     (``§ 7.3.8 Stream objects``)."""
-    # no type here yet because details can be an extent plus a lot of other things
-    details: dict[str, Any]
+
+    details: PdfDictionary
     raw: bytes = field(repr=False)
     _sec_handler: dict[str, Any] = field(default_factory=dict, repr=False)
 
@@ -24,17 +25,18 @@ class PdfStream:
         
         Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
 
-        filters = self.details.get("Filter")
-        params = self.details.get("DecodeParms")
-            
+        filters = cast("PdfName | PdfArray[PdfName] | None", self.details.get("Filter"))
+        params = cast("PdfDictionary | PdfArray[PdfDictionary]", 
+                      self.details.get("DecodeParms"))
+        
         if filters is None:
             return self.raw
         
         if isinstance(filters, PdfName):
-            filters = [filters]
+            filters = PdfArray([filters])
 
-        if not isinstance(params, list):
-            params = [params]
+        if not isinstance(params, PdfArray):
+            params = PdfArray([params])
 
         output = self.raw
 
@@ -43,7 +45,7 @@ class PdfStream:
                 raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
             
             if isinstance(params, PdfNull) or params is None:
-                params = {}
+                params = PdfDictionary()
             
             if filt.value == b"Crypt" and self._sec_handler.get("_Handler"):
                 params.update(self._sec_handler)

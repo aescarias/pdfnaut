@@ -12,8 +12,8 @@ The `PDF 2.0 specification <https://developer.adobe.com/document-services/docs/a
     "Literal strings (``(hello world)``)", "``bytes``"
     "Hexadecimal strings (``<616263>``)", ":class:`~pdfnaut.cos.objects.base.PdfHexString`"
     "Names (``/Type``)", ":class:`~pdfnaut.cos.objects.base.PdfName`"
-    "Arrays (``[1 2 3]``)", "``list``"
-    "Dictionaries (``<< /Type /Catalog ... >>``)", "``dict``"
+    "Arrays (``[1 2 3]``)", ":class:`~pdfnaut.cos.objects.containers.PdfArray`"
+    "Dictionaries (``<< /Type /Catalog ... >>``)", ":class:`~pdfnaut.cos.objects.containers.PdfDictionary`"
     "Streams", ":class:`~pdfnaut.cos.objects.stream.PdfStream`"
     "Null", ":class:`~pdfnaut.cos.objects.base.PdfNull`"
     "Indirect references (1 0 R)", ":class:`~pdfnaut.cos.objects.base.PdfReference`"
@@ -28,6 +28,12 @@ Stream Objects
 --------------
 
 .. automodule:: pdfnaut.cos.objects.stream
+    :members:
+
+Container Objects
+-----------------
+
+.. automodule:: pdfnaut.cos.objects.containers
     :members:
 
 XRef Objects

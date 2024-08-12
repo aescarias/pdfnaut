@@ -55,14 +55,10 @@ The low-level API, seen in the example below, illustrates how ``pdfnaut`` can be
       pdf = PdfParser(doc.read())
       pdf.parse()
 
-      # Get the pages object from the trailer
-      root = pdf.get_object(pdf.trailer["Root"])
-      page_tree = pdf.get_object(root["Pages"])
-      
-      # Get the contents of the first page
-      page = pdf.get_object(page_tree["Kids"][0])
-      page_stream = pdf.get_object(page["Contents"])
-      print(page_stream.decode())
+      pages = pdf.trailer["Root"]["Pages"]
+
+      first_page_stream = pages["Kids"][0]["Contents"]
+      print(first_page_stream.decode())
 
 The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.parser.PdfParser`. Notably, it includes a helper property for accessing pages called :attr:`~pdfnaut.document.PdfDocument.flattened_pages`.
 
@@ -72,9 +68,9 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
 
    pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
    first_page = list(pdf.flattened_pages)[0]
+   
    if "Contents" in first_page:
-      first_page_stream = pdf.get_object(first_page["Contents"])
-      print(first_page_stream.decode())
+      print(first_page["Contents"].decode())
 
 
 .. toctree::

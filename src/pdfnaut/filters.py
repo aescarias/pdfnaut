@@ -3,19 +3,18 @@ from __future__ import annotations
 import zlib
 from base64 import a85decode, a85encode, b16decode, b16encode
 from math import ceil, floor
-from typing import Any, Mapping, Protocol
+from typing import Protocol
 
-from .cos.objects import PdfName
+from .cos.objects import PdfName, PdfDictionary
 from .cos.tokenizer import WHITESPACE
 from .exceptions import PdfFilterError
-from .typings.filters import CryptFilterParams, LZWFlateParams
 
 
 class PdfFilter(Protocol):
-    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         ...
 
-    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         ...
 
 
@@ -24,14 +23,14 @@ class ASCIIHexFilter(PdfFilter):
     
     This filter does not take any parameters. ``params`` will be ignored.
     """
-    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         if contents[-1:] != b">":
             raise PdfFilterError("ASCIIHex: EOD not at end of stream.")
 
         hexdata = bytearray(ch for ch in contents[:-1] if ch not in WHITESPACE)
         return b16decode(hexdata, casefold=True)
 
-    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         return b16encode(contents) + b">"
 
 
@@ -41,10 +40,10 @@ class ASCII85Filter(PdfFilter):
     
     This filter does not take any parameters. ``params`` will be ignored.
     """
-    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         return a85decode(contents, ignorechars=WHITESPACE, adobe=True)
 
-    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         # we do not need the starting delimiter with PDFs
         return a85encode(contents, adobe=True)[2:]
 
@@ -63,7 +62,7 @@ class RunLengthFilter(PdfFilter):
 
     This filter does not take any parameters. ``params`` will be ignored.
     """
-    def decode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:    
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:    
         idx = 0
         output = bytes()
         
@@ -82,7 +81,7 @@ class RunLengthFilter(PdfFilter):
         
         return output
     
-    def encode(self, contents: bytes, *, params: Mapping[str, Any] | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         raise NotImplementedError("RunLengthDecode: Encoding not implemented.")
 
 
@@ -108,9 +107,9 @@ class FlateFilter(PdfFilter):
         ``Length(Row) = Length(Sample) * Columns``
     """
 
-    def decode(self, contents: bytes, *, params: LZWFlateParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
+    def decode(self, contents: bytes, *, params: PdfDictionary[str, int] | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
-            params = {}
+            params = PdfDictionary()
 
         uncomp = zlib.decompress(contents, 0)
 
@@ -129,9 +128,9 @@ class FlateFilter(PdfFilter):
         else:
             raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
 
-    def encode(self, contents: bytes, *, params: LZWFlateParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
+    def encode(self, contents: bytes, *, params: PdfDictionary[str, int] | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
-            params = {}
+            params = PdfDictionary()
         
         if (predictor := params.get("Predictor", 1)) == 1:
             return zlib.compress(contents)
@@ -247,10 +246,10 @@ class CryptFetchFilter(PdfFilter):
     - **_EncryptionKey**: The encryption key generated from the security handler.
     - **_IndirectRef**: The indirect reference of the object to decrypt.
     """
-    def encode(self, contents: bytes, *, params: CryptFilterParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         raise NotImplementedError("Crypt: Encrypting streams not implemented.")
 
-    def decode(self, contents: bytes, *, params: CryptFilterParams | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
             raise ValueError("Crypt: This filter requires parameters.")
         
@@ -261,7 +260,7 @@ class CryptFetchFilter(PdfFilter):
         crypt_filter = params["_Handler"].encryption.get("CF", {}).get(cf_name.value.decode())
 
         return params["_Handler"].decrypt_object(params["_EncryptionKey"],
-            contents, params["_IndirectRef"], crypt_filter=crypt_filter)
+            contents, params.get_raw("_IndirectRef"), crypt_filter=crypt_filter)
 
 
 SUPPORTED_FILTERS: dict[bytes, type[PdfFilter]] = {

@@ -14,15 +14,13 @@ def test_simple_pdf() -> None:
         parser.parse()
 
         assert len(parser.xref) == parser.trailer["Size"]
-
-        catalog = parser.get_object(parser.trailer["Root"])
-        metadata = parser.get_object(parser.trailer["Info"])
+        
+        catalog = parser.trailer["Root"]
+        metadata = parser.trailer["Info"]
         assert catalog is not None and metadata is not None
         
-        pages = parser.get_object(catalog["Pages"])
-        first_page = parser.get_object(pages["Kids"][0])
-        first_page_contents = parser.get_object(first_page["Contents"])
-        assert isinstance(first_page_contents, PdfStream)
+        first_page = catalog["Pages"]["Kids"][0]
+        assert isinstance(first_page["Contents"], PdfStream)
 
 
 def test_invalid_pdfs() -> None:
@@ -58,10 +56,9 @@ def test_pdf_with_xref_stream() -> None:
         parser = PdfParser(data.read())
         parser.parse()
 
-        catalog = parser.get_object(parser.trailer["Root"])
-        pages = parser.get_object(catalog["Pages"])
-        first_page = parser.get_object(pages["Kids"][0])
-        stream = parser.get_object(first_page["Contents"]).decode()
+        catalog = parser.trailer["Root"]
+        first_page = catalog["Pages"]["Kids"][0]
+        stream = first_page["Contents"].decode()
 
         assert stream.startswith(b"q\n0.000008871 0 595.32 841.92 re\n") 
 
@@ -77,5 +74,5 @@ def test_pdf_with_strict_mode() -> None:
         parser = PdfParser(data.read(), strict=False)
         parser.parse()
 
-        root = parser.get_object(parser.trailer["Root"])
-        assert root["Type"].value == b"Catalog"
+        catalog = parser.trailer["Root"]
+        assert catalog["Type"].value == b"Catalog"

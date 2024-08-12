@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from binascii import hexlify, unhexlify
 from dataclasses import dataclass
-from typing import Generic, List, Mapping, TYPE_CHECKING, TypeVar, Union
+from collections.abc import Callable
+from typing import Generic, TYPE_CHECKING, TypeVar, Union
+from typing_extensions import Self
+
+from ...exceptions import PdfResolutionError
+
+if TYPE_CHECKING:
+    from .containers import PdfArray, PdfDictionary
 
 
 class PdfNull:
@@ -64,6 +71,21 @@ class PdfReference(Generic[T]):
     object_number: int
     generation: int
 
+    def __post_init__(self) -> None:
+        self._resolver: ObjectGetter | None = None
+
+    def with_resolver(self, resolver: ObjectGetter) -> Self:
+        self._resolver = resolver
+        return self
+
+    def get(self) -> T:
+        """Returns the object this reference points to. If unable to resolve, 
+        returns :exc:`.PdfResolutionError`"""
+        if self._resolver:
+            return self._resolver(self)
+
+        raise PdfResolutionError("Could not resolve")
+
 
 @dataclass
 class PdfOperator:
@@ -72,7 +94,7 @@ class PdfOperator:
 
 
 PdfObject = Union[
-    bool, int, float, bytes, 
-    List["PdfObject"], Mapping[str, "PdfObject"], 
+    bool, int, float, bytes, "PdfArray", "PdfDictionary", 
     PdfHexString, PdfName, PdfReference, PdfNull
 ]
+ObjectGetter = Callable[[PdfReference], T]
