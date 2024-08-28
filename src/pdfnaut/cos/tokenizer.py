@@ -325,8 +325,6 @@ class PdfTokenizer:
                 if not matched and self.peek() in EOL_CRLF:
                     self.skip()
                 elif self.peek().isdigit():
-                    self.skip()
-
                     octal_code = self.consume_while(bytes.isdigit, limit=3)
                     string += chr(int(octal_code, 8)).encode()
 
