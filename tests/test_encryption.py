@@ -68,4 +68,4 @@ def test_rc4_aes_password_values():
         encr_key = parser.security_handler.compute_encryption_key(b"nil")
 
         assert encr_metadata["Producer"].value == parser.security_handler.encrypt_object(
-            encr_key, b"pypdf", parser.trailer.raw_at("Info")) 
+            encr_key, b"pypdf", parser.trailer.data["Info"]) 

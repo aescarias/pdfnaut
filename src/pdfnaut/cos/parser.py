@@ -4,7 +4,7 @@ import re
 from enum import IntEnum
 from functools import partial
 from io import BytesIO
-from typing import Any, TypeVar, Literal, cast, overload
+from typing import Any, TypeVar, cast, overload
 
 from ..exceptions import PdfParseError
 from ..cos.objects.base import PdfHexString, PdfReference, PdfName, PdfNull, PdfObject
@@ -42,7 +42,7 @@ class PdfParser:
 
     Keyword Arguments:
         strict (bool, optional):
-            Whether to warn or fail at issues caused by non-spec-compliance.
+            Whether to warn or fail on issues caused by non-spec-compliance.
             Defaults to False.
     """
 
@@ -63,7 +63,9 @@ class PdfParser:
         (most recent/last update first)."""
 
         # placeholder to make the type checker happy
-        self.trailer = PdfDictionary({ "Size": 0, "Root": PdfReference(0, 0) })
+        self.trailer = PdfDictionary[str, PdfObject]({ 
+            "Size": 0, "Root": PdfReference(0, 0) 
+        })
         """The most recent trailer in the PDF document.
         
         For details on the contents of the trailer, see ``§ 7.5.5 File Trailer``.
@@ -399,7 +401,7 @@ class PdfParser:
     def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfReference | None) -> _WrapsEncryptable:        
         if self.security_handler is None or not self._encryption_key or reference is None:
             return pdf_object
-
+        
         if isinstance(pdf_object, PdfStream):
             use_stmf = True
             # Don't use StmF if the stream handles its own encryption
@@ -432,17 +434,17 @@ class PdfParser:
             return self.security_handler.decrypt_object(
                 self._encryption_key, pdf_object, reference
             )
-        elif isinstance(pdf_object, list):
-            return PdfArray(self._get_decrypted(obj, reference) for obj in pdf_object)
-        elif isinstance(pdf_object, dict):
+        elif isinstance(pdf_object, PdfArray):
+            return PdfArray(self._get_decrypted(obj, reference) for obj in pdf_object.data)
+        elif isinstance(pdf_object, PdfDictionary):
             # The Encrypt key does not need decrypting.
             # get_raw is here to avoid recursion (get calls get_object)
-            if reference == self.trailer.get_raw("Encrypt"):
+            if reference == self.trailer.data["Encrypt"]:
                 return pdf_object
             
             return PdfDictionary({
                 name: self._get_decrypted(value, reference) 
-                for name, value in pdf_object.items()
+                for name, value in pdf_object.data.items()
             })
             
         # Why would a number be encrypted?

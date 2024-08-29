@@ -101,7 +101,7 @@ class PdfDocument:
         outlines, destinations, and other core attributes of a PDF document.
         
         For details on the contents of the catalog, see ``§ 7.7.2 Document Catalog``. 
-        """
+        """        
         return cast(PdfDictionary, self._reader.trailer["Root"])
 
     @property
