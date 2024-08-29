@@ -40,7 +40,8 @@ Let's take, for example, the ``sample.pdf`` file available in our `test suite <h
 
 .. code-block:: python
 
-    >>> pdf.trailer["Root"]
+    >>> root = pdf.trailer["Root"]
+    >>> root
     {'Outlines': PdfReference(object_number=2, generation=0),
      'Pages': PdfReference(object_number=3, generation=0),
      'Type': PdfName(value=b'Catalog')}
@@ -49,7 +50,7 @@ Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what w
 
 .. note::
 
-    To avoid wrapping each dictionary or array index call with :meth:`~pdfnaut.cos.parser.PdfParser.get_object`, pdfnaut and similar packages will automatically resolve these references when indexing. If you are interested in the actual references, both :class:`~pdfnaut.cos.objects.containers.PdfArray` and :class:`~pdfnaut.cos.objects.containers.PdfDictionary` have a ``raw_at`` method available.
+    To avoid wrapping each dictionary or array index call with :meth:`~pdfnaut.cos.parser.PdfParser.get_object`, pdfnaut and other PDF libraries will automatically resolve these references when indexing. If you are interested in the actual references, both :class:`~pdfnaut.cos.objects.containers.PdfArray` and :class:`~pdfnaut.cos.objects.containers.PdfDictionary` have a ``raw_at`` method available.
 
 .. code-block:: python
 
@@ -59,7 +60,7 @@ Two objects of note can be found: Outlines and Pages. ``Outlines`` stores what w
               PdfReference(object_number=6, generation=0)],
      'Type': PdfName(value=b'Pages')}
 
-The page tree is seen above. Given that this document only includes 2 pages, they are specified as "kids" in the root node. For larger documents, it is not uncommon to divide the pages into multiple nodes for performance reasons. Next, we can extract the first page of the document:
+The page tree is seen above. Given that this document only includes 2 pages, they are specified as "kids" in the root node. In larger documents, it is not uncommon to see a balanced tree dividing the pages into multiple nodes for performance reasons. Next, we can extract the first page of the document:
 
 .. code-block:: python
 
@@ -75,7 +76,7 @@ The page tree is seen above. Given that this document only includes 2 pages, the
      'Type': PdfName(value=b'Page')
     }
 
-Above we see the actual page. This dictionary includes the *media box* which specifies the dimensions of the page when shown, a reference to its parent, the resources used such as the font, and the contents of the page. We are looking for the contents of the page. Given that the Contents key includes a stream, it is set as an indirect reference. 
+Above we see the actual page. This dictionary includes the *media box* which specifies the dimensions of the page when shown, a reference to its parent, the resources used such as the font, and the contents of the page. We are looking for the contents of the page and so we can retrieve the content stream from the Contents key.
 
 .. code-block:: python
 

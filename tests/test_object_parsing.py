@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import datetime
 from typing import cast
 
 from pdfnaut.cos import PdfTokenizer
-from pdfnaut.cos.objects import PdfName, PdfReference, PdfHexString, PdfNull, PdfComment
+from pdfnaut.cos.objects import PdfName, PdfReference, PdfHexString, PdfNull, PdfComment, PdfDate
+from pdfnaut.cos.objects.base import parse_text_string
 
 
 def test_null_and_boolean() -> None:
@@ -98,3 +100,10 @@ def test_array() -> None:
 def test_indirect_reference() -> None:
     lexer = PdfTokenizer(b"2 0 R")
     assert lexer.get_next_token() == PdfReference(2, 0)
+
+def test_date() -> None:
+    assert PdfDate.from_pdf("D:199812231952-08'00") == PdfDate(1998, 12, 23, 19, 52, 0, "-", 8, 0)
+    assert PdfDate.from_pdf("D:20010727133720") == PdfDate(2001, 7, 27, 13, 37, 20)
+    assert PdfDate.from_pdf("D:2024'") == PdfDate(2024)
+    assert PdfDate(2001, 7, 27, 13, 37, 20).as_datetime() == datetime.datetime(2001, 7, 27, 13, 37, 20, tzinfo=datetime.timezone.utc)
+    assert PdfDate(2001, 7, 27, 13, 37, 20).as_pdf_string() == "D:2001727133720"

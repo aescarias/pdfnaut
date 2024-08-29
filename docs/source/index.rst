@@ -16,7 +16,7 @@ pdfnaut currently works best for handling low-level scenarios. A high-level read
 Features
 --------
 
-- Low level, typed PDF manipulation
+- Low level PDF manipulation
 - Encryption (AES/ARC4)
 - Document building/serialization
 
@@ -82,11 +82,11 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    PDF Parser <reference/cos/parser>
    PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>
-   Objects <reference/cos/objects>
+   PDF Objects <reference/objects>
+   COS Objects <reference/cos/objects>
    Filters <reference/filters>
    Exceptions <reference/exceptions>
    Standard Security Handler <reference/standard_handler>
-   Typings <reference/typings>
 
 .. toctree::
    :maxdepth: 2

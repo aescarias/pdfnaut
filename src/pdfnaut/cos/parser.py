@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
+from functools import partial
 from io import BytesIO
-from typing import Any, TypeVar, cast, overload
+from typing import Any, TypeVar, Literal, cast, overload
 
 from ..exceptions import PdfParseError
 from ..cos.objects.base import PdfHexString, PdfReference, PdfName, PdfNull, PdfObject
@@ -50,9 +51,16 @@ class PdfParser:
         self._tokenizer = PdfTokenizer(data)
         self._tokenizer.resolver = self.get_object
 
+        #   indirect object:  (object_number, generation)
+        self.object_store: dict[tuple[int, int], PdfObject | PdfStream] = {}
+        """A mapping of resolved objects. This store is used both as a cache and also for keeping
+        a list of modified items"""
+
         self.updates: list[tuple[PdfXRefTable, PdfDictionary]] = []
-        """A list of all incremental updates present in the document. The items are two-element 
-        tuples: first, the XRef table; second, the trailer. (most recent/last update first)"""
+        """A list of all incremental updates present in the document. 
+        
+        The items are two-element tuples: first, the XRef table; second, the trailer 
+        (most recent/last update first)."""
 
         # placeholder to make the type checker happy
         self.trailer = PdfDictionary({ "Size": 0, "Root": PdfReference(0, 0) })
@@ -474,42 +482,69 @@ class PdfParser:
 
     T = TypeVar("T")
     @overload
-    def get_object(self, reference: PdfReference[T]) -> T:
+    def get_object(self, reference: PdfReference[T], cache: bool = True) -> T:
         ...
     
     @overload
-    def get_object(self, reference: tuple[int, int]) -> PdfObject | PdfStream | PdfNull:
+    def get_object(self, reference: tuple[int, int],
+                   cache: bool = True) -> PdfObject | PdfStream | PdfNull:
         ...
     
-    def get_object(self, reference: PdfReference | tuple[int, int]) -> PdfObject | PdfStream | PdfNull | Any:
+    def get_object(self, reference: PdfReference | tuple[int, int], 
+                   cache: bool = True) -> PdfObject | PdfStream | PdfNull | Any:
         """Resolves a reference into the indirect object it points to.
         
         Arguments:
             reference (:class:`.PdfReference` | :class:`tuple[int, int]`): 
                 A :class:`.PdfReference` object or a tuple of two integers representing, 
-                in order, the object number and the generation number.
-  
+                in order, the object number and the generation number. 
+
+            cache (bool, optional):
+                Whether to interact with the object store when resolving references.
+                Defaults to True.
+
+                When True, the parser will read entries from cache and write new ones 
+                if they are not present. If False, the parser will always fetch new
+                entries and will not write to cache.
+
         Returns:
             The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
         """
         if isinstance(reference, tuple):
             reference = PdfReference(*reference).with_resolver(self.get_object)
 
-        root_entry = self.xref.get((reference.object_number, reference.generation))        
+        ref_tup = (reference.object_number, reference.generation)
+        if cache and (stored := self.object_store.get(ref_tup)):
+            return stored
+
+        root_entry = self.xref.get(ref_tup)        
         if root_entry is None:
             return PdfNull()
         
         if isinstance(root_entry, InUseXRefEntry):
-            return self.parse_indirect_object(root_entry, reference)
+            obj = self.parse_indirect_object(root_entry, reference)
+            if not cache:
+                return obj
+                
+            self.object_store[ref_tup] = obj
+            return self.object_store[ref_tup]
         elif isinstance(root_entry, CompressedXRefEntry):
             # Get the object stream it's part of (gen always 0)
             objstm_ref = (root_entry.objstm_number, 0)
             objstm_entry = self.xref[objstm_ref]
             assert isinstance(objstm_entry, InUseXRefEntry)
 
-            objstm = self.parse_indirect_object(
-                objstm_entry, PdfReference(*objstm_ref).with_resolver(self.get_object))
+            if cache and objstm_ref in self.object_store:
+                objstm = self.object_store[objstm_ref]
+            else:
+                objstm = self.parse_indirect_object(
+                    objstm_entry, PdfReference(*objstm_ref).with_resolver(
+                        partial(self.get_object, cache=False)))
+
             assert isinstance(objstm, PdfStream)
+
+            if cache:
+                self.object_store[objstm_ref] = objstm
 
             seq = PdfTokenizer(objstm.decode()[objstm.details["First"]:] or b"")
             seq.resolver = self.get_object

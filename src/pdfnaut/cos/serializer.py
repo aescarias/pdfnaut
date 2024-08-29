@@ -128,9 +128,9 @@ def serialize(object_: PdfObject | PdfStream | PdfComment, *,
         return serialize_indirect_ref(object_)
     elif isinstance(object_, (int, float)):
         return serialize_numeric(object_)
-    elif isinstance(object_, list):
+    elif isinstance(object_, (PdfArray, list)):
         return serialize_array(object_)
-    elif isinstance(object_, dict):
+    elif isinstance(object_, (PdfDictionary, dict)):
         return serialize_dictionary(object_)
     elif isinstance(object_, PdfStream):
         return serialize_stream(object_, eol=params["eol"])

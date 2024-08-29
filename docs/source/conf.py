@@ -34,6 +34,9 @@ exclude_patterns = []
 html_theme = 'furo'
 html_static_path = ['_static']
 html_logo = "_static/pdfnaut-logo.svg"
+html_theme_options = {
+    "sidebar_hide_name": True
+}
 
 copybutton_prompt_text = r'>>> |\.\.\. '
 copybutton_prompt_is_regexp = True

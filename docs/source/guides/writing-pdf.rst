@@ -6,7 +6,7 @@ pdfnaut provides an interface for building new PDF documents called :class:`~pdf
 Writing the PDF Header
 ----------------------
 
-We first create an instance of the serializer and append the PDF header. All PDFs start with this header and this identifies the PDF version the document implements.
+We first create an instance of the serializer and append the PDF header. All PDFs start with this header and this identifies the PDF version the document implements. A binary marker is also inserted afterwards by default.
 
 .. code-block:: python
 
@@ -66,8 +66,8 @@ Object (5, 0) is the content stream defining the page itself.
 
 - The first line and last line delimit the text object.
 - The second line specifies the font which shall be used to draw text (Tf). The first operand is ``/F13`` (Helvetica) and the second operand is 12 which is the unit (point) size of the glyph.
-- The third line tells the renderer to position the text at x=100, y=400 (by default, x is the position to the left and y is the position to the top)
-- The fourth line tells the renderer to draw the text "Hello"
+- The third line tells the renderer to position the text at x=100, y=400 (PDFs by default use a coordinate system with a bottom-left origin).
+- The fourth line tells the renderer to draw the text "Hello".
 
 .. code-block:: python
 
@@ -85,11 +85,11 @@ Object (5, 0) is the content stream defining the page itself.
 Generating the XRef table
 -------------------------
 
-In the previous section, we defined the objects. This does not write them, though. Writing objects should be coupled with the generation of the XRef table. To do this, we loop over the objects we defined earlier, write the object, and then add a new entry to the list that includes this offset. After the loop, we insert the recommended free entry at the start and generate the XRef table.
+In the previous section, we defined the objects. This does not write them, though. Writing objects should preferably be coupled with the generation of the XRef table. To do this, we loop over the objects we defined earlier, write the object, and then add a new entry to the list that includes this offset. After the loop, we insert the recommended free entry at the start and generate the XRef table.
 
 .. code-block:: python
 
-    # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation| idx
+    # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation | idx
     # for details, see :meth:`pdfnaut.serializer.PdfSerializer.generate_xref_table`
     table: list[tuple[str, int, int, int]] = []
 

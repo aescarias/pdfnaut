@@ -3,7 +3,7 @@ from __future__ import annotations
 from binascii import hexlify, unhexlify
 from dataclasses import dataclass
 from collections.abc import Callable
-from typing import Generic, TYPE_CHECKING, TypeVar, Union
+from typing import cast, Generic, TYPE_CHECKING, TypeVar, Union
 from typing_extensions import Self
 
 from ...exceptions import PdfResolutionError
@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 class PdfNull:
     """A PDF object representing nothing (``§ 7.3.9 Null Object``)."""
-    pass
+    def __repr__(self) -> str:
+        return "null"
 
 
 @dataclass
@@ -91,6 +92,28 @@ class PdfReference(Generic[T]):
 class PdfOperator:
     """A PDF operator within a content stream (``§ 7.8.2 Content streams``)."""
     value: bytes
+
+
+def parse_text_string(encoded: PdfHexString | bytes) -> str:
+    """Parses a text string as defined in ``§ 7.9.2.2 Text string type``.
+
+    Text strings may either be encoded in PDFDocEncoding, UTF-16BE, or (PDF 2.0) UTF-8.
+    Each encoding is indicated by a byte-order mark at the beginning (``\xfe\xff`` 
+    for UTF-16BE and ``\xef\xbb\xbf`` for UTF-8). PDFDocEncoded strings have no such
+    mark.
+    """
+    value = cast(bytes, encoded.value if isinstance(encoded, PdfHexString) else encoded)
+
+    if value.startswith(b"\xfe\xff"):
+        return value.decode("utf-16be")
+    elif value.startswith(b"\xef\xbb\xbf"):
+        return value.decode("utf-8")
+
+    # FIXME: Write an actual encoding for PDFDocEncoding. This ain't it.
+    try:
+        return value.decode("pdfdoc")
+    except LookupError:
+        return value.decode("latin-1")
 
 
 PdfObject = Union[

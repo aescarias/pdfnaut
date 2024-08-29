@@ -3,11 +3,14 @@ from __future__ import annotations
 import zlib
 from base64 import a85decode, a85encode, b16decode, b16encode
 from math import ceil, floor
-from typing import Protocol
+from typing import cast, Protocol, TYPE_CHECKING
 
-from .cos.objects import PdfName, PdfDictionary
+from .cos.objects import PdfName, PdfReference, PdfDictionary
 from .cos.tokenizer import WHITESPACE
 from .exceptions import PdfFilterError
+
+if TYPE_CHECKING:
+    from .security.standard_handler import StandardSecurityHandler
 
 
 class PdfFilter(Protocol):
@@ -253,14 +256,21 @@ class CryptFetchFilter(PdfFilter):
         if params is None:
             raise ValueError("Crypt: This filter requires parameters.")
         
-        cf_name = params.get("Name", PdfName(b"Identity"))
+        cf_name = cast(PdfName, params.get("Name", PdfName(b"Identity")))
         if cf_name.value == b"Identity":
             return contents
         
-        crypt_filter = params["_Handler"].encryption.get("CF", {}).get(cf_name.value.decode())
+        handler = cast("StandardSecurityHandler", params["_Handler"])
+        crypt_filter = cast(
+            PdfDictionary, handler.encryption.get("CF", PdfDictionary())
+        ).get(cf_name.value.decode())
 
-        return params["_Handler"].decrypt_object(params["_EncryptionKey"],
-            contents, params.get_raw("_IndirectRef"), crypt_filter=crypt_filter)
+        return handler.decrypt_object(
+            cast(bytes, params["_EncryptionKey"]),
+            contents, 
+            cast(PdfReference, params.get_raw("_IndirectRef")),
+            crypt_filter=cast("PdfDictionary | None", crypt_filter)
+        )
 
 
 SUPPORTED_FILTERS: dict[bytes, type[PdfFilter]] = {
