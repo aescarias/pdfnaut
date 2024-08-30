@@ -177,9 +177,7 @@ class PdfDocument:
     def _flatten_pages(self, *, parent: PdfDictionary | None = None) -> Generator[Page, None, None]:
         root = cast(PdfDictionary, parent or self.page_tree)
 
-        for child in cast(PdfArray[PdfReference], root["Kids"]):
-            page = self.get_object(child)
-            
+        for page in cast(PdfArray[PdfDictionary], root["Kids"]):            
             if page["Type"].value == b"Pages":
                 yield from self._flatten_pages(parent=page)
             elif page["Type"].value == b"Page":
@@ -234,7 +232,7 @@ class PdfDocument:
         the document except where overridden by language specifications for structure 
         elements or marked content (``§ 14.9.2 Natural language specification``). 
         If this entry is absent, the language shall be considered unknown."""
-        if "Language" not in self.catalog:
+        if "Lang" not in self.catalog:
             return 
         
-        return parse_text_string(cast("PdfHexString | bytes", self.catalog["Language"]))
+        return parse_text_string(cast("PdfHexString | bytes", self.catalog["Lang"]))
