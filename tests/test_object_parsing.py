@@ -5,9 +5,9 @@ from __future__ import annotations
 import datetime
 from typing import cast
 
-from pdfnaut.cos import PdfTokenizer
-from pdfnaut.cos.objects import PdfName, PdfReference, PdfHexString, PdfNull, PdfComment, PdfDate
-from pdfnaut.cos.objects.base import parse_text_string
+from pdfnaut import PdfTokenizer
+from pdfnaut.cos.objects import (PdfDictionary, PdfArray, PdfName, PdfReference, 
+                                 PdfHexString, PdfNull, PdfComment, PdfDate)
 
 
 def test_null_and_boolean() -> None:
@@ -64,11 +64,11 @@ def test_hex_string() -> None:
 
 def test_dictionary() -> None:
     lexer = PdfTokenizer(b"""<< /Type /Catalog /Metadata 2 0 R /Pages 3 0 R >>""")
-    assert lexer.get_next_token() == { 
+    assert lexer.get_next_token() == PdfDictionary({ 
         "Type": PdfName(b"Catalog"), 
         "Metadata": PdfReference(2, 0), 
         "Pages": PdfReference(3, 0) 
-    }
+    })
 
 
 def test_comment_and_eol() -> None:
@@ -90,11 +90,11 @@ def test_comment_and_eol() -> None:
 def test_array() -> None:
     # Simple array
     lexer = PdfTokenizer(b"[45 <</Size 40>> (42)]") 
-    assert lexer.get_next_token() == [45, {"Size": 40}, b"42"]
+    assert lexer.get_next_token() == PdfArray([45, {"Size": 40}, b"42"])
     
     # Nested array
     lexer = PdfTokenizer(b"[/XYZ [45 32 76] /Great]")
-    assert lexer.get_next_token() == [PdfName(b"XYZ"), [45, 32, 76], PdfName(b"Great")]
+    assert lexer.get_next_token() == PdfArray([PdfName(b"XYZ"), [45, 32, 76], PdfName(b"Great")])
 
 
 def test_indirect_reference() -> None:
@@ -102,8 +102,13 @@ def test_indirect_reference() -> None:
     assert lexer.get_next_token() == PdfReference(2, 0)
 
 def test_date() -> None:
-    assert PdfDate.from_pdf("D:199812231952-08'00") == PdfDate(1998, 12, 23, 19, 52, 0, "-", 8, 0)
+    # Some examples extracted from the spec
+    assert PdfDate.from_pdf("D:199812231952-08'00") == PdfDate(1998, 12, 23, 19, 52, 0, -8, 0)
     assert PdfDate.from_pdf("D:20010727133720") == PdfDate(2001, 7, 27, 13, 37, 20)
+
+    # Possible pre-2.0 date string
     assert PdfDate.from_pdf("D:2024'") == PdfDate(2024)
+
+    # Some conversions
     assert PdfDate(2001, 7, 27, 13, 37, 20).as_datetime() == datetime.datetime(2001, 7, 27, 13, 37, 20, tzinfo=datetime.timezone.utc)
-    assert PdfDate(2001, 7, 27, 13, 37, 20).as_pdf_string() == "D:2001727133720"
+    assert PdfDate(2001, 7, 27, 13, 37, 20).as_pdf_string() == "D:20010727133720Z"
