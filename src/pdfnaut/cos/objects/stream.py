@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import cast
 
-from .base import PdfName, PdfNull
+from .base import PdfName, PdfNull, PdfObject
 from .containers import PdfDictionary, PdfArray
 from ...filters import SUPPORTED_FILTERS
 from ...exceptions import PdfFilterError
@@ -15,9 +15,14 @@ class PdfStream:
     amount of data like images or fonts are usually represented by streams 
     (``§ 7.3.8 Stream objects``)."""
 
-    details: PdfDictionary
+    details: PdfDictionary[str, PdfObject]
+    """The stream extent dictionary (``§ 7.3.8.2 Stream extent``)."""
+    
     raw: bytes = field(repr=False)
-    _sec_handler: dict[str, Any] = field(default_factory=dict, repr=False)
+    """The raw data which is assumed to be encoded."""
+    
+    _crypt_params: PdfDictionary = field(default_factory=PdfDictionary, repr=False)
+    """Parameters specific to the Crypt filter"""
 
     def decode(self) -> bytes:
         """Returns the decoded contents of the stream. If no filter is defined, 
@@ -45,10 +50,10 @@ class PdfStream:
                 raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
             
             if isinstance(params, PdfNull) or params is None:
-                params = PdfDictionary()
+                params = PdfDictionary[str, PdfObject]()
             
-            if filt.value == b"Crypt" and self._sec_handler.get("_Handler"):
-                params.update(self._sec_handler)
+            if filt.value == b"Crypt" and self._crypt_params.get("Handler"):
+                params.update(self._crypt_params)
             
             output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
 

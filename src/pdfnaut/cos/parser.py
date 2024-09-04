@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from enum import IntEnum
 from functools import partial
 from io import BytesIO
+import re
 from typing import Any, TypeVar, cast, overload
 
 from ..exceptions import PdfParseError
@@ -19,14 +19,16 @@ from .tokenizer import PdfTokenizer
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
 INDIRECT_OBJ_HEADER_REGEX = re.compile(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj")
 
- 
+
 class PermsAcquired(IntEnum):
+    """Permissions acquired after opening or decrypting a document."""
+
     NONE = 0
     """No permissions acquired, document is still encrypted."""
     USER = 1
-    """User permissions within the limits specified by the security handler"""
+    """User permissions within the limits specified by the security handler."""
     OWNER = 2
-    """Owner permissions (all permissions)"""
+    """Owner permissions (all permissions)."""
 
 
 class PdfParser:
@@ -334,9 +336,9 @@ class PdfParser:
 
         contents = BytesIO(xref_stream.decode())
 
-        xref_widths = xref_stream.details["W"]
-        xref_indices = xref_stream.details.get("Index", 
-                                               PdfArray([0, xref_stream.details["Size"]]))
+        xref_widths = cast(PdfArray[int], xref_stream.details["W"])
+        xref_indices = cast(PdfArray[int],
+            xref_stream.details.get("Index", PdfArray([0, xref_stream.details["Size"]])))
 
         table = PdfXRefTable([])
 
@@ -393,31 +395,39 @@ class PdfParser:
 
             item = PdfStream(extent, self.parse_stream(xref_entry, length))
         else:
-            item = contents
+            item = cast(PdfObject, contents)
 
-        return self._get_decrypted(item, reference) # type: ignore
+        return self._get_decrypted(item, reference)
 
-    _WrapsEncryptable = TypeVar("_WrapsEncryptable", PdfObject, PdfStream)
-    def _get_decrypted(self, pdf_object: _WrapsEncryptable, reference: PdfReference | None) -> _WrapsEncryptable:        
+    @overload
+    def _get_decrypted(self, pdf_object: PdfObject, reference: PdfReference | None) -> PdfObject: ...
+
+    @overload
+    def _get_decrypted(self, pdf_object: PdfStream, reference: PdfReference | None) -> PdfStream: ...
+
+    def _get_decrypted(self, pdf_object: PdfObject | PdfStream, reference: PdfReference | None) -> PdfObject | PdfStream:        
         if self.security_handler is None or not self._encryption_key or reference is None:
             return pdf_object
         
         if isinstance(pdf_object, PdfStream):
             use_stmf = True
-            # Don't use StmF if the stream handles its own encryption
-            if (filter_ := pdf_object.details.get("Filter")):
-                if isinstance(filter_, PdfName) and filter_.value == b"Crypt":
-                    use_stmf = False
-                elif isinstance(filter_, list):
-                    use_stmf = not any(isinstance(filt, PdfName) and filt.value == b"Crypt" 
-                                        for filt in filter_)
             
-            # Give the stream an instance of the security handler
-            pdf_object._sec_handler = {
-                "_Handler": self.security_handler,
-                "_EncryptionKey": self._encryption_key,
-                "_IndirectRef": reference
-            }
+            # Don't use StmF if the stream handles its own encryption
+            if (filter_ := pdf_object.details.get("Filter")):       
+                if isinstance(filter_, PdfName):
+                    filters = PdfArray[PdfName]([filter_])
+                else:
+                    filters = cast(PdfArray[PdfName], filter_) 
+
+                for name in filters:
+                    if name.value == b"Crypt":
+                        use_stmf = False
+                        pdf_object._crypt_params = PdfDictionary({
+                            "Handler": self.security_handler,
+                            "EncryptionKey": self._encryption_key,
+                            "Reference": reference
+                        })
+                        break
 
             if use_stmf:
                 pdf_object.raw = self.security_handler.decrypt_object(
@@ -435,15 +445,17 @@ class PdfParser:
                 self._encryption_key, pdf_object, reference
             )
         elif isinstance(pdf_object, PdfArray):
-            return PdfArray(self._get_decrypted(obj, reference) for obj in pdf_object.data)
+            return PdfArray(
+                self._get_decrypted(obj, reference)
+                for obj in pdf_object.data
+            )
         elif isinstance(pdf_object, PdfDictionary):
             # The Encrypt key does not need decrypting.
-            # get_raw is here to avoid recursion (get calls get_object)
             if reference == self.trailer.data["Encrypt"]:
                 return pdf_object
             
             return PdfDictionary({
-                name: self._get_decrypted(value, reference) 
+                name: self._get_decrypted(cast(PdfObject, value), reference) 
                 for name, value in pdf_object.data.items()
             })
             

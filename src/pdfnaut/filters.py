@@ -245,9 +245,9 @@ class CryptFetchFilter(PdfFilter):
     This filter requires 3 additional parameters. These parameters are for use exclusively
     within the PDF processor and shall not be written to the document.
     
-    - **_Handler**: An instance of the security handler.
-    - **_EncryptionKey**: The encryption key generated from the security handler.
-    - **_IndirectRef**: The indirect reference of the object to decrypt.
+    - **Handler**: An instance of the security handler.
+    - **EncryptionKey**: The encryption key generated from the security handler.
+    - **Reference**: The indirect reference of the object to decrypt.
     """
     def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: # pyright: ignore[reportIncompatibleMethodOverride]
         raise NotImplementedError("Crypt: Encrypting streams not implemented.")
@@ -260,15 +260,15 @@ class CryptFetchFilter(PdfFilter):
         if cf_name.value == b"Identity":
             return contents
         
-        handler = cast("StandardSecurityHandler", params["_Handler"])
+        handler = cast("StandardSecurityHandler", params["Handler"])
         crypt_filter = cast(
             PdfDictionary, handler.encryption.get("CF", PdfDictionary())
         ).get(cf_name.value.decode())
 
         return handler.decrypt_object(
-            cast(bytes, params["_EncryptionKey"]),
+            cast(bytes, params["EncryptionKey"]),
             contents, 
-            cast(PdfReference, params.get_raw("_IndirectRef")),
+            cast(PdfReference, params.data["Reference"]),
             crypt_filter=cast("PdfDictionary | None", crypt_filter)
         )
 
