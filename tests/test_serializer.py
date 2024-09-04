@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 from pdfnaut.cos import PdfParser
-from pdfnaut.cos.objects import (PdfName, PdfReference, PdfHexString, PdfNull,
-                                 PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry)
+from pdfnaut.cos.objects import (PdfName, PdfReference, PdfHexString, PdfDictionary, PdfArray,
+                                 PdfNull, PdfComment, PdfStream, FreeXRefEntry, InUseXRefEntry)
 from pdfnaut.cos.serializer import serialize, PdfSerializer
 
 
@@ -57,21 +57,25 @@ def test_hex_string() -> None:
 
 def test_dictionary() -> None:
     assert serialize(
-        {
+        PdfDictionary({
             "Type": PdfName(b"Catalog"),
             "Metadata": PdfReference(2, 0),
             "Pages": PdfReference(3, 0),
-        }
+        })
     ) == b"<</Type /Catalog /Metadata 2 0 R /Pages 3 0 R>>"
 
 
 def test_array() -> None:
-    assert serialize([45, {"Size": 40}, b"data"]) == b"[45 <</Size 40>> (data)]"
-    assert serialize([PdfName(b"XYZ"), 45, 32, 76]) == b"[/XYZ 45 32 76]"
+    assert serialize(
+        PdfArray([45, PdfDictionary({"Size": 40}), b"data"])
+    ) == b"[45 <</Size 40>> (data)]"
+    assert serialize(
+        PdfArray([PdfName(b"XYZ"), 45, 32, 76])
+    ) == b"[/XYZ 45 32 76]"
 
 
 def test_stream() -> None:
-    stream = PdfStream({"Length": 11}, b"Hello World")
+    stream = PdfStream(PdfDictionary({"Length": 11}), b"Hello World")
     assert serialize(stream, params={"eol": b"\r\n"}) == b"<</Length 11>>\r\nstream\r\nHello World\r\nendstream"
 
 
@@ -81,7 +85,7 @@ def test_serialize_document() -> None:
     assert serializer.content.startswith(b"%PDF-1.7\r\n")
     before_object = len(serializer.content)
 
-    object_start = serializer.write_object((1, 0), {"A": b"BC", "D": 10.24})
+    object_start = serializer.write_object((1, 0), PdfDictionary({"A": b"BC", "D": 10.24}))
     assert before_object == object_start
     assert serializer.content.endswith(b"1 0 obj\r\n<</A (BC) /D 10.24>>\r\nendobj\r\n")
 
@@ -100,7 +104,7 @@ def test_serialize_document() -> None:
     startxref = serializer.write_standard_xref_table(table)
     assert before_xref == startxref
      
-    serializer.write_trailer({"Size": 2}, startxref)
+    serializer.write_trailer(PdfDictionary({"Size": 2}), startxref)
     assert serializer.content.endswith(b"trailer\r\n<</Size 2>>\r\n" + 
                                        b"startxref\r\n" + str(startxref).encode() + 
                                        b"\r\n")
@@ -112,14 +116,14 @@ def test_serialize_compressed_table() -> None:
     serializer = PdfSerializer()
     serializer.write_header("1.7")
 
-    object_start = serializer.write_object((1, 0), {"A": b"BC", "D": 10.24})
+    object_start = serializer.write_object((1, 0), PdfDictionary({"A": b"BC", "D": 10.24}))
 
     table = serializer.generate_xref_table(
         [("f", 0, 65535, 0), ("n", 1, object_start, 0)]
     )
 
     before_xref = len(serializer.content)
-    startxref = serializer.write_compressed_xref_table(table, {"Size": 2})
+    startxref = serializer.write_compressed_xref_table(table, PdfDictionary({"Size": 2}))
     assert before_xref == startxref
     
     obj = PdfParser(serializer.content[startxref:]).parse_indirect_object(InUseXRefEntry(0, 0), None)

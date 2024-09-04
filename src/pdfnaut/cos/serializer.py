@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import cast, Any, Literal, Mapping
+from typing import cast, Any, Literal
 
 from ..exceptions import PdfWriteError
 from ..cos.objects.base import (PdfComment, PdfReference, PdfObject, PdfNull, PdfName,
@@ -84,15 +84,15 @@ def serialize_numeric(number: int | float) -> bytes:
     return str(number).encode()
 
 
-def serialize_array(array: list[Any]) -> bytes:
-    return b"[" + b" ".join(serialize(item) for item in array) + b"]"
+def serialize_array(array: PdfArray) -> bytes:
+    return b"[" + b" ".join(serialize(item) for item in array.data) + b"]"
 
 
-def serialize_dictionary(mapping: Mapping[str, Any]) -> bytes:
+def serialize_dictionary(dictionary: PdfDictionary) -> bytes:
     items = []
-    for k, v in mapping.items():
-        items.append(serialize(PdfName(k.encode())))
-        items.append(serialize(v))
+    for key, val in dictionary.data.items():
+        items.append(serialize(PdfName(key.encode())))
+        items.append(serialize(val))
 
     return b"<<" + b" ".join(items) + b">>"
 
@@ -128,9 +128,9 @@ def serialize(object_: PdfObject | PdfStream | PdfComment, *,
         return serialize_indirect_ref(object_)
     elif isinstance(object_, (int, float)):
         return serialize_numeric(object_)
-    elif isinstance(object_, (PdfArray, list)):
+    elif isinstance(object_, PdfArray):
         return serialize_array(object_)
-    elif isinstance(object_, (PdfDictionary, dict)):
+    elif isinstance(object_, PdfDictionary):
         return serialize_dictionary(object_)
     elif isinstance(object_, PdfStream):
         return serialize_stream(object_, eol=params["eol"])
