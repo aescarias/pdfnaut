@@ -1,5 +1,5 @@
-Writing a PDF
-=============
+Building a PDF
+==============
 
 pdfnaut provides an interface for building new PDF documents called :class:`~pdfnaut.serializer.PdfSerializer`. The serializer provides all functions needed to write a new document.
 
@@ -20,47 +20,47 @@ Next, we define the objects in the PDF. The first object (1, 0) will include our
 
 .. code-block:: python
 
-    builder.objects[(1, 0)] = {
+    builder.objects[(1, 0)] = PdfDictionary({
         "Type": PdfName(b"Catalog"),
         "Pages": PdfReference(2, 0)
-    }
+    })
 
 Object (2, 0) will include our page tree. To keep things simple, our document will only have one page and will not use compression.
 
 .. code-block:: python
 
-    builder.objects[(2, 0)] = {
+    builder.objects[(2, 0)] = PdfDictionary({
         "Type": PdfName(b"Pages"),
-        "Kids": [PdfReference(3, 0)],
+        "Kids": PdfArray([PdfReference(3, 0)]),
         "Count": 1
-    }
+    })
 
 Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the font used.
 
 .. code-block:: python
 
-    builder.objects[(3, 0)] = {
+    builder.objects[(3, 0)] = PdfDictionary({
         "Type": PdfName(b"Page"),
         "Parent": PdfReference(2, 0),
-        "MediaBox": [0, 0, 500, 500],
-        "Resources": { 
-            "Font": { 
+        "MediaBox": PdfArray([0, 0, 500, 500]),
+        "Resources": PdfDictionary({ 
+            "Font": PdfDictionary({ 
                 "F13": PdfReference(4, 0) 
-            } 
-        },
+            })
+        }),
         "Contents": PdfReference(5, 0)
-    }
+    })
 
 Object (4, 0) is the font specified in Resources. Again, for simplicity, we will specify Helvetica -- one of a few standard fonts that a PDF renderer should support by default.
 
 .. code-block:: python
 
-    builder.objects[(4, 0)] = {
+    builder.objects[(4, 0)] = PdfDictionary({
         "Type": PdfName(b"Font"),
         "Subtype": PdfName(b"Type1"), # Adobe Type 1 Font Format / PostScript
         "BaseFont": PdfName(b"Helvetica"),
         "Encoding": PdfName(b"WinAnsiEncoding")
-    }
+    })
 
 Object (5, 0) is the content stream defining the page itself. 
 
@@ -78,7 +78,9 @@ Object (5, 0) is the content stream defining the page itself.
     ET""")
 
     builder.objects[(5, 0)] = PdfStream(
-        { "Length": len(page_contents) }, 
+        PdfDictionary(
+            { "Length": len(page_contents) }
+        ), 
         page_contents.encode()
     )
 
@@ -90,7 +92,6 @@ In the previous section, we defined the objects. This does not write them, thoug
 .. code-block:: python
 
     # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation | idx
-    # for details, see :meth:`pdfnaut.serializer.PdfSerializer.generate_xref_table`
     table: list[tuple[str, int, int, int]] = []
 
     for (obj_num, gen_num), item in builder.objects.items():
@@ -100,6 +101,9 @@ In the previous section, we defined the objects. This does not write them, thoug
     table.insert(0, ("f", 0, 65535, 0))
 
     xref_table = builder.generate_xref_table(table)
+
+.. seealso:: 
+    :meth:`~pdfnaut.serializer.PdfSerializer.generate_xref_table`
 
 Writing the XRef table and trailer
 ----------------------------------
@@ -111,10 +115,10 @@ We then write the trailer and the startxref offset using :meth:`~pdfnaut.seriali
 
     startxref = builder.write_standard_xref_table(xref_table)
 
-    builder.write_trailer({ 
+    builder.write_trailer(PdfDictionary({ 
         "Size": xref_table.sections[0].count, 
         "Root": PdfReference(1, 0)
-    }, startxref)
+    }), startxref)
 
     builder.write_eof()
 

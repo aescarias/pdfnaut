@@ -14,3 +14,9 @@ Trailer Objects
 
 .. automodule:: pdfnaut.objects.trailer
     :members:
+
+Page Objects
+------------
+
+.. automodule:: pdfnaut.objects.page
+    :members:

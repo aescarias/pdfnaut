@@ -20,9 +20,10 @@ The newer high-level API
 from pdfnaut import PdfDocument
 
 pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-first_page = list(pdf.flattened_pages)[0]
-if "Contents" in first_page:
-    print(first_page["Contents"].decode())
+first_page = next(pdf.flattened_pages)
+
+if first_page.content_stream:
+    print(first_page.content_stream.contents)
 ```
 
 The more mature low-level API
@@ -39,12 +40,3 @@ with open("tests/docs/sample.pdf", "rb") as doc:
     first_page_stream = pages["Kids"][0]["Contents"]
     print(first_page_stream.decode())
 ```
-
-## Coverage
-
-The following tracks coverage of certain portions of the PDF standard.
-
-- Compression filters: **Supported** -- FlateDecode, ASCII85, ASCIIHex, Crypt (decode only), and RunLength (decode only).
-- Reading from encrypted PDFs: **Supported** (ARC4 and AES; requires a user-supplied implementation or availability of a compatible module -- `pycryptodome` for now)
-- XRef streams: **Supported**
-- File specifications, dates & other common data structures: **Not supported**

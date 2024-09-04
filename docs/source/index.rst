@@ -13,12 +13,12 @@ pdfnaut aims to become a PDF processor for Python -- a library capable of readin
 
 pdfnaut currently works best for handling low-level scenarios. A high-level reader (:class:`~pdfnaut.document.PdfDocument`) is provided although it's pretty much in the works.
 
-Features
---------
+pdfnaut is capable of the following:
 
-- Low level PDF manipulation
-- Encryption (AES/ARC4)
-- Document building/serialization
+- Reading compressed & encrypted PDF documents (AES/ARC4, see note below).
+- Inspecting PDFs and extracting data from them.
+- Viewing document information.
+- Building PDFs from scratch.
 
 Install
 -------
@@ -67,17 +67,17 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    from pdfnaut import PdfDocument
 
    pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-   first_page = list(pdf.flattened_pages)[0]
+   first_page = next(pdf.flattened_pages)
    
-   if "Contents" in first_page:
-      print(first_page["Contents"].decode())
+   if first_page.content_stream:
+      print(first_page.content_stream.contents)
 
 
 .. toctree::
    :maxdepth: 2
    :caption: Reference
    :hidden:
-   
+
    PDF Tokenizer <reference/cos/tokenizer>
    PDF Parser <reference/cos/parser>
    PDF Serializer <reference/cos/serializer>
@@ -94,7 +94,7 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    :hidden:
 
    Reading a PDF <guides/reading-pdf>
-   Writing a PDF <guides/writing-pdf>
+   Building a PDF <guides/building-pdf>
  
 
 Indices and tables
