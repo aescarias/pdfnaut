@@ -1,11 +1,9 @@
 [project]
 name = "pdfnaut"
 description = "Explore PDFs with ease"
-authors = [
-    { name = "Angel Carias" }
-]
+authors = [{ name = "Angel Carias" }]
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 requires-python = ">=3.8"
 classifiers = [
     "Intended Audience :: Developers",
@@ -17,20 +15,31 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11", 
-    "Programming Language :: Python :: 3.12"    
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
 ]
 dynamic = ["version"]
-dependencies = [
-    "typing-extensions >= 4.11.0"
-]
+dependencies = ["typing-extensions >= 4.11.0"]
 
 [project.urls]
 homepage = "https://github.com/aescarias/pdfnaut"
 
 [project.optional-dependencies]
-tests = ["pytest", "pytest-cov"]
-docs = ["sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
+dev = ["ruff", "isort", "pytest", "pytest-cov"]
+docs = ["Sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["F", "E", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

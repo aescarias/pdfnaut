@@ -6,11 +6,13 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+from __future__ import annotations
+
 from pdfnaut import __version__
 
-project = 'pdfnaut'
-copyright = '2024, Angel Carias'
-author = 'Angel Carias'
+project = "pdfnaut"
+copyright = "2024, Angel Carias"
+author = "Angel Carias"
 release = __version__
 
 # -- General configuration ---------------------------------------------------
@@ -21,28 +23,24 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
-    "sphinx_copybutton"
+    "sphinx_copybutton",
 ]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'furo'
-html_static_path = ['_static']
+html_theme = "furo"
+html_static_path = ["_static"]
 html_logo = "_static/pdfnaut-logo.svg"
-html_theme_options = {
-    "sidebar_hide_name": True
-}
+html_theme_options = {"sidebar_hide_name": True}
 
-copybutton_prompt_text = r'>>> |\.\.\. '
+copybutton_prompt_text = r">>> |\.\.\. "
 copybutton_prompt_is_regexp = True
 
 autoclass_content = "both"
 autodoc_class_signature = "separated"
-autodoc_default_options = {
-    "show-inheritance": True
-}
+autodoc_default_options = {"show-inheritance": True}

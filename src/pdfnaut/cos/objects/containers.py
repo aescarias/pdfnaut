@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import UserDict, UserList
-from typing import cast, overload, SupportsIndex
+from typing import SupportsIndex, cast, overload
+
 from typing_extensions import TypeVar
 
-from .base import PdfReference, PdfObject
 from ...exceptions import PdfResolutionError
+from .base import PdfObject, PdfReference
 
 DictKey = TypeVar("DictKey", default=str)
 DictVal = TypeVar("DictVal", default=PdfObject)
@@ -19,7 +20,7 @@ class PdfDictionary(UserDict[DictKey, DictVal]):
     :class:`PdfDictionary` is effectively a Python dictionary. Its keys are strings and
     its values are any PDF object. The main difference from a typical dictionary is that
     PdfDictionary automatically resolves references when indexing.
-    
+
     The underlying data in unresolved form is stored in :attr:`.PdfDictionary.data`.
     """
 
@@ -30,7 +31,7 @@ class PdfDictionary(UserDict[DictKey, DictVal]):
                 return cast(DictVal, item.get())
             except PdfResolutionError:
                 pass
-            
+
         return cast(DictVal, item)
 
     def __setitem__(self, key: DictKey, value: DictVal | PdfReference[DictVal]) -> None:
@@ -58,7 +59,7 @@ class PdfArray(UserList[ArrVal]):
     def __getitem__(self, i: SupportsIndex | slice) -> ArrVal | PdfArray[ArrVal]:
         item = self.data[i]
         if isinstance(i, slice):
-            return PdfArray(cast(list[ArrVal], item))  
+            return PdfArray(cast(list[ArrVal], item))
 
         if isinstance(item, PdfReference):
             try:

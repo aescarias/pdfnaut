@@ -1,7 +1,9 @@
 # PyCryptodome
-from Crypto.Cipher import ARC4, AES
+from __future__ import annotations
+
+from Crypto.Cipher import AES, ARC4
 from Crypto.Util import Padding
-        
+
 from .base import CryptProvider
 
 
@@ -26,4 +28,4 @@ class DomeAES128Provider(CryptProvider):
 
         decrypted = AES.new(self.key, AES.MODE_CBC, iv).decrypt(encrypted)
         # last byte of decrypted indicates amount of trailing padding
-        return decrypted[:-decrypted[-1]]
+        return decrypted[: -decrypted[-1]]

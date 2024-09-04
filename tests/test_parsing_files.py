@@ -7,18 +7,18 @@ from pdfnaut.exceptions import PdfParseError
 
 
 def test_simple_pdf() -> None:
-    """Tests a simple PDF. In this context, "simple" means an unencrypted PDF 
+    """Tests a simple PDF. In this context, "simple" means an unencrypted PDF
     with no compression and few pages of content."""
     with open("tests/docs/sample.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
 
         assert len(parser.xref) == parser.trailer["Size"]
-        
+
         catalog = parser.trailer["Root"]
         metadata = parser.trailer["Info"]
         assert catalog is not None and metadata is not None
-        
+
         first_page = catalog["Pages"]["Kids"][0]
         assert isinstance(first_page["Contents"], PdfStream)
 
@@ -40,12 +40,12 @@ def test_invalid_pdfs() -> None:
 
 
 def test_pdf_with_incremental() -> None:
-    """Tests whether an incremental PDF is parsed correctly. Basically, whether the 
+    """Tests whether an incremental PDF is parsed correctly. Basically, whether the
     correct trailer is provided and whether the XRefs are merged."""
     with open("tests/docs/pdf2-incremental.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
-        
+
         assert len(parser.updates) == 2
         assert parser.trailer["Size"] == len(parser.xref)
 
@@ -60,7 +60,7 @@ def test_pdf_with_xref_stream() -> None:
         first_page = catalog["Pages"]["Kids"][0]
         stream = first_page["Contents"].decode()
 
-        assert stream.startswith(b"q\n0.000008871 0 595.32 841.92 re\n") 
+        assert stream.startswith(b"q\n0.000008871 0 595.32 841.92 re\n")
 
 
 def test_pdf_with_strict_mode() -> None:

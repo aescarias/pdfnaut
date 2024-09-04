@@ -1,15 +1,44 @@
-from .base import (PdfComment, PdfHexString, PdfReference, PdfName, PdfNull, 
-                   PdfObject, PdfOperator, ObjectGetter)
-from .containers import PdfArray, PdfDictionary
-from .xref import (PdfXRefEntry, PdfXRefSubsection, PdfXRefTable, FreeXRefEntry,
-                   InUseXRefEntry, CompressedXRefEntry)
-from .stream import PdfStream
-from .date import PdfDate
+from __future__ import annotations
 
+from .base import (
+    ObjectGetter,
+    PdfComment,
+    PdfHexString,
+    PdfName,
+    PdfNull,
+    PdfObject,
+    PdfOperator,
+    PdfReference,
+)
+from .containers import PdfArray, PdfDictionary
+from .date import PdfDate
+from .stream import PdfStream
+from .xref import (
+    CompressedXRefEntry,
+    FreeXRefEntry,
+    InUseXRefEntry,
+    PdfXRefEntry,
+    PdfXRefSubsection,
+    PdfXRefTable,
+)
 
 __all__ = (
-    "PdfComment", "PdfHexString", "PdfReference", "PdfName", "PdfNull", "PdfObject",
-    "PdfOperator", "ObjectGetter", "PdfArray", "PdfDictionary", "PdfXRefEntry", 
-    "PdfXRefSubsection", "PdfXRefTable", "FreeXRefEntry", "InUseXRefEntry", 
-    "CompressedXRefEntry", "PdfStream", "PdfDate"
+    "PdfComment",
+    "PdfHexString",
+    "PdfReference",
+    "PdfName",
+    "PdfNull",
+    "PdfObject",
+    "PdfOperator",
+    "ObjectGetter",
+    "PdfArray",
+    "PdfDictionary",
+    "PdfXRefEntry",
+    "PdfXRefSubsection",
+    "PdfXRefTable",
+    "FreeXRefEntry",
+    "InUseXRefEntry",
+    "CompressedXRefEntry",
+    "PdfStream",
+    "PdfDate",
 )

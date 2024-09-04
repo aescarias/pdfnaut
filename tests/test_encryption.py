@@ -14,7 +14,7 @@ def test_std_security_handler():
         assert parser.security_handler is None
         # Unencrypted documents should return OWNER
         assert parser.decrypt("beepboop") is PermsAcquired.OWNER
-    
+
     with open("tests/docs/encrypted-arc4.pdf", "rb") as fp:
         parser = PdfParser(fp.read())
         parser.parse()
@@ -68,4 +68,5 @@ def test_rc4_aes_password_values():
         encr_key = parser.security_handler.compute_encryption_key(b"nil")
 
         assert encr_metadata["Producer"].value == parser.security_handler.encrypt_object(
-            encr_key, b"pypdf", parser.trailer.data["Info"]) 
+            encr_key, b"pypdf", parser.trailer.data["Info"]
+        )

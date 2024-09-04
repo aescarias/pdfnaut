@@ -4,16 +4,25 @@ Thank you for considering a contribution to pdfnaut. Your efforts help keep this
 
 ## Reporting Issues
 
-When reporting an issue, please provide a *Minimal Reproducible Example (MRE)*. This should include the simplest way to reproduce the issue and the PDF document being parsed.
+When reporting an issue, please provide a *Minimal Reproducible Example (MRE)*. This should include the simplest way to reproduce the issue (exact steps, ideally) alongside the PDF document being parsed.
+
+Your issue report should include:
+
+- A description of the issue (alongside the issue title)
+- A **Minimal Reproducible Example (MRE)** as described above.
+- What you expected to see when following the MRE.
+- The actual behavior you see when following the MRE.
+- The version of ``pdfnaut`` being used.
 
 ## Contributing to Source Code
 
 ### Style Guide
 
+- pdfnaut implements the [PDF 2.0 specification](https://developer.adobe.com/document-services/docs/assets/5b15559b96303194340b99820d3a70fa/PDF_ISO_32000-2.pdf).
+- We use [Ruff](https://docs.astral.sh/ruff/) for code formatting.
 - Docstrings should be written according to the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html#docstrings).
-- Code should mostly adhere to the [PEP8](https://www.python.org/dev/peps/pep-0008/) style guide.
 - Markdown documents are linted through [Markdownlint](https://github.com/DavidAnson/markdownlint).
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). See below.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). See [Commit Messages](#commit-messages).
 
 ### Versioning
 
@@ -35,15 +44,15 @@ Commit messages should be descriptive and concise. Commit messages should also s
 
 The scopes currently in use are:
 
-- `docs`: Docstrings; comments; guides and related resources¿
-- `writer`: Serialization
+- `docs`: Docstrings; comments; guides and related resources
+- `writer`: Serialization; writing documents
 - `parser`: Tokenizing; parsing and reading; filters
 - `tests`: Code coverage; unit testing
 - `security`: Encryption; permissions
-- `objects`: Primitive objects; common data structures
+- `objects`: Basic objects; common data structures; high-level objects
 
 The commit types currently in use are:
 
 - `feat` for new features.
-- `fix` For bug fixes (if applicable, they should reference the issue this commit resolves)
+- `fix` For bug fixes (if applicable, reference the issue the commit resolves)
 - `chore` for anything else not covered in the other types.
