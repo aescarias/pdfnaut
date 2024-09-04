@@ -1,7 +1,7 @@
 Building a PDF
 ==============
 
-pdfnaut provides an interface for building new PDF documents called :class:`~pdfnaut.serializer.PdfSerializer`. The serializer provides all functions needed to write a new document.
+pdfnaut provides an interface for building new PDF documents called :class:`~pdfnaut.cos.serializer.PdfSerializer`. The serializer provides all functions needed to write a new document.
 
 Writing the PDF Header
 ----------------------
@@ -103,13 +103,13 @@ In the previous section, we defined the objects. This does not write them, thoug
     xref_table = builder.generate_xref_table(table)
 
 .. seealso:: 
-    :meth:`~pdfnaut.serializer.PdfSerializer.generate_xref_table`
+    :meth:`~pdfnaut.cos.serializer.PdfSerializer.generate_xref_table`
 
 Writing the XRef table and trailer
 ----------------------------------
-After generating the table, we can proceed to write it. PDFs support two types of XRef tables: a traditional XRef table and an XRef stream. To keep things readable, we will use the traditional table. :meth:`~pdfnaut.serializer.PdfSerializer.write_standard_xref_table` produces such table and returns the startxref offset that we can use later. 
+After generating the table, we can proceed to write it. PDFs support two types of XRef tables: a traditional XRef table and an XRef stream. To keep things readable, we will use the traditional table. :meth:`~pdfnaut.cos.serializer.PdfSerializer.write_standard_xref_table` produces such table and returns the startxref offset that we can use later. 
 
-We then write the trailer and the startxref offset using :meth:`~pdfnaut.serializer.write_trailer`. To end the PDF, we add the ``%%EOF`` marker and write the new document as usual.
+We then write the trailer and the startxref offset using :meth:`~pdfnaut.cos.serializer.write_trailer`. To end the PDF, we add the ``%%EOF`` marker and write the new document as usual.
 
 .. code-block:: python
 
