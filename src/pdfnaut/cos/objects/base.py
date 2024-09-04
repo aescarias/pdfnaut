@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from binascii import hexlify, unhexlify
+from codecs import BOM_UTF8, BOM_UTF16_BE
 from dataclasses import dataclass
 from collections.abc import Callable
 from typing import cast, Generic, TYPE_CHECKING, TypeVar, Union
@@ -104,16 +105,29 @@ def parse_text_string(encoded: PdfHexString | bytes) -> str:
     """
     value = cast(bytes, encoded.value if isinstance(encoded, PdfHexString) else encoded)
 
-    if value.startswith(b"\xfe\xff"):
-        return value.decode("utf-16be")
-    elif value.startswith(b"\xef\xbb\xbf"):
+    if value.startswith(BOM_UTF16_BE):
+        return value.decode("utf-16")
+    elif value.startswith(BOM_UTF8):
         return value.decode("utf-8")
 
-    # FIXME: Write an actual encoding for PDFDocEncoding. This ain't it.
+    return value.decode("pdfdoc")
+
+
+def encode_text_string(text: str, *, utf8: bool = False) -> bytes:
+    """Encodes a text string to either PDFDocEncoding or UTF-16BE. Strings are encoded
+    with PDFDoc first then UTF-16BE if ``text`` cannot be encoded with PDFDoc.
+    
+    If ``utf8`` is True, ``text`` will be encoded in UTF-8 as fallback instead of UTF-16BE.
+    Note that UTF-8 text strings is a PDF 2.0 feature which may not be supported by all
+    libraries.
+    """
     try:
-        return value.decode("pdfdoc")
-    except LookupError:
-        return value.decode("latin-1")
+        return text.encode("pdfdoc")
+    except UnicodeEncodeError:
+        if utf8:
+            return BOM_UTF8 + text.encode("utf-8")
+        
+        return BOM_UTF16_BE + text.encode("utf-16be")
 
 
 PdfObject = Union[
