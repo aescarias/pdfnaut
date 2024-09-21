@@ -21,11 +21,14 @@ classifiers = [
 dynamic = ["version"]
 dependencies = ["typing-extensions >= 4.11.0"]
 
+[tool.pyright]
+pythonVersion = "3.8"
+
 [project.urls]
 homepage = "https://github.com/aescarias/pdfnaut"
 
 [project.optional-dependencies]
-dev = ["ruff", "isort", "pytest", "pytest-cov"]
+dev = ["isort", "pytest", "pytest-cov", "ruff", "tox"]
 docs = ["Sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
 
 [tool.ruff]
