@@ -12,7 +12,6 @@ classifiers = [
     "Topic :: File Formats",
     "Topic :: Office/Business :: Office Suites",
     "Topic :: Software Development :: Libraries",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
