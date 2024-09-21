@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TYPE_CHECKING
 
 from .base import CryptProvider, IdentityProvider
 
-ProviderMap: TypeAlias = dict[str, type[CryptProvider] | None]
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    ProviderMap: TypeAlias = "dict[str, type[CryptProvider] | None]"
 
 
 def _get_dome_providers() -> ProviderMap:

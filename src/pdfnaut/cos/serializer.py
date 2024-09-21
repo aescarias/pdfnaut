@@ -38,7 +38,7 @@ def serialize_literal_string(byte_str: bytes, *, keep_ascii: bool = False) -> by
     unbalanced = []
 
     for pos, char in enumerate(byte_str):
-        char = char.to_bytes(1)
+        char = char.to_bytes(1, "big")
         if (esc := escape.get(char)) is not None and char not in b"()":
             output += esc
         elif keep_ascii and not char.isascii():
@@ -67,7 +67,7 @@ def serialize_name(name: PdfName) -> bytes:
     output = b"/"
 
     for char in name.value:
-        char = char.to_bytes(1)
+        char = char.to_bytes(1, "big")
         if char.isalnum():
             output += char
         else:

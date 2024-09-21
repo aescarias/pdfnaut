@@ -40,7 +40,7 @@ class StandardSecurityHandler:
                 The Standard encryption dictionary specified in the document's trailer.
                 (``§ 7.6.4 Standard encryption dictionary``)
 
-            ids (:class:`list[PdfHexString | bytes]`).
+            ids (:class:`PdfArray[PdfHexString | bytes]`).
                 The ID array specified in the document's trailer.
         """
         self.encryption = encryption
@@ -209,7 +209,10 @@ class StandardSecurityHandler:
         crypt_filter: PdfDictionary | None = None,
     ) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to
-        Algorithm 1 in ``§ 7.6.3 General Encryption Algorithm``
+        ``§ 7.6.3.1 Algorithm 1: Encryption of data using the RC4 and AES algorithms``.
+
+        This algorithm is only applicable for Encrypt versions 1-4 (deprecated in PDF 2.0).
+        Encrypt version 5 uses a simpler algorithm described in `§ 7.6.3.2 Algorithm 1.A`.
 
         Arguments:
             encryption_key (bytes):
@@ -222,7 +225,7 @@ class StandardSecurityHandler:
 
             reference (:class:`.PdfReference`):
                 The reference of either the object itself (in the case of a stream) or
-                the object containing it (in the case of a string)
+                the object containing it (in the case of a string).
 
             crypt_filter (:class:`.PdfDictionary`, optional):
                 The specific crypt filter to be referenced when decrypting the document.
@@ -232,6 +235,9 @@ class StandardSecurityHandler:
             A tuple of 3 values: the crypt method to apply (AES-CBC or ARC4),
             the key to use with this method, and the data to encrypt/decrypt.
         """
+        # NOTE: step a) is satisfied by the "reference" parameter
+
+        # b)
         generation = reference.generation.to_bytes(4, "little")
         object_number = reference.object_number.to_bytes(4, "little")
 
@@ -243,6 +249,7 @@ class StandardSecurityHandler:
         if method == "AESV2":
             extended_key += bytes([0x73, 0x41, 0x6C, 0x54])
 
+        # c)
         crypt_key = md5(extended_key).digest()[: self.key_length + 5][:16]
 
         if isinstance(contents, PdfStream):

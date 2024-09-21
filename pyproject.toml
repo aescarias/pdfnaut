@@ -4,7 +4,7 @@ description = "Explore PDFs with ease"
 authors = [{ name = "Angel Carias" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -22,7 +22,7 @@ dynamic = ["version"]
 dependencies = ["typing-extensions >= 4.11.0"]
 
 [tool.pyright]
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 
 [project.urls]
 homepage = "https://github.com/aescarias/pdfnaut"

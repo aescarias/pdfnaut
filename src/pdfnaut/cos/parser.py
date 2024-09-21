@@ -356,9 +356,9 @@ class PdfParser:
             )
 
             for _ in range(section.count):
-                field_type = int.from_bytes(contents.read(xref_widths[0]) or b"\x01")
-                second = int.from_bytes(contents.read(xref_widths[1]))
-                third = int.from_bytes(contents.read(xref_widths[2]))
+                field_type = int.from_bytes(contents.read(xref_widths[0]) or b"\x01", "big")
+                second = int.from_bytes(contents.read(xref_widths[1]), "big")
+                third = int.from_bytes(contents.read(xref_widths[2]), "big")
 
                 if field_type == 0:
                     section.entries.append(
