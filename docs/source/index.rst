@@ -40,7 +40,8 @@ Install
          python -m pip install pdfnaut
 
 .. important:: 
-   While ``pdfnaut`` supports encryption with ARC4 and AES, it does not include their implementations by default. You must either supply your own or preferably install a supported package like ``pycryptodome`` that can provide these.
+   If you plan to use ``pdfnaut`` with encrypted documents, you must also install
+   a crypt provider dependency such as `cryptography` or `pycryptodome`.
 
 Examples
 --------

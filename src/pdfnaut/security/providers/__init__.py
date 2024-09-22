@@ -17,8 +17,14 @@ def _get_dome_providers() -> ProviderMap:
     return {"ARC4": DomeARC4Provider, "AESV2": DomeAES128Provider, "Identity": IdentityProvider}
 
 
+def _get_pyca_providers() -> ProviderMap:
+    from ._pyca import PycaAES128Provider, PycaARC4Provider
+
+    return {"ARC4": PycaARC4Provider, "AESV2": PycaAES128Provider, "Identity": IdentityProvider}
+
+
 def load_providers() -> ProviderMap:
-    provider_functions = [_get_dome_providers]
+    provider_functions = [_get_pyca_providers, _get_dome_providers]
 
     for function in provider_functions:
         try:
