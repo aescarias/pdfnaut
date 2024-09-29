@@ -6,18 +6,18 @@ from __future__ import annotations
 
 from pdfnaut.cos import PdfParser
 from pdfnaut.cos.objects import (
-    PdfName,
-    PdfReference,
-    PdfHexString,
-    PdfDictionary,
-    PdfArray,
-    PdfNull,
-    PdfComment,
-    PdfStream,
     FreeXRefEntry,
     InUseXRefEntry,
+    PdfArray,
+    PdfComment,
+    PdfDictionary,
+    PdfHexString,
+    PdfName,
+    PdfNull,
+    PdfReference,
+    PdfStream,
 )
-from pdfnaut.cos.serializer import serialize, PdfSerializer
+from pdfnaut.cos.serializer import PdfSerializer, serialize
 
 
 def test_comment() -> None:
@@ -89,11 +89,22 @@ def test_array() -> None:
 
 
 def test_stream() -> None:
+    # Make sure it's written correctly
     stream = PdfStream(PdfDictionary({"Length": 11}), b"Hello World")
     assert (
         serialize(stream, params={"eol": b"\r\n"})
         == b"<</Length 11>>\r\nstream\r\nHello World\r\nendstream"
     )
+
+    # Make sure filters are applied
+    stream = PdfStream.create(b"Hello, world!", PdfDictionary({"Filter": PdfName(b"FlateDecode")}))
+    assert serialize(stream, params={"eol": b"\r\n"}) == (
+        b"<</Filter /FlateDecode /Length 21>>\r\n"
+        + b"stream\r\n"
+        + b"x\x9c\xf3H\xcd\xc9\xc9\xd7Q(\xcf/\xcaIQ\x04\x00 ^\x04\x8a\r\n"
+        + b"endstream"
+    )
+    assert stream.decode() == b"Hello, world!"
 
 
 def test_serialize_document() -> None:

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import cast
 
+from typing_extensions import Self
+
 from ...exceptions import PdfFilterError
 from ...filters import SUPPORTED_FILTERS
 from .base import PdfName, PdfNull, PdfObject
@@ -57,3 +59,45 @@ class PdfStream:
             output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
 
         return output
+
+    @classmethod
+    def create(
+        cls, raw: bytes, details: PdfDictionary, crypt_params: PdfDictionary | None = None
+    ) -> Self:
+        """Creates a stream from unencoded data ``raw`` applying the filter(s) specified in
+        ``details``. The length of the encoded output will automatically be appended
+        to ``details``.
+
+        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
+
+        filters = cast("PdfName | PdfArray[PdfName] | None", details.get("Filter"))
+        params = cast("PdfDictionary | PdfArray[PdfDictionary]", details.get("DecodeParms"))
+
+        if filters is None:
+            details["Length"] = len(raw)
+            return cls(details, raw)
+
+        if crypt_params is None:
+            crypt_params = PdfDictionary()
+
+        if isinstance(filters, PdfName):
+            filters = PdfArray([filters])
+
+        if not isinstance(params, PdfArray):
+            params = PdfArray([params])
+
+        # Filters are applied from last to first
+        for filt, params in zip(reversed(filters), reversed(params)):
+            if filt.value not in SUPPORTED_FILTERS:
+                raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
+
+            if isinstance(params, PdfNull) or params is None:
+                params = PdfDictionary()
+
+            if filt.value == b"Crypt" and crypt_params.get("Handler"):
+                params.update(crypt_params)
+
+            raw = SUPPORTED_FILTERS[filt.value]().encode(raw, params=params)
+
+        details["Length"] = len(raw)
+        return cls(details, raw)

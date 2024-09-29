@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import re
+from datetime import time
 from enum import IntEnum
 from functools import partial
 from io import BytesIO
@@ -23,6 +25,15 @@ from .tokenizer import PdfTokenizer
 
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
 INDIRECT_OBJ_HEADER_REGEX = re.compile(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj")
+
+
+def generate_file_id(filename: str, content: bytes) -> PdfHexString:
+    """Generates a file identifier as described in ``§ 14.4 File identifier``."""
+    id_digest = hashlib.md5(time().isoformat("auto").encode())
+    id_digest.update(filename.encode())
+    id_digest.update(str(len(content)).encode())
+
+    return PdfHexString(id_digest.hexdigest().encode())
 
 
 class PermsAcquired(IntEnum):
@@ -634,3 +645,6 @@ class PdfParser:
             return PermsAcquired.USER
 
         return PermsAcquired.NONE
+
+    # def save(self, filename: str) -> None:
+    #     pass
