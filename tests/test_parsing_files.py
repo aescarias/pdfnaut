@@ -50,6 +50,15 @@ def test_pdf_with_incremental() -> None:
         assert parser.trailer["Size"] == len(parser.xref)
 
 
+def test_pdf_with_data_at_start() -> None:
+    """Tests a PDF document that does not start with the %PDF-n.m header."""
+    with open("tests/docs/pdf2-with-data-at-start.pdf", "rb") as data:
+        parser = PdfParser(data.read())
+        parser.parse()
+
+        assert parser.trailer["Root"]["Type"].value == b"Catalog"
+
+
 def test_pdf_with_xref_stream() -> None:
     """Tests a PDF document with a compressed XRef stream"""
     with open("tests/docs/compressed-xref.pdf", "rb") as data:

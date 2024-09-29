@@ -7,7 +7,7 @@ pdfnaut
 =======
 
 .. warning::
-   This library is currently in a very early stage of development. It has only been tested with a small set of known to be spec-compliant documents.
+   This library is currently in a very early stage of development. It has only been tested with a small set of known to be spec-compliant documents. 
 
 pdfnaut aims to become a PDF processor for Python -- a library capable of reading and writing PDF documents.
 
@@ -40,8 +40,7 @@ Install
          python -m pip install pdfnaut
 
 .. important:: 
-   If you plan to use ``pdfnaut`` with encrypted documents, you must also install
-   a crypt provider dependency such as `cryptography` or `pycryptodome`.
+   If you plan to use ``pdfnaut`` with encrypted documents, you must also install a crypt provider dependency such as pyca/cryptography or PyCryptodome. See :ref:`standard security handler`.
 
 Examples
 --------

@@ -173,14 +173,16 @@ class PdfDocument:
         """Decrypts this document assuming it was encrypted with a ``password``.
 
         The Standard security handler may specify 2 passwords:
-        - An owner password, allowing full access to the PDF
-        - A user password, allowing restricted access to the PDF according to its permissions.
+        - An owner password, allowing full access to the PDF.
+        - A user password, allowing restricted access to the PDF according to set permissions.
 
         Returns:
-            A :class:`.PermsAcquired` specifying the permissions acquired by ``password``.
+            A :class:`.PermsAcquired` value specifying the permissions acquired with
+            ``password``.
 
-            - If the document is not encrypted, defaults to :attr:`.PermsAcquired.OWNER`
-            - if the document was not decrypted, defaults to :attr:`.PermsAcquired.NONE`
+            - If the document is not encrypted, returns :attr:`.PermsAcquired.OWNER`
+            - if the document could not be decrypted by ``password``, returns
+            :attr:`.PermsAcquired.NONE`
         """
         self.access_level = self._reader.decrypt(password)
         return self.access_level
