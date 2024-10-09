@@ -141,7 +141,7 @@ class PdfParser:
                 The offset where the most recent XRef can be found.
         """
         # Move back for the header
-        self._tokenizer.position = self._tokenizer.start
+        self._tokenizer.position = 0
         self.header_version = self.parse_header()
 
         # Because the function may be called recursively, we check if this is the first call.
@@ -156,7 +156,7 @@ class PdfParser:
 
         if "Prev" in trailer:
             # More XRefs were found. Recurse!
-            self._tokenizer.position = self._tokenizer.start
+            self._tokenizer.position = 0
             self.parse(cast(int, trailer["Prev"]))
         else:
             # That's it. Merge them together.
@@ -184,10 +184,9 @@ class PdfParser:
         # characters different than those of %PDF-n.m. Offsets should be calculated
         # based on the start of this token rather than the start of the document.
         if not self.strict:
-            self._tokenizer.position = self._tokenizer.start
             if mat := pattern.search(self._tokenizer.data):
                 if self._tokenizer.data[mat.start() - 1] == 37:  # %
-                    self._tokenizer.position = self._tokenizer.start = mat.start() - 1
+                    self._tokenizer.data = self._tokenizer.data[mat.start() - 1 :]
                     return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
         raise PdfParseError("Expected PDF header at start of file.")
@@ -228,7 +227,7 @@ class PdfParser:
         # and the XRef comes first
         self._tokenizer.position = len(self._tokenizer.data) - 1
 
-        while self._tokenizer.position > self._tokenizer.start:
+        while self._tokenizer.position > 0:
             contents.insert(0, ord(self._tokenizer.peek()))
             if contents.startswith(b"startxref"):
                 break
@@ -402,7 +401,7 @@ class PdfParser:
     ) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object
         that is directly referred to by an ``xref_entry`` and a ``reference``"""
-        self._tokenizer.position = self._tokenizer.start + xref_entry.offset
+        self._tokenizer.position = xref_entry.offset
         self._tokenizer.skip_whitespace()
 
         mat = self._match_object_header()
@@ -645,6 +644,3 @@ class PdfParser:
             return PermsAcquired.USER
 
         return PermsAcquired.NONE
-
-    # def save(self, filename: str) -> None:
-    #     pass

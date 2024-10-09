@@ -75,22 +75,14 @@ class PdfTokenizer:
         data (bytes):
             The contents to be parsed.
 
-        start (int, optional):
-            The offset at which the tokenizer should start parsing.
-
-            The reason for this parameter is that certain documents may include arbitrary
-            data before the PDF header. All offsets should be calculated from the start
-            of that header.
-
         parse_operators (bool, optional):
             Whether to also parse the operators present in content streams.
             Defaults to False.
     """
 
-    def __init__(self, data: bytes, *, start: int = 0, parse_operators: bool = False) -> None:
+    def __init__(self, data: bytes, *, parse_operators: bool = False) -> None:
         self.data = data
-        self.start = start
-        self.position = start
+        self.position = 0
         self.resolver: ObjectGetter | None = None
 
         self.parse_operators = parse_operators
