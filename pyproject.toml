@@ -1,7 +1,7 @@
 [project]
 name = "pdfnaut"
 description = "Explore PDFs with ease"
-authors = [{ name = "Angel Carias" }]
+authors = [{ name = "Angel Carias", email = "lotta.dev@outlook.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"

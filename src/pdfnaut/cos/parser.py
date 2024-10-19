@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import UserDict
 from datetime import time
 from enum import IntEnum
 from functools import partial
 from io import BytesIO
 from typing import Any, TypeVar, cast, overload
+
+from typing_extensions import TypeAlias
 
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
@@ -21,6 +24,7 @@ from ..cos.objects.xref import (
 )
 from ..exceptions import PdfParseError
 from ..security.standard_handler import StandardSecurityHandler
+from .serializer import PdfSerializer
 from .tokenizer import PdfTokenizer
 
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
@@ -47,6 +51,60 @@ class PermsAcquired(IntEnum):
     """Owner permissions (all permissions)."""
 
 
+class FreeObject:
+    def __repr__(self) -> str:
+        return "free"
+
+
+MapObject: TypeAlias = "PdfObject | PdfStream | FreeObject"
+
+
+class ObjectMap(UserDict[int, MapObject]):
+    """A mapping of object numbers to either object references, in-use objects or free objects.
+
+    Object references included in :attr:`.ObjectMap.unresolved` are items that have not been
+    requested yet. Once an object is requested, it is removed from the unresolved set and
+    added to the map as is.
+
+    Free objects are indicated with the :class:`.FreeObject` class.
+    """
+
+    def __init__(self, pdf: PdfParser) -> None:
+        super().__init__()
+
+        self._pdf = pdf
+        self.initial_reference_map: dict[int, tuple[int, int]] = {}
+        """A mapping of object numbers to reference tuples for the initial entries made
+        when the object map is filled."""
+
+        self.unresolved = set()
+        """A set of unresolved object numbers (objects that have not been requested 
+        or cached yet)."""
+
+    def fill(self) -> None:
+        """Fills the object map with the items available in the PDF's xref table."""
+        self.initial_reference_map = {obj: (obj, gen) for (obj, gen) in self._pdf.xref.keys()}
+        self.unresolved.clear()
+
+        for obj, gen in self.initial_reference_map.values():
+            entry = self._pdf.xref[(obj, gen)]
+            if isinstance(entry, FreeXRefEntry):
+                self[obj] = FreeObject()
+            else:
+                self[obj] = PdfReference(obj, gen).with_resolver(self._pdf.get_object)
+                self.unresolved.add(obj)
+
+    def __getitem__(self, number: int) -> PdfObject | PdfStream | FreeObject:
+        value = super().__getitem__(number)
+
+        if isinstance(value, PdfReference) and number in self.unresolved:
+            resolved = self[number] = value.get()
+            self.unresolved.discard(number)
+            return resolved
+
+        return value
+
+
 class PdfParser:
     """A parser that can completely parse a PDF document.
 
@@ -69,10 +127,9 @@ class PdfParser:
         self._tokenizer = PdfTokenizer(data)
         self._tokenizer.resolver = self.get_object
 
-        #   indirect object:  (object_number, generation)
-        self.object_store: dict[tuple[int, int], PdfObject | PdfStream] = {}
-        """A mapping of resolved objects. This store is used both as a cache and also for keeping
-        a list of modified items"""
+        #   object number:  direct object
+        self.objects = ObjectMap(self)
+        """A mapping of objects present in the document."""
 
         self.updates: list[tuple[PdfXRefTable, PdfDictionary]] = []
         """A list of all incremental updates present in the document. 
@@ -162,6 +219,9 @@ class PdfParser:
             # That's it. Merge them together.
             self.xref = self.get_merged_xrefs()
             self.trailer = self.updates[0][1]
+
+        # Fills the object store so we can refer to objects now!
+        self.objects.fill()
 
         # Is the document encrypted with a standard security handler?
         if "Encrypt" in self.trailer:
@@ -567,11 +627,11 @@ class PdfParser:
         if isinstance(reference, tuple):
             reference = PdfReference(*reference).with_resolver(self.get_object)
 
-        ref_tup = (reference.object_number, reference.generation)
-        if cache and (stored := self.object_store.get(ref_tup)):
-            return stored
+        # If cache requested and the object hasn't been resolved or cached yet.
+        if cache and reference.object_number not in self.objects.unresolved:
+            return self.objects.get(reference.object_number)
 
-        root_entry = self.xref.get(ref_tup)
+        root_entry = self.xref.get((reference.object_number, reference.generation))
         if root_entry is None:
             return PdfNull()
 
@@ -580,16 +640,20 @@ class PdfParser:
             if not cache:
                 return obj
 
-            self.object_store[ref_tup] = obj
-            return self.object_store[ref_tup]
+            # Add to cache then set the object as resolved.
+            self.objects[reference.object_number] = obj
+            self.objects.unresolved.discard(reference.object_number)
+
+            return self.objects[reference.object_number]
         elif isinstance(root_entry, CompressedXRefEntry):
+            # TODO: Add support for editing object streams
             # Get the object stream it's part of (gen always 0)
             objstm_ref = (root_entry.objstm_number, 0)
             objstm_entry = self.xref[objstm_ref]
             assert isinstance(objstm_entry, InUseXRefEntry)
 
-            if cache and objstm_ref in self.object_store:
-                objstm = self.object_store[objstm_ref]
+            if cache and root_entry.objstm_number not in self.objects.unresolved:
+                objstm = self.objects[root_entry.objstm_number]
             else:
                 objstm = self.parse_indirect_object(
                     objstm_entry,
@@ -599,7 +663,8 @@ class PdfParser:
             assert isinstance(objstm, PdfStream)
 
             if cache:
-                self.object_store[objstm_ref] = objstm
+                self.objects[root_entry.objstm_number] = objstm
+                self.objects.unresolved.discard(root_entry.objstm_number)
 
             seq = PdfTokenizer(objstm.decode()[objstm.details["First"] :] or b"")
             seq.resolver = self.get_object
@@ -644,3 +709,98 @@ class PdfParser:
             return PermsAcquired.USER
 
         return PermsAcquired.NONE
+
+    def save(self, filename: str) -> None:
+        """Saves the contents of this parser to ``filename``."""
+        builder = PdfSerializer()
+        builder.write_header("2.0")
+
+        #                               f          n        c          f            n         c
+        # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation | idx
+        table: list[tuple[str, int, int, int]] = []
+
+        use_compressed = False
+        update_freelist = False
+
+        for obj_num in self.objects:
+            ref_tup = self.objects.initial_reference_map.get(obj_num)
+            # Object is new
+            if ref_tup is None:
+                resolved = self.objects[obj_num]
+                if isinstance(resolved, FreeObject):
+                    table.append(("f", obj_num, -1, 0))
+                    update_freelist = True
+                else:
+                    offset = builder.write_object((obj_num, 0), resolved)
+                    table.append(("n", obj_num, offset, 0))
+
+                continue
+
+            # Object is modified or left intact
+            entry = self.xref[ref_tup]
+            if isinstance(entry, FreeXRefEntry):
+                resolved = self.objects[obj_num]
+                # Free entry left unmodified or can no longer be used
+                if isinstance(resolved, FreeObject) or entry.gen_if_used_again >= 65535:
+                    table.append(("f", obj_num, entry.next_free_object, entry.gen_if_used_again))
+                    continue
+
+                # Free entry now in use
+                offset = builder.write_object((obj_num, entry.gen_if_used_again), resolved)
+                table.append(("n", obj_num, offset, entry.gen_if_used_again))
+                update_freelist = True
+            elif isinstance(entry, InUseXRefEntry):
+                resolved = self.objects[obj_num]
+                # In use object freed
+                if isinstance(resolved, FreeObject):
+                    table.append(("f", obj_num, -1, entry.generation + 1))
+                    update_freelist = True
+                    continue
+
+                # In use object either modified or left intact
+                offset = builder.write_object(ref_tup, resolved)
+                table.append(("n", obj_num, offset, entry.generation))
+            elif isinstance(entry, CompressedXRefEntry):
+                # TODO: Add support for compressed entries (aka object streams)
+                use_compressed = True
+                table.append(("c", obj_num, entry.objstm_number, entry.index_within))
+
+        if update_freelist:
+            # let's first get the members of the freelist
+            freelist_members = [idx for idx, member in enumerate(table) if member[0] == "f"]
+
+            for freelist_idx, xref_idx in enumerate(freelist_members):
+                _, obj_num, _, gen_if_used = table[xref_idx]
+
+                if freelist_idx + 1 < len(freelist_members):
+                    next_free_object = table[freelist_members[freelist_idx + 1]][1]
+                else:
+                    next_free_object = 0
+
+                table[xref_idx] = ("f", obj_num, next_free_object, gen_if_used)
+
+        xref_table = builder.generate_xref_table(table)
+
+        new_trailer = PdfDictionary(
+            {"Size": len(self.build_xref_map(xref_table)), "Root": self.trailer.data["Root"]}
+        )
+
+        if "Info" in self.trailer.data:
+            new_trailer.data["Info"] = self.trailer.data["Info"]
+
+        if "ID" in self.trailer.data:
+            new_trailer.data["ID"] = PdfArray(
+                [self.trailer.data["ID"][0], generate_file_id(filename, builder.content)]
+            )
+
+        if use_compressed:
+            startxref = builder.write_compressed_xref_table(xref_table, new_trailer)
+            builder.write_trailer(None, startxref)
+        else:
+            startxref = builder.write_standard_xref_table(xref_table)
+            builder.write_trailer(new_trailer, startxref)
+
+        builder.write_eof()
+
+        with open(filename, "wb") as output_fp:
+            output_fp.write(builder.content)

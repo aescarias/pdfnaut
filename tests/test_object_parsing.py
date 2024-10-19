@@ -7,14 +7,14 @@ from typing import cast
 
 from pdfnaut import PdfTokenizer
 from pdfnaut.cos.objects import (
-    PdfDictionary,
     PdfArray,
-    PdfName,
-    PdfReference,
-    PdfHexString,
-    PdfNull,
     PdfComment,
     PdfDate,
+    PdfDictionary,
+    PdfHexString,
+    PdfName,
+    PdfNull,
+    PdfReference,
 )
 
 

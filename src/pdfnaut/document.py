@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Generator, TypeVar, cast, overload
+from typing import Generator, cast
 
 from pdfnaut.cos.objects.base import parse_text_string
 from pdfnaut.objects.catalog import PageLayout, PageMode
@@ -10,18 +10,19 @@ from .cos.objects import (
     PdfDictionary,
     PdfHexString,
     PdfName,
-    PdfObject,
     PdfReference,
     PdfStream,
-    PdfXRefEntry,
 )
-from .cos.parser import PdfParser, PermsAcquired
+from .cos.parser import FreeObject, PdfParser, PermsAcquired
 from .objects.page import Page
 from .objects.trailer import Info
 
 
-class PdfDocument:
-    """A high-level interface over :class:`~pdfnaut.cos.parser.PdfParser`"""
+class PdfDocument(PdfParser):
+    """A high-level interface over :class:`~.PdfParser`.
+
+    PDF authors who want to work with a document in a high-level way should use
+    this interface over ``PdfParser``."""
 
     @classmethod
     def from_filename(cls, path: str, *, strict: bool = False) -> PdfDocument:
@@ -30,8 +31,9 @@ class PdfDocument:
             return PdfDocument(fp.read(), strict=strict)
 
     def __init__(self, data: bytes, *, strict: bool = False) -> None:
-        self._reader = PdfParser(data, strict=strict)
-        self._reader.parse()
+        super().__init__(data, strict=strict)
+
+        self.parse()
 
         self.access_level = PermsAcquired.OWNER
         """The current access level of the document, specified as a value from the
@@ -47,64 +49,10 @@ class PdfDocument:
         if self.has_encryption:
             self.access_level = self.decrypt("")
 
-    T = TypeVar("T")
-
-    @overload
-    def get_object(self, reference: PdfReference[T], cache: bool = True) -> T: ...
-
-    @overload
-    def get_object(
-        self, reference: tuple[int, int], cache: bool = True
-    ) -> PdfObject | PdfStream: ...
-
-    def get_object(
-        self, reference: PdfReference | tuple[int, int], cache: bool = True
-    ) -> PdfObject | PdfStream | Any:
-        """Resolves a reference into the indirect object it points to.
-
-        Arguments:
-            reference (:class:`.PdfReference` | :class:`tuple[int, int]`):
-                A :class:`.PdfReference` object or a tuple of two integers representing,
-                in order, the object number and the generation number.
-
-            cache (bool, optional):
-                Whether to interact with the object store when resolving references.
-                Defaults to True.
-
-                When True, the parser will read entries from cache and write new ones
-                if they are not present. If False, the parser will always fetch new
-                entries and will not write to cache.
-
-        Returns:
-            The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
-        """
-        return self._reader.get_object(reference, cache)
-
     @property
     def has_encryption(self) -> bool:
         """Whether this document includes encryption."""
-        return "Encrypt" in self._reader.trailer
-
-    @property
-    def trailer(self) -> PdfDictionary:
-        """The PDF trailer which allows access to other core parts of the PDF structure.
-
-        For details on the contents of the trailer, see ``§ 7.5.5 File Trailer``.
-
-        For documents using an XRef stream, the stream extent is returned. See
-        ``§ 7.5.8.2 Cross-Reference Stream Dictionary`` for more details.
-        """
-        return cast(PdfDictionary, self._reader.trailer)
-
-    @property
-    def xref(self) -> dict[tuple[int, int], PdfXRefEntry]:
-        """A cross-reference mapping combining the entries of all XRef tables present
-        in the document.
-
-        The key is a tuple of two integers: object number and generation number.
-        The value is any of the 3 types of XRef entries (free, in use, compressed)
-        """
-        return self._reader.xref
+        return "Encrypt" in self.trailer
 
     @property
     def catalog(self) -> PdfDictionary:
@@ -113,7 +61,7 @@ class PdfDocument:
 
         For details on the contents of the catalog, see ``§ 7.7.2 Document Catalog``.
         """
-        return cast(PdfDictionary, self._reader.trailer["Root"])
+        return cast(PdfDictionary, self.trailer["Root"])
 
     @property
     def info(self) -> Info | None:
@@ -129,6 +77,23 @@ class PdfDocument:
 
         return Info(cast(PdfDictionary, self.trailer["Info"]))
 
+    @info.setter
+    def info(self, value: Info | None) -> None:
+        info_ref = cast("PdfReference | None", self.trailer.data.get("Info"))
+
+        # A new docinfo object will be created
+        if info_ref is None and value is not None:
+            new_object = max(self.objects) + 1
+            self.objects[new_object] = PdfDictionary(**value.mapping.data)
+            self.trailer.data["Info"] = PdfReference(new_object, 0).with_resolver(self.get_object)
+        # A docinfo object will be set
+        elif info_ref and isinstance(value, Info):
+            self.objects[info_ref.object_number] = PdfDictionary(**value.mapping.data)
+        # A docinfo object will be removed
+        elif info_ref:
+            self.objects[info_ref.object_number] = FreeObject()
+            self.trailer.data.pop("Info", None)
+
     @property
     def pdf_version(self) -> str:
         """The version of the PDF standard used in this document.
@@ -137,7 +102,7 @@ class PdfDocument:
         in the catalog. If the Version entry is absent or the header specifies a later
         version, the header version is returned. Otherwise, the Version entry is returned.
         """
-        header_version = self._reader.header_version
+        header_version = self.header_version
         catalog_version = cast("PdfName | None", self.catalog.get("Version"))
 
         if not catalog_version:
@@ -170,21 +135,7 @@ class PdfDocument:
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
 
     def decrypt(self, password: str) -> PermsAcquired:
-        """Decrypts this document assuming it was encrypted with a ``password``.
-
-        The Standard security handler may specify 2 passwords:
-        - An owner password, allowing full access to the PDF.
-        - A user password, allowing restricted access to the PDF according to set permissions.
-
-        Returns:
-            A :class:`.PermsAcquired` value specifying the permissions acquired with
-            ``password``.
-
-            - If the document is not encrypted, returns :attr:`.PermsAcquired.OWNER`
-            - if the document could not be decrypted by ``password``, returns
-            :attr:`.PermsAcquired.NONE`
-        """
-        self.access_level = self._reader.decrypt(password)
+        self.access_level = super().decrypt(password)
         return self.access_level
 
     def _flatten_pages(self, *, parent: PdfDictionary | None = None) -> Generator[Page, None, None]:
@@ -194,7 +145,7 @@ class PdfDocument:
             if page["Type"].value == b"Pages":
                 yield from self._flatten_pages(parent=page)
             elif page["Type"].value == b"Page":
-                yield Page(page)
+                yield Page(page.data)
 
     @property
     def flattened_pages(self) -> Generator[Page, None, None]:

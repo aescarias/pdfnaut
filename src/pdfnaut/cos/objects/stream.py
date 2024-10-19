@@ -62,13 +62,18 @@ class PdfStream:
 
     @classmethod
     def create(
-        cls, raw: bytes, details: PdfDictionary, crypt_params: PdfDictionary | None = None
+        cls,
+        raw: bytes,
+        details: PdfDictionary | None = None,
+        crypt_params: PdfDictionary | None = None,
     ) -> Self:
         """Creates a stream from unencoded data ``raw`` applying the filter(s) specified in
         ``details``. The length of the encoded output will automatically be appended
         to ``details``.
 
         Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
+        if details is None:
+            details = PdfDictionary()
 
         filters = cast("PdfName | PdfArray[PdfName] | None", details.get("Filter"))
         params = cast("PdfDictionary | PdfArray[PdfDictionary]", details.get("DecodeParms"))
