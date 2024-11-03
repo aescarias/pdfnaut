@@ -299,7 +299,7 @@ class PdfSerializer:
                     "W": PdfArray(widths),
                     "Index": PdfArray(sum(indices, start=PdfArray())),
                     "Length": len(contents),
-                    **trailer,
+                    **trailer.data,
                 }
             ),
             contents,

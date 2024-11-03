@@ -1,11 +1,9 @@
 from __future__ import annotations
 
+import datetime
 import enum
-from typing import cast
 
-from ..cos.objects.base import PdfHexString, PdfName, parse_text_string
-from ..cos.objects.containers import PdfDictionary
-from ..cos.objects.date import PdfDate
+from .fields import DateField, EnumField, FieldDictionary, TextStringField
 
 
 class TrappedState(enum.Enum):
@@ -17,7 +15,7 @@ class TrappedState(enum.Enum):
     """Unknown whether document is trapped partly, fully, or at all"""
 
 
-class Info(PdfDictionary):
+class Info(FieldDictionary):
     """The document information dictionary (``§ 14.3.3 Document information dictionary``).
 
     It represents document-level metadata and is stored in the trailer. Since PDF 2.0,
@@ -25,87 +23,82 @@ class Info(PdfDictionary):
     exception of the CreationDate and ModDate keys.
     """
 
-    def __init__(self, mapping: PdfDictionary) -> None:
-        super().__init__(mapping)
+    title = TextStringField("Title")
+    """The document's title"""
 
-        self.mapping = mapping
+    author = TextStringField("Author")
+    """The name of the person who created the document."""
 
-    @property
-    def title(self) -> str | None:
-        """The document's title."""
-        if (title := cast("PdfHexString | bytes", self.get("Title"))) is not None:
-            return parse_text_string(title)
+    subject = TextStringField("Subject")
+    """The subject or topic of the document."""
 
-    @property
-    def author(self) -> str | None:
-        """The name of the person who created the document."""
-        if (author := cast("PdfHexString | bytes", self.get("Author"))) is not None:
-            return parse_text_string(author)
+    keywords = TextStringField("Keywords")
+    """Keywords associated with the document."""
 
-    @property
-    def subject(self) -> str | None:
-        """The subject of the document."""
-        if (subject := cast("PdfHexString | bytes", self.get("Subject"))) is not None:
-            return parse_text_string(subject)
+    creator = TextStringField("Creator")
+    """If the document was converted to PDF from another format (ex: DOCX), the name of 
+    the PDF processor that created the original document from which it was converted 
+    (ex: Microsoft Word)."""
 
-    @property
-    def keywords(self) -> str | None:
-        """Keywords associated with the document."""
-        if (keywords := cast("PdfHexString | bytes", self.get("Keywords"))) is not None:
-            return parse_text_string(keywords)
+    producer = TextStringField("Producer")
+    """If the document was converted to PDF from another format (ex: PostScript), the name of 
+    the PDF processor that converted it to PDF (ex: Adobe Distiller)."""
 
-    @property
-    def creator(self) -> str | None:
-        """If the document was converted to PDF from another format, the name of the PDF
-        processor that created the original document from which it was converted."""
-        if (creator := cast("PdfHexString | bytes", self.get("Creator"))) is not None:
-            return parse_text_string(creator)
+    creation_date_raw = TextStringField("CreationDate")
+    """The date and time the document was created, as a text string."""
 
-    @property
-    def producer(self) -> str | None:
-        """If the document was converted to PDF from another format, the name of the PDF
-        processor that converted it to PDF."""
-        if (producer := cast("PdfHexString | bytes", self.get("Producer"))) is not None:
-            return parse_text_string(producer)
+    modify_date_raw = TextStringField("ModDate")
+    """The date and time the document was most recently modified, as a text string."""
 
-    @property
-    def creation_date_raw(self) -> str | None:
-        """The date and time the document was created, in human-readable form."""
-        if (creation_date := cast("PdfHexString | bytes", self.get("CreationDate"))) is not None:
-            return parse_text_string(creation_date)
+    creation_date = DateField("CreationDate")
+    """The date and time the document was created, in human-readable form."""
 
-    @property
-    def modify_date_raw(self) -> str | None:
-        """The date and time the document was most recently modified, in human-readable form."""
-        if (mod_date := cast("PdfHexString | bytes", self.get("ModDate"))) is not None:
-            return parse_text_string(mod_date)
+    modify_date = DateField("ModDate")
+    """The date and time the document was most recently modified, in human-readable form."""
 
-    @property
-    def creation_date(self) -> PdfDate | None:
-        """The date and time the document was created, in human-readable form."""
-        if self.creation_date_raw:
-            return PdfDate.from_pdf(self.creation_date_raw)
+    trapped = EnumField(
+        "Trapped",
+        {"True": TrappedState.Yes, "False": TrappedState.No, "Unknown": TrappedState.Unknown},
+        TrappedState.Unknown,
+    )
+    """A value indicating whether the document has been modified to include trapping 
+    information (``§ 14.11.6 Trapping support``)."""
 
-    @property
-    def modify_date(self) -> PdfDate | None:
-        """The date and time the document was most recently modified, in human-readable form."""
-        if self.modify_date_raw:
-            return PdfDate.from_pdf(self.modify_date_raw)
+    def __init__(
+        self,
+        title: str | None = None,
+        author: str | None = None,
+        subject: str | None = None,
+        keywords: str | None = None,
+        creator: str | None = None,
+        producer: str | None = None,
+        creation_date: datetime.datetime | None = None,
+        modify_date: datetime.datetime | None = None,
+        trapped: TrappedState | None = None,
+    ) -> None:
+        super().__init__()
 
-    @property
-    def trapped(self) -> TrappedState:
-        """A value indicating whether the document has been modified to include
-        trapping information (``§ 14.11.6 Trapping support``)."""
-        trapped_state = cast(PdfName | None, self.get("Trapped"))
-        if trapped_state is None:
-            return TrappedState.Unknown
+        # TODO: I'll rework this to be dataclassy some day.
+        self._attrs = {
+            "title": title,
+            "author": author,
+            "subject": subject,
+            "keywords": keywords,
+            "creator": creator,
+            "producer": producer,
+            "creation_date": creation_date,
+            "modify_date": modify_date,
+            "trapped": trapped,
+        }
 
-        if trapped_state.value == b"True":
-            return TrappedState.Yes
-        elif trapped_state.value == b"False":
-            return TrappedState.No
-
-        return TrappedState.Unknown
+        for name, value in self._attrs.items():
+            if value is not None:
+                setattr(self, name, value)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({super().__repr__()})"
+        attributes = ", ".join(
+            f"{attr}={getattr(self, attr)!r}"
+            for attr, value in self._attrs.items()
+            if value is not None
+        )
+        return f"{self.__class__.__name__}({attributes})"

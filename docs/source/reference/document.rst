@@ -5,4 +5,5 @@ Alongside :class:`~pdfnaut.cos.parser.PdfParser`, pdfnaut also provides a high-l
 
 .. automodule:: pdfnaut.document
     :undoc-members:
+    :inherited-members:
     :members:

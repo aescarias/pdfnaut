@@ -237,12 +237,12 @@ class FlateFilter(PdfFilter):
             row = to_filter[r : r + row_length]
             if 0 <= filter_type <= 4:
                 encoded = self._process_png_row(True, row, filter_type, previous, sample_length)
-                output.extend(filter_type.to_bytes() + encoded)
+                output.extend(filter_type.to_bytes(1, "big") + encoded)
             elif filter_type == 5:  # Optimum
                 # TODO: we will default optimum to be paeth for now
                 # TODO: impl. actual heuristic
                 encoded = self._process_png_row(True, row, 4, previous, sample_length)
-                output.extend((4).to_bytes() + row)
+                output.extend((4).to_bytes(1, "big") + row)
             else:
                 raise PdfFilterError(
                     f"FlateDecode [png]: Row uses unsupported filter {filter_type}"

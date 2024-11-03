@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 import enum
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Generator, Literal, cast
 
-from ..cos.objects.base import PdfHexString, parse_text_string
+from pdfnaut.objects.fields import (
+    FieldDictionary,
+    FlagField,
+    NameField,
+    StandardField,
+    TextStringField,
+)
+
+from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
-from ..cos.objects.stream import PdfStream
 from ..cos.tokenizer import ContentStreamIterator
+
+if TYPE_CHECKING:
+    from ..cos.objects.stream import PdfStream
+
 
 AnnotationKind = Literal[
     "Text",
@@ -38,7 +49,6 @@ AnnotationKind = Literal[
     "Projection",
     "RichMedia",
 ]
-FontKind = Literal["Type1"]
 
 
 class AnnotationFlags(enum.IntFlag):
@@ -55,114 +65,75 @@ class AnnotationFlags(enum.IntFlag):
     LockedContents = 1 << 10
 
 
-class Annotation(PdfDictionary):
+class Annotation(FieldDictionary):
     """An annotation associates an object such as a note, link or rich media element
     with a location on a page of a PDF document (``§ 12.5 Annotations``)."""
 
-    def __init__(self, mapping: PdfDictionary) -> None:
-        super().__init__(mapping)
+    kind = NameField[AnnotationKind]("Subtype")
+    """The type of annotation (``Table 171: Annotation types``)"""
 
-        self.mapping = mapping
+    rect = StandardField[PdfArray["int | float"]]("Rect")
+    """A rectangle specifying the location of the annotation in the page."""
 
-    @property
-    def kind(self) -> AnnotationKind:
-        """The type of annotation (``Table 171: Annotation types``)"""
-        return cast(AnnotationKind, self["Subtype"].value.decode())
+    contents = TextStringField("Contents")
+    """The text contents that shall be displayed when the annotation is open, or if this
+    annotation kind does not display text, an alternate description of the annotation's 
+    contents."""
 
-    @property
-    def rectangle(self) -> PdfArray[int | float]:
-        """A rectangle specifying the location of the annotation in the page."""
-        return cast(PdfArray[int], self["Rectangle"])
+    name = TextStringField("NM")
+    """An annotation name uniquely identifying it among other annotations in its page."""
 
-    @property
-    def contents(self) -> str | None:
-        """The text contents that shall be displayed when the annotation is open, or if this
-        type does not display text, an alternate description of the annotation's contents."""
-        if "Contents" not in self:
-            return
+    last_modified = TextStringField("M")
+    """The date and time the annotation was most recently modified. This value should
+    be a PDF date string but processors are expected to accept any text string."""
 
-        return parse_text_string(cast("PdfHexString | bytes", self["Contents"]))
+    flags = FlagField("F", AnnotationFlags, AnnotationFlags.Null)
+    """A set of flags specifying various characteristics of the annotation."""
 
-    @property
-    def name(self) -> str | None:
-        """An annotation name uniquely identifying it among other annotations in its page."""
-        if "NM" not in self:
-            return
-
-        return parse_text_string(cast("PdfHexString | bytes", self["NM"]))
-
-    @property
-    def last_modified(self) -> str | None:
-        """The date and time the annotation was most recently modified. This value should
-        be a PDF date string but processors are expected to accept any text string."""
-        if "M" not in self:
-            return
-
-        return parse_text_string(cast("PdfHexString | bytes", self["M"]))
-
-    @property
-    def flags(self) -> AnnotationFlags:
-        """A set of flags specifying various characteristics of the annotation."""
-        return AnnotationFlags(self.get("F", 0))
-
-    @property
-    def language(self) -> str | None:
-        """A language identifier that shall specify the natural language for all text in
-        the annotation except where overridden by other explicit language specifications
-        (``§ 14.9.2 Natural language specification``)."""
-        if "Lang" not in self:
-            return
-
-        return parse_text_string(cast("PdfHexString | bytes", self["Lang"]))
+    language = TextStringField("Lang")
+    """A language identifier that shall specify the natural language for all text in
+    the annotation except where overridden by other explicit language specifications
+    (``§ 14.9.2 Natural language specification``)."""
 
 
-class Page(PdfDictionary):
+class Page(FieldDictionary):
     """A page in the document (``§ 7.7.3.3 Page Objects``)."""
 
-    def __init__(self, mapping: PdfDictionary) -> None:
-        super().__init__(mapping)
+    resources = StandardField["PdfDictionary | None"]("Resources", None)
+    """Resources required by the page contents.
 
-        self.mapping = mapping
+    If the page requires no resources, this returns an empty resource dictionary.
+    If the page inherits its resources from an ancestor, this returns None.
+    """
 
-    @property
-    def resources(self) -> PdfDictionary | None:
-        """Resources required by the page contents.
+    mediabox = StandardField[PdfArray[int]]("MediaBox")
+    """A rectangle specifying the boundaries of the physical medium in which the page
+    should be printed or displayed."""
 
-        If the page requires no resources, this returns an empty resource dictionary.
-        If the page inherits its resources from an ancestor, this returns None.
+    cropbox = StandardField["PdfArray[int] | None"]("CropBox", None)
+    """A rectangle specifying the visible region of the page."""
+
+    user_unit = StandardField["int | float"]("UserUnit", 1)
+    """The size of a user space unit, in multiples of 1/72 of an inch."""
+
+    rotation = StandardField[int]("Rotate", 0)
+    """The number of degrees by which the page shall be visually rotated clockwise.
+    The value is a multiple of 90 (by default, 0)."""
+
+    metadata = StandardField["PdfStream | None"]("Metadata", None)
+    """A metadata stream, generally written in XMP, containing information about this page."""
+
+    def __init__(self, size: tuple[int, int]) -> None:
         """
-        if "Resources" not in self:
-            return
+        Arguments:
+            size (tuple[int, int]):
+                The width and height of the physical medium in which the page should
+                be printed or displayed.
+        """
+        super().__init__()
 
-        return cast(PdfDictionary, self.get("Resources"))
-
-    @property
-    def mediabox(self) -> PdfArray[int]:
-        """A rectangle specifying the boundaries of the physical medium in which the page
-        should be printed or displayed."""
-        return cast(PdfArray[int], self["MediaBox"])
-
-    @property
-    def cropbox(self) -> PdfArray[int] | None:
-        """A rectangle specifying the visible region of the page."""
-        if "CropBox" not in self:
-            return
-
-        return cast(PdfArray[int], self["CropBox"])
-
-    @property
-    def rotation(self) -> int:
-        """The number of degrees by which the page shall be rotated clockwise.
-        The value is a multiple of 90 (by default, 0)."""
-        return cast(int, self.get("Rotate", 0))
-
-    @property
-    def metadata(self) -> PdfStream | None:
-        """A metadata stream in XMP containing information about this page."""
-        if "Metadata" not in self:
-            return
-
-        return cast(PdfStream, self["Metadata"])
+        self["Type"] = PdfName(b"Page")
+        self["MediaBox"] = PdfArray([0, 0, *size])
 
     @property
     def content_stream(self) -> ContentStreamIterator | None:
@@ -170,15 +141,15 @@ class Page(PdfDictionary):
         if "Contents" not in self:
             return
 
-        if isinstance(self["Contents"], PdfArray):
-            return ContentStreamIterator(b"\n".join(stm.decode() for stm in self["Contents"]))
+        contents = cast("PdfStream | PdfArray[PdfStream]", self["Contents"])
 
-        return ContentStreamIterator(self["Contents"].decode())
+        if isinstance(contents, PdfArray):
+            return ContentStreamIterator(b"\n".join(stm.decode() for stm in contents))
+
+        return ContentStreamIterator(contents.decode())
 
     @property
-    def annotations(self) -> PdfArray[Annotation]:
+    def annotations(self) -> Generator[Annotation, None, None]:
         """All annotations associated with this page (``§ 12.5 Annotations``)"""
-        return PdfArray(
-            Annotation(annot)
-            for annot in cast(PdfArray[PdfDictionary], self.get("Annots", PdfArray()))
-        )
+        for annot in cast(PdfArray[PdfDictionary], self.get("Annots", PdfArray())):
+            yield Annotation.from_dict(annot)

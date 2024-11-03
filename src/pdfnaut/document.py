@@ -63,6 +63,11 @@ class PdfDocument(PdfParser):
         """
         return cast(PdfDictionary, self.trailer["Root"])
 
+    @catalog.setter
+    def catalog(self, value: PdfDictionary) -> None:
+        root_ref = cast(PdfReference, self.trailer.data["Root"])
+        self.objects[root_ref.object_number] = value
+
     @property
     def info(self) -> Info | None:
         """The ``Info`` entry in the catalog which includes document-level information
@@ -75,7 +80,7 @@ class PdfDocument(PdfParser):
         if "Info" not in self.trailer:
             return
 
-        return Info(cast(PdfDictionary, self.trailer["Info"]))
+        return Info.from_dict(cast(PdfDictionary, self.trailer["Info"]))
 
     @info.setter
     def info(self, value: Info | None) -> None:
@@ -84,11 +89,11 @@ class PdfDocument(PdfParser):
         # A new docinfo object will be created
         if info_ref is None and value is not None:
             new_object = max(self.objects) + 1
-            self.objects[new_object] = PdfDictionary(**value.mapping.data)
+            self.objects[new_object] = PdfDictionary(**value.data)
             self.trailer.data["Info"] = PdfReference(new_object, 0).with_resolver(self.get_object)
         # A docinfo object will be set
         elif info_ref and isinstance(value, Info):
-            self.objects[info_ref.object_number] = PdfDictionary(**value.mapping.data)
+            self.objects[info_ref.object_number] = PdfDictionary(**value.data)
         # A docinfo object will be removed
         elif info_ref:
             self.objects[info_ref.object_number] = FreeObject()
@@ -142,10 +147,11 @@ class PdfDocument(PdfParser):
         root = cast(PdfDictionary, parent or self.page_tree)
 
         for page in cast(PdfArray[PdfDictionary], root["Kids"]):
-            if page["Type"].value == b"Pages":
+            type_ = cast(PdfName, page["Type"])
+            if type_.value == b"Pages":
                 yield from self._flatten_pages(parent=page)
-            elif page["Type"].value == b"Page":
-                yield Page(page.data)
+            elif type_.value == b"Page":
+                yield Page.from_dict(page)
 
     @property
     def flattened_pages(self) -> Generator[Page, None, None]:

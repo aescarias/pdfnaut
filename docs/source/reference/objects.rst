@@ -8,6 +8,7 @@ Catalog Objects
 
 .. automodule:: pdfnaut.objects.catalog
     :members:
+    :undoc-members:
 
 Trailer Objects
 ---------------
@@ -19,4 +20,10 @@ Page Objects
 ------------
 
 .. automodule:: pdfnaut.objects.page
+    :members:
+
+Fields
+------
+
+.. automodule:: pdfnaut.objects.fields
     :members:
