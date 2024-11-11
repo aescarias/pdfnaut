@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import zlib
 from base64 import a85decode, a85encode, b16decode, b16encode
+from collections.abc import Generator, Iterable
+from itertools import groupby, islice
 from math import ceil, floor
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
 from .cos.objects import PdfDictionary, PdfName, PdfReference
 from .cos.tokenizer import WHITESPACE
@@ -11,6 +13,31 @@ from .exceptions import PdfFilterError
 
 if TYPE_CHECKING:
     from .security.standard_handler import StandardSecurityHandler
+
+
+T = TypeVar("T")
+
+
+# itertools recipe
+def batched(iterable: Iterable[T], n: int, *, strict=False) -> Generator[tuple[T, ...], None, None]:
+    """Consumes ``iterable`` and yields batches of `n` elements (where `n` is an
+    integer greater than 1) until the iterator is exhausted.
+
+    If ``strict`` is True, each batch must include exactly `n` elements, raising a
+    ``ValueError`` otherwise.
+
+    Example:
+        batched('ABCDEFG', 3) → ABC DEF G
+    """
+    if n < 1:
+        raise ValueError("n must be at least one")
+
+    iterator = iter(iterable)
+    while batch := tuple(islice(iterator, n)):
+        if strict and len(batch) != n:
+            raise ValueError("batched(): incomplete batch")
+
+        yield batch
 
 
 class PdfFilter(Protocol):
@@ -84,8 +111,70 @@ class RunLengthFilter(PdfFilter):
 
         return output
 
+    def _encode_repeat_runs(self, runs: list[bytes]) -> bytes:
+        output = b""
+
+        for run in runs:
+            for batch in batched(run, 128):
+                if not batch:
+                    continue
+
+                batch_len = len(batch)
+
+                if batch_len < 2:
+                    # 257 - 1 is 256 which wouldn't fit in a byte
+                    # so simply use the "copying" method for this batch
+                    byte = (batch_len - 1).to_bytes(1, "big")
+                    data = b"".join(item.to_bytes(1, "big") for item in batch)
+                    output += byte + data
+                    continue
+
+                # repeat the first char at desire
+                byte = (257 - batch_len).to_bytes(1, "big")
+                output += byte + run[:1]
+
+        return output
+
+    def _encode_copy_run(self, run: bytes) -> bytes:
+        output = b""
+
+        for batch in batched(run, 128):
+            if not batch:
+                continue
+
+            length_byte = (len(batch) - 1).to_bytes(1, "big")
+            copy_bytes = b"".join(item.to_bytes(1, "big") for item in batch)
+
+            output += length_byte + copy_bytes
+
+        return output
+
     def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
-        raise NotImplementedError("RunLengthDecode: Encoding not implemented.")
+        # perform typical rle first than decode it.
+        runs = [(len(list(group)), val.to_bytes(1, "big")) for val, group in groupby(contents)]
+        decoded_runs = (length * val for length, val in runs)
+
+        # grouping runs by len helps merge runs together if the "copying" method is selected.
+        runs_by_len = [(key, list(run)) for key, run in groupby(decoded_runs, key=len)]
+
+        # values above this threshold are encoded using the "repeating" method.
+        # values below are encoded using the "copying" method.
+        # this is the first heuristic that came to mind and it seems to work decently.
+        run_length_threshold = sum(length for length, _ in runs) / len(runs)
+
+        final_output = b""
+
+        for run_length, runs in runs_by_len:
+            if run_length > run_length_threshold:
+                # above this threshold we use the "repeating" method
+                final_output += self._encode_repeat_runs(runs)
+            else:
+                # below this threshold, use the "copying" method
+                # merge the runs first though
+                final_output += self._encode_copy_run(b"".join(runs))
+
+        final_output += b"\x80"
+        return final_output
 
 
 class FlateFilter(PdfFilter):

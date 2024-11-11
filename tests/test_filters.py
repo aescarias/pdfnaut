@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+from typing import cast
+
 from pdfnaut import PdfParser
-from pdfnaut.filters import ASCIIHexFilter, ASCII85Filter, FlateFilter, RunLengthFilter
+from pdfnaut.cos.objects import PdfStream
+from pdfnaut.filters import ASCII85Filter, ASCIIHexFilter, FlateFilter, RunLengthFilter
 
 
 def test_ascii() -> None:
@@ -18,11 +23,17 @@ def test_flate() -> None:
 
 
 def test_rle() -> None:
-    with open("tests/docs/shapes-rle.pdf", "rb") as fp:
+    with open("tests/docs/river-rle-image.pdf", "rb") as fp:
         pdf = PdfParser(fp.read())
         pdf.parse()
 
-        ref = pdf.get_object((8, 0))
+        rle_stream = cast(PdfStream, pdf.get_object((3, 0)))
 
-        with open("tests/docs/shapes-decoded.bin", "rb") as binfp:
-            assert RunLengthFilter().decode(ref.raw) == binfp.read()
+        with (
+            open("tests/docs/filters/rle-input.jpg", "rb") as input_image,
+            open("tests/docs/filters/rle-output.bin", "rb") as output,
+        ):
+            assert RunLengthFilter().decode(rle_stream.raw) == input_image.read()
+
+            input_image.seek(0)
+            assert RunLengthFilter().encode(input_image.read()) == output.read()
