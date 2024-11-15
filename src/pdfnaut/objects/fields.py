@@ -4,8 +4,6 @@ import datetime
 import enum
 from typing import Any, Generic, Type, TypeVar, cast
 
-from typing_extensions import Self
-
 from pdfnaut.cos.objects.base import (
     PdfHexString,
     PdfName,
@@ -16,26 +14,8 @@ from pdfnaut.cos.objects.base import (
 from pdfnaut.cos.objects.containers import PdfDictionary
 from pdfnaut.cos.objects.date import PdfDate
 
-
-class FieldDictionary(PdfDictionary):
-    """A dictionary that includes fields.
-
-    Fields are essentially similar to properties but, rather than affecting an attribute,
-    they affect a key in the dictionary."""
-
-    @classmethod
-    def from_dict(cls, mapping: PdfDictionary) -> Self:
-        dictionary = cls()
-        dictionary.data = mapping.data
-
-        return dictionary
-
-    # The two methods below are practically placeholders
-    def __init__(self) -> None:
-        super().__init__()
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({super().__repr__()})"
+K = TypeVar("K")
+V = TypeVar("V")
 
 
 class Required:
@@ -50,14 +30,14 @@ class TextStringField:
     def __init__(self, field: str) -> None:
         self.field = field
 
-    def __get__(self, obj: FieldDictionary, objtype: Any | None = None) -> str | None:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> str | None:
         if (value := obj.get(self.field)) is not None:
             return parse_text_string(cast("PdfHexString | bytes", value))
 
-    def __set__(self, obj: FieldDictionary, value: str) -> None:
+    def __set__(self, obj: PdfDictionary, value: str) -> None:
         obj[self.field] = encode_text_string(value)
 
-    def __delete__(self, obj: FieldDictionary) -> None:
+    def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)
 
 
@@ -73,18 +53,18 @@ class EnumField(Generic[LT, ET]):
         self.default = default
         self.enum_map = enum_map
 
-    def __get__(self, obj: FieldDictionary, objtype: Any | None = None) -> ET:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> ET:
         if (value := obj.get(self.field)) is not None:
             name = cast(LT, cast(PdfName, value).value.decode())
             return self.enum_map[name]
 
         return self.default
 
-    def __set__(self, obj: FieldDictionary, value: ET) -> None:
+    def __set__(self, obj: PdfDictionary, value: ET) -> None:
         lit_map = {val: key for key, val in self.enum_map.items()}
         obj[self.field] = PdfName(lit_map[value].encode())  # type: ignore
 
-    def __delete__(self, obj: FieldDictionary) -> None:
+    def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)
 
 
@@ -104,16 +84,16 @@ class StandardField(Generic[T]):
         self.field = field
         self.default = default
 
-    def __get__(self, obj: FieldDictionary, objtype: Any | None = None) -> T:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> T:
         if self.default is Required:
             return cast(T, obj[self.field])
 
         return cast(T, obj.get(self.field, self.default))
 
-    def __set__(self, obj: FieldDictionary, value: T) -> None:
+    def __set__(self, obj: PdfDictionary, value: T) -> None:
         obj[self.field] = cast(PdfObject, value)
 
-    def __delete__(self, obj: FieldDictionary) -> None:
+    def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)
 
 
@@ -127,7 +107,7 @@ class NameField(Generic[T]):
         self.field = field
         self.default = default
 
-    def __get__(self, obj: FieldDictionary, objtype: Any | None = None) -> T:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> T:
         if self.default is Required:
             name = cast(PdfName, obj[self.field]).value.decode()
             return cast(T, name)
@@ -135,10 +115,10 @@ class NameField(Generic[T]):
         name = cast(PdfName, obj.get(self.field, self.default)).value.decode()
         return cast(T, name)
 
-    def __set__(self, obj: FieldDictionary, value: T) -> None:
+    def __set__(self, obj: PdfDictionary, value: T) -> None:
         obj[self.field] = PdfName(cast(str, value).encode())
 
-    def __delete__(self, obj: FieldDictionary) -> None:
+    def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)
 
 
@@ -155,7 +135,7 @@ class FlagField(Generic[E]):
         self.enum_cls = enum_cls
         self.default = default
 
-    def __get__(self, obj: FieldDictionary, objtype: Any | None = None) -> E:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> E:
         if self.default is Required:
             return self.enum_cls(obj[self.field])
 
@@ -165,10 +145,10 @@ class FlagField(Generic[E]):
 
         return self.enum_cls(value)
 
-    def __set__(self, obj: FieldDictionary, value: E) -> None:
+    def __set__(self, obj: PdfDictionary, value: E) -> None:
         obj[self.field] = int(value)
 
-    def __delete__(self, obj: FieldDictionary) -> None:
+    def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)
 
 
@@ -178,16 +158,16 @@ class DateField:
     def __init__(self, field: str) -> None:
         self.field = field
 
-    def __get__(self, obj: FieldDictionary, objtype: Any | None = None) -> PdfDate | None:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> PdfDate | None:
         text = TextStringField(self.field).__get__(obj)
         if text is not None:
             return PdfDate.from_pdf(text)
 
-    def __set__(self, obj: FieldDictionary, value: PdfDate | datetime.datetime) -> None:
+    def __set__(self, obj: PdfDictionary, value: PdfDate | datetime.datetime) -> None:
         if isinstance(value, datetime.datetime):
             value = PdfDate.from_datetime(value)
 
         TextStringField(self.field).__set__(obj, value.as_pdf_string())
 
-    def __delete__(self, obj: FieldDictionary) -> None:
+    def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)

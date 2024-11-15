@@ -3,7 +3,9 @@ from __future__ import annotations
 import datetime
 import enum
 
-from .fields import DateField, EnumField, FieldDictionary, TextStringField
+from typing_extensions import Self
+
+from .fields import DateField, EnumField, PdfDictionary, TextStringField
 
 
 class TrappedState(enum.Enum):
@@ -15,7 +17,7 @@ class TrappedState(enum.Enum):
     """Unknown whether document is trapped partly, fully, or at all"""
 
 
-class Info(FieldDictionary):
+class Info(PdfDictionary):
     """The document information dictionary (``§ 14.3.3 Document information dictionary``).
 
     It represents document-level metadata and is stored in the trailer. Since PDF 2.0,
@@ -64,6 +66,14 @@ class Info(FieldDictionary):
     """A value indicating whether the document has been modified to include trapping 
     information (``§ 14.11.6 Trapping support``)."""
 
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        dictionary = cls()
+        dictionary.update()
+        dictionary.data = mapping.data
+
+        return dictionary
+
     def __init__(
         self,
         title: str | None = None,
@@ -97,8 +107,9 @@ class Info(FieldDictionary):
 
     def __repr__(self) -> str:
         attributes = ", ".join(
-            f"{attr}={getattr(self, attr)!r}"
-            for attr, value in self._attrs.items()
-            if value is not None
+            f"{attr}={value!r}"
+            for attr in self._attrs
+            if (value := getattr(self, attr, None)) is not None
         )
+
         return f"{self.__class__.__name__}({attributes})"

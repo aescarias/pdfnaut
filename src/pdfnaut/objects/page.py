@@ -3,13 +3,9 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING, Generator, Literal, cast
 
-from pdfnaut.objects.fields import (
-    FieldDictionary,
-    FlagField,
-    NameField,
-    StandardField,
-    TextStringField,
-)
+from typing_extensions import Self
+
+from pdfnaut.objects.fields import FlagField, NameField, StandardField, TextStringField
 
 from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
@@ -65,7 +61,7 @@ class AnnotationFlags(enum.IntFlag):
     LockedContents = 1 << 10
 
 
-class Annotation(FieldDictionary):
+class Annotation(PdfDictionary):
     """An annotation associates an object such as a note, link or rich media element
     with a location on a page of a PDF document (``§ 12.5 Annotations``)."""
 
@@ -95,8 +91,15 @@ class Annotation(FieldDictionary):
     the annotation except where overridden by other explicit language specifications
     (``§ 14.9.2 Natural language specification``)."""
 
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        dictionary = cls()
+        dictionary.data = mapping.data
 
-class Page(FieldDictionary):
+        return dictionary
+
+
+class Page(PdfDictionary):
     """A page in the document (``§ 7.7.3.3 Page Objects``)."""
 
     resources = StandardField["PdfDictionary | None"]("Resources", None)
@@ -122,6 +125,13 @@ class Page(FieldDictionary):
 
     metadata = StandardField["PdfStream | None"]("Metadata", None)
     """A metadata stream, generally written in XMP, containing information about this page."""
+
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        dictionary = cls(size=(0, 0))
+        dictionary.data = mapping.data
+
+        return dictionary
 
     def __init__(self, size: tuple[int, int]) -> None:
         """
