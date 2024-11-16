@@ -94,6 +94,32 @@ class ObjectMap(UserDict[int, MapObject]):
                 self[obj] = PdfReference(obj, gen).with_resolver(self._pdf.get_object)
                 self.unresolved.add(obj)
 
+    T = TypeVar("T")
+
+    def _make_ref(self) -> PdfReference:
+        """Creates a new reference based on the current object number of the map."""
+        if not self:
+            return PdfReference(1, 0)
+
+        highest_objnum = max(self.keys())
+        return PdfReference(highest_objnum + 1, 0)
+
+    def add(self, pdf_object: MapObject) -> PdfReference[MapObject]:
+        """Adds a new object to the map. Returns its reference."""
+        reference = self._make_ref()
+        self[reference.object_number] = pdf_object
+
+        return reference.with_resolver(self._pdf.get_object)
+
+    def delete(self, obj_num: int) -> MapObject | None:
+        """Deletes object with number ``obj_num``. Returns the object if it exists,
+        otherwise returns None."""
+        return self.pop(obj_num, None)
+
+    def free(self, obj_num: int) -> None:
+        """Marks object with number ``obj_num`` as a free object."""
+        self[obj_num] = FreeObject()
+
     def __getitem__(self, number: int) -> PdfObject | PdfStream | FreeObject:
         value = super().__getitem__(number)
 
@@ -150,6 +176,9 @@ class PdfParser:
         
         The key is a tuple of two integers: object number and generation number. 
         The value is any of the 3 types of XRef entries (free, in use, compressed).
+
+        This attribute reflects the state of the XRef table when the document was 
+        first loaded. Assume read-only.
         """
 
         self.header_version = ""
@@ -168,6 +197,8 @@ class PdfParser:
         """
 
         self._encryption_key = None
+
+    # These are helper methods that can probably be moved out from here.
 
     T = TypeVar("T")
 
@@ -617,9 +648,12 @@ class PdfParser:
                 Whether to interact with the object store when resolving references.
                 Defaults to True.
 
-                When True, the parser will read entries from cache and write new ones
-                if they are not present. If False, the parser will always fetch new
-                entries and will not write to cache.
+                When True, the parser will read entries from the object store and write new
+                ones if they are not present. If False, the parser will always fetch new
+                entries and will not write to the object store.
+
+                Note that the object store will be accessed regardless of the value of
+                ``cache``if the object is new and is not included in the xref table.
 
         Returns:
             The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
@@ -633,6 +667,9 @@ class PdfParser:
 
         root_entry = self.xref.get((reference.object_number, reference.generation))
         if root_entry is None:
+            if (obj_entry := self.objects.get(reference.object_number)) is not None:
+                return obj_entry
+
             return PdfNull()
 
         if isinstance(root_entry, InUseXRefEntry):
