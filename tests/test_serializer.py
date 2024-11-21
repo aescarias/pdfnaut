@@ -17,6 +17,7 @@ from pdfnaut.cos.objects import (
     PdfReference,
     PdfStream,
 )
+from pdfnaut.cos.objects.xref import PdfXRefSection
 from pdfnaut.cos.serializer import PdfSerializer, serialize
 
 
@@ -117,17 +118,19 @@ def test_serialize_document() -> None:
     assert before_object == object_start
     assert serializer.content.endswith(b"1 0 obj\r\n<</A (BC) /D 10.24>>\r\nendobj\r\n")
 
-    table = serializer.generate_xref_table([("f", 0, 65535, 0), ("n", 1, object_start, 0)])
+    subsections = serializer.generate_xref_section(
+        [(0, FreeXRefEntry(0, 65535)), (1, InUseXRefEntry(object_start, 0))]
+    )
     assert (
-        len(table.sections)
-        and table.sections[0].first_obj_number == 0
-        and table.sections[0].count == 2
-        and isinstance(table.sections[0].entries[0], FreeXRefEntry)
-        and isinstance(table.sections[0].entries[1], InUseXRefEntry)
+        len(subsections)
+        and subsections[0].first_obj_number == 0
+        and subsections[0].count == 2
+        and isinstance(subsections[0].entries[0], FreeXRefEntry)
+        and isinstance(subsections[0].entries[1], InUseXRefEntry)
     )
 
     before_xref = len(serializer.content)
-    startxref = serializer.write_standard_xref_table(table)
+    startxref = serializer.write_standard_xref_section(subsections)
     assert before_xref == startxref
 
     serializer.write_trailer(PdfDictionary({"Size": 2}), startxref)
@@ -144,10 +147,14 @@ def test_serialize_compressed_table() -> None:
 
     object_start = serializer.write_object((1, 0), PdfDictionary({"A": b"BC", "D": 10.24}))
 
-    table = serializer.generate_xref_table([("f", 0, 65535, 0), ("n", 1, object_start, 0)])
+    subsections = serializer.generate_xref_section(
+        [(0, FreeXRefEntry(0, 65535)), (1, InUseXRefEntry(object_start, 0))]
+    )
 
     before_xref = len(serializer.content)
-    startxref = serializer.write_compressed_xref_table(table, PdfDictionary({"Size": 2}))
+    startxref = serializer.write_compressed_xref_section(
+        PdfXRefSection(subsections, PdfDictionary({"Size": 2}))
+    )
     assert before_xref == startxref
 
     obj = PdfParser(serializer.content[startxref:]).parse_indirect_object(
@@ -156,12 +163,12 @@ def test_serialize_compressed_table() -> None:
     assert isinstance(obj, PdfStream)
     assert obj.details == {
         "Type": PdfName(b"XRef"),
-        "W": [1, 2, 1],
+        "W": [1, 1, 2],
         "Index": [0, 2],
         "Length": 8,
         "Size": 2,
     }
-    assert obj.decode() == b"\x00\xff\xff\x00\x01\x00\x11\x00"
+    assert obj.decode() == b"\x00\x00\xff\xff\x01\x11\x00\x00"
 
     serializer.write_trailer(startxref=startxref)
     serializer.write_eof()

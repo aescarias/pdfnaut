@@ -6,7 +6,7 @@ pdfnaut provides an interface for building new PDF documents called :class:`~pdf
 Writing the PDF Header
 ----------------------
 
-We first create an instance of the serializer and append the PDF header. All PDFs start with this header and this identifies the PDF version the document implements. A binary marker is also inserted afterwards by default.
+We first create an instance of the serializer and append the PDF header. All PDFs should start with this header and this identifies the PDF version the document implements. A binary marker is also inserted afterwards by default.
 
 .. code-block:: python
 
@@ -25,7 +25,7 @@ Next, we define the objects in the PDF. The first object (1, 0) will include our
         "Pages": PdfReference(2, 0)
     })
 
-Object (2, 0) will include our page tree. To keep things simple, our document will only have one page and will not use compression.
+Object (2, 0) will include our page tree. To keep things simple, our document will only have one page and will not apply filters.
 
 .. code-block:: python
 
@@ -35,7 +35,7 @@ Object (2, 0) will include our page tree. To keep things simple, our document wi
         "Count": 1
     })
 
-Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the font used.
+Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the fonts or resources used.
 
 .. code-block:: python
 
@@ -77,46 +77,40 @@ Object (5, 0) is the content stream defining the page itself.
         (Hello) Tj
     ET""")
 
-    builder.objects[(5, 0)] = PdfStream(
-        PdfDictionary(
-            { "Length": len(page_contents) }
-        ), 
-        page_contents.encode()
-    )
+    builder.objects[(5, 0)] = PdfStream.create(page_contents.encode())
 
-Generating the XRef table
--------------------------
+Generating the XRef section
+---------------------------
 
-In the previous section, we defined the objects. This does not write them, though. Writing objects should preferably be coupled with the generation of the XRef table. To do this, we loop over the objects we defined earlier, write the object, and then add a new entry to the list that includes this offset. After the loop, we insert the recommended free entry at the start and generate the XRef table.
+In the previous section, we defined the objects. This does not write them, though. Writing objects should preferably be coupled with the generation of the XRef section. To do this, we loop over the objects we defined earlier, write the object, and then add a new entry to the list that includes this offset. After the loop, we insert the recommended free entry at the start and generate the XRef section.
 
 .. code-block:: python
 
-    # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation | idx
-    table: list[tuple[str, int, int, int]] = []
+    rows: list[tuple[int, PdfXRefEntry]] = [
+        (0, FreeXRefEntry(0, 65535))
+    ]
 
     for (obj_num, gen_num), item in builder.objects.items():
         offset = builder.write_object((obj_num, gen_num), item)
-        table.append(("n", obj_num, gen_num, offset))
+        rows.append((obj_num, InUseXRefEntry(offset, gen_num)))
 
-    table.insert(0, ("f", 0, 65535, 0))
-
-    xref_table = builder.generate_xref_table(table)
+    subsections = builder.generate_xref_section(section)
 
 .. seealso:: 
-    :meth:`~pdfnaut.cos.serializer.PdfSerializer.generate_xref_table`
+    :meth:`~pdfnaut.cos.serializer.PdfSerializer.generate_xref_section`
 
-Writing the XRef table and trailer
-----------------------------------
-After generating the table, we can proceed to write it. PDFs support two types of XRef tables: a traditional XRef table and an XRef stream. To keep things readable, we will use the traditional table. :meth:`~pdfnaut.cos.serializer.PdfSerializer.write_standard_xref_table` produces such table and returns the startxref offset that we can use later. 
+Writing the XRef section and trailer
+------------------------------------
+After generating the section, we can proceed to write it. PDFs support two types of XRef section: a traditional XRef section and an XRef stream. To keep things readable, we will use the traditional approach. :meth:`~pdfnaut.cos.serializer.PdfSerializer.write_standard_xref_section` produces such section and returns the startxref offset that we can use later. 
 
 We then write the trailer and the startxref offset using :meth:`~pdfnaut.cos.serializer.write_trailer`. To end the PDF, we add the ``%%EOF`` marker and write the new document as usual.
 
 .. code-block:: python
 
-    startxref = builder.write_standard_xref_table(xref_table)
+    startxref = builder.write_standard_xref_section(subsections)
 
     builder.write_trailer(PdfDictionary({ 
-        "Size": xref_table.sections[0].count, 
+        "Size": subsections[0].count, 
         "Root": PdfReference(1, 0)
     }), startxref)
 

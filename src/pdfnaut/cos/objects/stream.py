@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Any, cast
 
 from typing_extensions import Self
 
@@ -23,7 +23,7 @@ class PdfStream:
     raw: bytes = field(repr=False)
     """The raw data which is assumed to be encoded."""
 
-    _crypt_params: PdfDictionary = field(default_factory=PdfDictionary, repr=False)
+    _crypt_params: dict[str, Any] = field(default_factory=dict, repr=False)
     """Parameters specific to the Crypt filter"""
 
     def decode(self) -> bytes:

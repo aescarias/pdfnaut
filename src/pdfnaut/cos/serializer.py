@@ -10,8 +10,9 @@ from ..cos.objects.xref import (
     CompressedXRefEntry,
     FreeXRefEntry,
     InUseXRefEntry,
+    PdfXRefEntry,
+    PdfXRefSection,
     PdfXRefSubsection,
-    PdfXRefTable,
 )
 from ..exceptions import PdfWriteError
 from .tokenizer import STRING_ESCAPE
@@ -198,64 +199,53 @@ class PdfSerializer:
 
         return offset
 
-    def generate_xref_table(self, rows: list[tuple[str, int, int, int]]) -> PdfXRefTable:
-        """Generates a cross-reference table from a list of ``rows``.
+    def generate_xref_section(
+        self, rows: list[tuple[int, PdfXRefEntry]]
+    ) -> list[PdfXRefSubsection]:
+        """Generates a cross-reference section from a list of ``rows``.
 
-        Each row is a tuple of 4 values: 
-            - a string indicating the type: either "f" (free), "n" (in use), or "c" (compressed)
-            - the object number
-            - the next two values differ depending on the type:
-                - if type is "f", the next free object and the generation if used again
-                - if type is "n", the object's offset and generation
-                - if type is "c", the object number of the object stream and the index of the \
-                object within the stream.
+        Each row consists of a two-element tuple containing the object number of the
+        XRef entry and the entry itself. The object numbers will determine the amount
+        of subsections created and the entries within them.
 
-        Returns:
-            An XRef table that can be serialized by either :meth:`.write_standard_xref_table`
-            or :meth:`.write_compressed_xref_table`.
+        The output is a list of XRef subsections that can be then serialized by either
+        :meth:`.write_standard_xref_section` or :meth:`.write_compressed_xref_section`.
         """
-        table = PdfXRefTable([])
-        rows = sorted(rows, key=lambda sl: sl[1])  # sl[1] = object number
+        rows = sorted(rows, key=lambda entry: entry[0])
+        subsections: defaultdict[int, list[tuple[int, PdfXRefEntry]]] = defaultdict(list)
 
-        subsections = defaultdict(list)
-        first_obj_num = rows[0][1]
+        first_obj_num = rows[0][0]
 
         for entry in rows:
             subsections[first_obj_num].append(entry)
             if len(subsections[first_obj_num]) <= 1:
                 continue
 
-            _, first_key, *_ = subsections[first_obj_num][-1]
-            _, second_key, *_ = subsections[first_obj_num][-2]
+            first_key, _ = subsections[first_obj_num][-1]
+            second_key, _ = subsections[first_obj_num][-2]
 
             if first_key != second_key and abs(first_key - second_key) != 1:
+                # The keys should belong in different subsections. Move the last key to a
+                # different subsection and set that subsection for the rest of entries.
                 last = subsections[first_obj_num].pop()
-                first_obj_num = last[1]
+                first_obj_num = last[0]
                 subsections[first_obj_num].append(last)
 
-        for first_obj_num, raw_entries in subsections.items():
-            entries = []
-            for typ_, _obj_num, first_val, second_val in raw_entries:
-                if typ_ == "f":
-                    entries.append(FreeXRefEntry(first_val, second_val))
-                elif typ_ == "c":
-                    entries.append(CompressedXRefEntry(first_val, second_val))
-                else:
-                    entries.append(InUseXRefEntry(first_val, second_val))
+        return [
+            PdfXRefSubsection(obj_num, len(entries), [ent for _, ent in entries])
+            for obj_num, entries in subsections.items()
+        ]
 
-            table.sections.append(PdfXRefSubsection(first_obj_num, len(entries), entries))
-
-        return table
-
-    def write_standard_xref_table(self, table: PdfXRefTable) -> int:
-        """Appends a standard XRef table (``§ 7.5.4 Cross-Reference Table``) to the document.
+    def write_standard_xref_section(self, subsections: list[PdfXRefSubsection]) -> int:
+        """Appends a standard XRef section (``§ 7.5.4 Cross-Reference Table``) to the document.
         Returns the ``startxref`` offset that should be written to the document."""
         startxref = len(self.content)
         self.content += b"xref" + self.eol
 
-        for section in table.sections:
-            self.content += f"{section.first_obj_number} {section.count}".encode() + self.eol
-            for entry in section.entries:
+        for subsection in subsections:
+            self.content += f"{subsection.first_obj_number} {subsection.count}".encode() + self.eol
+
+            for entry in subsection.entries:
                 if isinstance(entry, InUseXRefEntry):
                     self.content += f"{entry.offset:0>10} {entry.generation:0>5} n".encode()
                 elif isinstance(entry, FreeXRefEntry):
@@ -263,21 +253,27 @@ class PdfSerializer:
                         f"{entry.next_free_object:0>10} {entry.gen_if_used_again:0>5} f".encode()
                     )
                 else:
-                    raise PdfWriteError("Cannot write compressed XRef entry within standard table")
+                    raise PdfWriteError(
+                        "Cannot write a compressed XRef entry within a standard XRef section."
+                    )
+
                 self.content += self.eol
+
         return startxref
 
-    def write_compressed_xref_table(self, table: PdfXRefTable, trailer: PdfDictionary) -> int:
+    def write_compressed_xref_section(self, section: PdfXRefSection) -> int:
         """Appends a compressed XRef stream (``§ 7.5.8 Cross-Reference Streams``) from
-        ``table`` and ``trailer`` (to use as part of the extent) to the document.
+        ``section`` (to use as part of the extent) to the document.
+
         Returns the ``startxref`` offset that should be written to the document."""
+
         indices: PdfArray[PdfArray[int]] = PdfArray()
         table_rows: list[list[int]] = []
 
-        for section in table.sections:
-            indices.append(PdfArray([section.first_obj_number, section.count]))
+        for subsection in section.subsections:
+            indices.append(PdfArray([subsection.first_obj_number, subsection.count]))
 
-            for entry in section.entries:
+            for entry in subsection.entries:
                 if isinstance(entry, FreeXRefEntry):
                     table_rows.append([0, entry.next_free_object, entry.gen_if_used_again])
                 elif isinstance(entry, InUseXRefEntry):
@@ -294,13 +290,11 @@ class PdfSerializer:
 
         stream = PdfStream(
             PdfDictionary(
-                {
-                    "Type": PdfName(b"XRef"),
-                    "W": PdfArray(widths),
-                    "Index": PdfArray(sum(indices, start=PdfArray())),
-                    "Length": len(contents),
-                    **trailer.data,
-                }
+                Type=PdfName(b"XRef"),
+                W=PdfArray(widths),
+                Index=PdfArray(sum(indices, start=PdfArray())),
+                Length=len(contents),
+                **section.trailer.data,
             ),
             contents,
         )
@@ -314,8 +308,9 @@ class PdfSerializer:
         """Appends a standard ``trailer`` to the document (``§ 7.5.5 File Trailer``)
         alongside the ``startxref`` offset.
 
-        Both arguments are optional, indicating their presence in the appended output
-        (the trailer could have been written previously, hence this option).
+        Both arguments are optional, indicating their presence in the appended output.
+        If the XRef section written previously was an XRef stream, the trailer has
+        already been written and should be ``None``.
         """
         if trailer is not None:
             self.content += b"trailer" + self.eol

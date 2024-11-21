@@ -18,8 +18,8 @@ from .xref import (
     FreeXRefEntry,
     InUseXRefEntry,
     PdfXRefEntry,
+    PdfXRefSection,
     PdfXRefSubsection,
-    PdfXRefTable,
 )
 
 __all__ = (
@@ -34,8 +34,8 @@ __all__ = (
     "PdfArray",
     "PdfDictionary",
     "PdfXRefEntry",
+    "PdfXRefSection",
     "PdfXRefSubsection",
-    "PdfXRefTable",
     "FreeXRefEntry",
     "InUseXRefEntry",
     "CompressedXRefEntry",

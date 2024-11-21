@@ -19,8 +19,8 @@ from ..cos.objects.xref import (
     FreeXRefEntry,
     InUseXRefEntry,
     PdfXRefEntry,
+    PdfXRefSection,
     PdfXRefSubsection,
-    PdfXRefTable,
 )
 from ..exceptions import PdfParseError
 from ..security.standard_handler import StandardSecurityHandler
@@ -157,11 +157,8 @@ class PdfParser:
         self.objects = ObjectMap(self)
         """A mapping of objects present in the document."""
 
-        self.updates: list[tuple[PdfXRefTable, PdfDictionary]] = []
-        """A list of all incremental updates present in the document. 
-        
-        The items are two-element tuples: first, the XRef table; second, the trailer 
-        (most recent/last update first)."""
+        self.updates: list[PdfXRefSection] = []
+        """A list of all incremental updates present in the document (most recent update first)."""
 
         # placeholder to make the type checker happy
         self.trailer = PdfDictionary[str, PdfObject]({"Size": 0, "Root": PdfReference(0, 0)})
@@ -208,7 +205,7 @@ class PdfParser:
     def _get_closest(self, values: list[int], target: int) -> int:
         return min(values, key=lambda offset: abs(offset - target))
 
-    def _match_object_header(self) -> re.Match[bytes] | None:
+    def _tok_matches_object_header(self) -> re.Match[bytes] | None:
         if not self._tokenizer.peek().isdigit():
             return
 
@@ -238,18 +235,18 @@ class PdfParser:
 
         # Move to the offset where the XRef and trailer are
         self._tokenizer.position = start_xref
-        xref, trailer = self.parse_xref_and_trailer()
+        section = self.parse_xref_and_trailer()
 
-        self.updates.append((xref, trailer))
+        self.updates.append(section)
 
-        if "Prev" in trailer:
+        if "Prev" in section.trailer:
             # More XRefs were found. Recurse!
             self._tokenizer.position = 0
-            self.parse(cast(int, trailer["Prev"]))
+            self.parse(cast(int, section.trailer["Prev"]))
         else:
             # That's it. Merge them together.
             self.xref = self.get_merged_xrefs()
-            self.trailer = self.updates[0][1]
+            self.trailer = self.updates[0].trailer
 
         # Fills the object store so we can refer to objects now!
         self.objects.fill()
@@ -282,31 +279,34 @@ class PdfParser:
 
         raise PdfParseError("Expected PDF header at start of file.")
 
-    def build_xref_map(self, xref: PdfXRefTable) -> dict[tuple[int, int], PdfXRefEntry]:
+    def build_xref_map(
+        self, subsections: list[PdfXRefSubsection]
+    ) -> dict[tuple[int, int], PdfXRefEntry]:
         """Creates a dictionary mapping references to XRef entries in the document."""
         entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
 
-        for section in xref.sections:
-            for idx, entry in enumerate(section.entries, section.first_obj_number):
+        for subsection in subsections:
+            for idx, entry in enumerate(subsection.entries, subsection.first_obj_number):
                 if isinstance(entry, FreeXRefEntry):
                     gen = entry.gen_if_used_again
                 elif isinstance(entry, InUseXRefEntry):
                     gen = entry.generation
                 else:
-                    gen = 0  # compressed entries
+                    # compressed entries are assumed 0
+                    gen = 0
 
                 entry_map[(idx, gen)] = entry
 
         return entry_map
 
     def get_merged_xrefs(self) -> dict[tuple[int, int], PdfXRefEntry]:
-        """Combines all update XRef tables in the document into a cross-reference mapping
+        """Combines all XRef updates in the document into a cross-reference mapping
         that includes all entries."""
         entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
 
         # from least recent to most recent
-        for xref, _ in self.updates[::-1]:
-            entry_map.update(self.build_xref_map(xref))
+        for section in self.updates[::-1]:
+            entry_map.update(self.build_xref_map(section.subsections))
 
         return entry_map
 
@@ -333,7 +333,7 @@ class PdfParser:
 
         return int(self._tokenizer.parse_numeric())  # startxref
 
-    def parse_xref_and_trailer(self) -> tuple[PdfXRefTable, PdfDictionary]:
+    def parse_xref_and_trailer(self) -> PdfXRefSection:
         """Parses both the cross-reference table and the PDF trailer.
 
         PDFs may include a typical uncompressed XRef table (and hence separate XRefs and
@@ -343,8 +343,9 @@ class PdfParser:
             xref = self.parse_simple_xref()
             self._tokenizer.skip_whitespace()
             trailer = self.parse_simple_trailer()
-            return xref, trailer
-        elif self._match_object_header():
+
+            return PdfXRefSection(xref, trailer)
+        elif self._tok_matches_object_header():
             return self.parse_compressed_xref()
         elif not self.strict:
             # let's attempt to locate a nearby xref table
@@ -353,16 +354,21 @@ class PdfParser:
 
             # get the xref table nearest to our offset
             self._tokenizer.position = self._get_closest(table_offsets, target)
-            xref, trailer = self.parse_xref_and_trailer()
+            section = self.parse_xref_and_trailer()
+
             # make sure the user can see our corrections
-            if "Prev" in trailer:
-                trailer["Prev"] = self._get_closest(table_offsets, cast(int, trailer["Prev"]))
-            return xref, trailer
+            if "Prev" in section.trailer:
+                section.trailer["Prev"] = self._get_closest(
+                    table_offsets, cast(int, section.trailer["Prev"])
+                )
+
+            return section
         else:
-            raise PdfParseError("XRef offset does not point to XRef table.")
+            raise PdfParseError("XRef offset does not point to XRef section.")
 
     def _find_xref_offsets(self) -> list[int]:
         table_offsets = []
+
         # looks for the start of a xref table
         for mat in re.finditer(rb"(?<!start)xref(\W*)(\d+) (\d+)", self._tokenizer.data):
             table_offsets.append(mat.start())
@@ -392,7 +398,7 @@ class PdfParser:
         # next token is a dictionary
         return self._tokenizer.parse_dictionary()
 
-    def parse_simple_xref(self) -> PdfXRefTable:
+    def parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in
         ``§ 7.5.4 Cross-Reference Table``.
 
@@ -402,7 +408,7 @@ class PdfParser:
         self._tokenizer.skip(4)
         self._tokenizer.skip_whitespace()
 
-        table = PdfXRefTable([])
+        subsections = []
 
         while not self._tokenizer.done:
             # subsection
@@ -411,17 +417,18 @@ class PdfParser:
             )
             if subsection is None:
                 break
+
             self._tokenizer.skip(subsection.end())
             self._tokenizer.skip_whitespace()
 
             # xref entries
             entries: list[PdfXRefEntry] = []
-            for i in range(int(subsection.group("count"))):
+            for idx in range(int(subsection.group("count"))):
                 entry = re.match(
                     rb"(?P<offset>\d{10}) (?P<gen>\d{5}) (?P<status>f|n)", self._tokenizer.peek(20)
                 )
                 if entry is None:
-                    raise PdfParseError(f"Expected valid XRef entry at row {i + 1}")
+                    raise PdfParseError(f"Expected valid XRef entry at row {idx + 1}")
 
                 offset = int(entry.group("offset"))
                 generation = int(entry.group("gen"))
@@ -436,15 +443,15 @@ class PdfParser:
                 self._tokenizer.skip(entry.end())
                 self._tokenizer.skip_whitespace()
 
-            table.sections.append(
+            subsections.append(
                 PdfXRefSubsection(
                     int(subsection.group("first_obj")), int(subsection.group("count")), entries
                 )
             )
 
-        return table
+        return subsections
 
-    def parse_compressed_xref(self) -> tuple[PdfXRefTable, PdfDictionary]:
+    def parse_compressed_xref(self) -> PdfXRefSection:
         """Parses a compressed cross-reference stream which includes both the XRef table
         and information from the PDF trailer.
 
@@ -460,32 +467,33 @@ class PdfParser:
             xref_stream.details.get("Index", PdfArray([0, xref_stream.details["Size"]])),
         )
 
-        table = PdfXRefTable([])
+        subsections = []
 
-        for i in range(0, len(xref_indices), 2):
-            section = PdfXRefSubsection(
-                first_obj_number=xref_indices[i], count=xref_indices[i + 1], entries=[]
+        for idx in range(0, len(xref_indices), 2):
+            subsection = PdfXRefSubsection(
+                first_obj_number=xref_indices[idx], count=xref_indices[idx + 1], entries=[]
             )
 
-            for _ in range(section.count):
+            for _ in range(subsection.count):
                 field_type = int.from_bytes(contents.read(xref_widths[0]) or b"\x01", "big")
                 second = int.from_bytes(contents.read(xref_widths[1]), "big")
                 third = int.from_bytes(contents.read(xref_widths[2]), "big")
 
+                # TODO: Warn of unknown field types once we have a logging facility
                 if field_type == 0:
-                    section.entries.append(
+                    subsection.entries.append(
                         FreeXRefEntry(next_free_object=second, gen_if_used_again=third)
                     )
                 elif field_type == 1:
-                    section.entries.append(InUseXRefEntry(offset=second, generation=third))
+                    subsection.entries.append(InUseXRefEntry(offset=second, generation=third))
                 elif field_type == 2:
-                    section.entries.append(
+                    subsection.entries.append(
                         CompressedXRefEntry(objstm_number=second, index_within=third)
                     )
 
-            table.sections.append(section)
+            subsections.append(subsection)
 
-        return table, xref_stream.details
+        return PdfXRefSection(subsections, xref_stream.details)
 
     def parse_indirect_object(
         self, xref_entry: InUseXRefEntry, reference: PdfReference | None
@@ -495,7 +503,7 @@ class PdfParser:
         self._tokenizer.position = xref_entry.offset
         self._tokenizer.skip_whitespace()
 
-        mat = self._match_object_header()
+        mat = self._tok_matches_object_header()
         if not mat:
             raise PdfParseError("XRef entry does not point to indirect object.")
         self._tokenizer.skip(mat.end())
@@ -551,13 +559,11 @@ class PdfParser:
                 for name in filters:
                     if name.value == b"Crypt":
                         use_stmf = False
-                        pdf_object._crypt_params = PdfDictionary(
-                            {
-                                "Handler": self.security_handler,
-                                "EncryptionKey": self._encryption_key,
-                                "Reference": reference,
-                            }
-                        )
+                        pdf_object._crypt_params = {
+                            "Handler": self.security_handler,
+                            "EncryptionKey": self._encryption_key,
+                            "Reference": reference,
+                        }
                         break
 
             if use_stmf:
@@ -752,9 +758,7 @@ class PdfParser:
         builder = PdfSerializer()
         builder.write_header("2.0")
 
-        #                               f          n        c          f            n         c
-        # f | n | c, object_number, next_free | offset | obj_stm, gen_if_used | generation | idx
-        table: list[tuple[str, int, int, int]] = []
+        rows: list[tuple[int, PdfXRefEntry]] = []
 
         use_compressed = False
         update_freelist = False
@@ -765,11 +769,11 @@ class PdfParser:
             if ref_tup is None:
                 resolved = self.objects[obj_num]
                 if isinstance(resolved, FreeObject):
-                    table.append(("f", obj_num, -1, 0))
+                    rows.append((obj_num, FreeXRefEntry(-1, 0)))
                     update_freelist = True
                 else:
                     offset = builder.write_object((obj_num, 0), resolved)
-                    table.append(("n", obj_num, offset, 0))
+                    rows.append((obj_num, InUseXRefEntry(offset, 0)))
 
                 continue
 
@@ -779,62 +783,69 @@ class PdfParser:
                 resolved = self.objects[obj_num]
                 # Free entry left unmodified or can no longer be used
                 if isinstance(resolved, FreeObject) or entry.gen_if_used_again >= 65535:
-                    table.append(("f", obj_num, entry.next_free_object, entry.gen_if_used_again))
+                    rows.append(
+                        (obj_num, FreeXRefEntry(entry.next_free_object, entry.gen_if_used_again))
+                    )
                     continue
 
                 # Free entry now in use
                 offset = builder.write_object((obj_num, entry.gen_if_used_again), resolved)
-                table.append(("n", obj_num, offset, entry.gen_if_used_again))
+                rows.append((obj_num, InUseXRefEntry(offset, entry.gen_if_used_again)))
                 update_freelist = True
             elif isinstance(entry, InUseXRefEntry):
                 resolved = self.objects[obj_num]
                 # In use object freed
                 if isinstance(resolved, FreeObject):
-                    table.append(("f", obj_num, -1, entry.generation + 1))
+                    rows.append((obj_num, FreeXRefEntry(-1, entry.generation + 1)))
                     update_freelist = True
                     continue
 
                 # In use object either modified or left intact
                 offset = builder.write_object(ref_tup, resolved)
-                table.append(("n", obj_num, offset, entry.generation))
+                rows.append((obj_num, InUseXRefEntry(offset, entry.generation)))
             elif isinstance(entry, CompressedXRefEntry):
                 # TODO: Add support for compressed entries (aka object streams)
                 use_compressed = True
-                table.append(("c", obj_num, entry.objstm_number, entry.index_within))
+                rows.append((obj_num, CompressedXRefEntry(entry.objstm_number, entry.index_within)))
 
         if update_freelist:
             # let's first get the members of the freelist
-            freelist_members = [idx for idx, member in enumerate(table) if member[0] == "f"]
+            freelist_members = [
+                idx for idx, entry in enumerate(rows) if isinstance(entry, FreeXRefEntry)
+            ]
 
             for freelist_idx, xref_idx in enumerate(freelist_members):
-                _, obj_num, _, gen_if_used = table[xref_idx]
+                obj_num, entry = rows[xref_idx]
+                assert isinstance(entry, FreeXRefEntry)
 
                 if freelist_idx + 1 < len(freelist_members):
-                    next_free_object = table[freelist_members[freelist_idx + 1]][1]
+                    entry.next_free_object = rows[freelist_members[freelist_idx + 1]][0]
                 else:
-                    next_free_object = 0
+                    entry.next_free_object = 0
 
-                table[xref_idx] = ("f", obj_num, next_free_object, gen_if_used)
+                # rows[xref_idx] = entry("f", obj_num, next_free_object, gen_if_used)
+                rows[xref_idx] = (obj_num, entry)
 
-        xref_table = builder.generate_xref_table(table)
+        xref_section = builder.generate_xref_section(rows)
 
         new_trailer = PdfDictionary(
-            {"Size": len(self.build_xref_map(xref_table)), "Root": self.trailer.data["Root"]}
+            {"Size": len(self.build_xref_map(xref_section)), "Root": self.trailer.data["Root"]}
         )
 
         if "Info" in self.trailer.data:
             new_trailer.data["Info"] = self.trailer.data["Info"]
 
         if "ID" in self.trailer.data:
-            new_trailer.data["ID"] = PdfArray(
-                [self.trailer.data["ID"][0], generate_file_id(filename, builder.content)]
-            )
+            ids = cast(PdfArray[PdfHexString | bytes], self.trailer.data["ID"])
+            new_trailer.data["ID"] = PdfArray([ids[0], generate_file_id(filename, builder.content)])
 
         if use_compressed:
-            startxref = builder.write_compressed_xref_table(xref_table, new_trailer)
+            startxref = builder.write_compressed_xref_section(
+                PdfXRefSection(xref_section, new_trailer)
+            )
             builder.write_trailer(None, startxref)
         else:
-            startxref = builder.write_standard_xref_table(xref_table)
+            startxref = builder.write_standard_xref_section(xref_section)
             builder.write_trailer(new_trailer, startxref)
 
         builder.write_eof()
