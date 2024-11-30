@@ -31,7 +31,7 @@ dev = ["isort", "pytest", "pytest-cov", "ruff", "tox"]
 docs = ["Sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 100
 extend-exclude = ["./private/**"]
 

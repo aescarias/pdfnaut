@@ -64,12 +64,12 @@ class ContentStreamIterator:
 
 
 class PdfTokenizer:
-    """A parser designed to consume objects that do not depend on cross reference
-    tables. It is used by :class:`~pdfnaut.cos.parser.PdfParser` for this purpose.
+    """A tokenizer designed to consume individual objects that do not depend on a cross
+    reference table. It is used by :class:`~pdfnaut.cos.parser.PdfParser` for this purpose.
 
-    This parser will not parse indirect objects or streams because those do depend on XRef
-    and are effectively not sequentially parsable. Because of this limitation, it is not
-    intended for parsing the entire document, but rather its individual objects.
+    This tokenizer consumes basic objects such as arrays and dictionaries. Indirect objects
+    and streams depend on an XRef table and hence are not sequentially parsable. It is not
+    intended to parse these items but rather the objects stored within them.
 
     Arguments:
         data (bytes):
@@ -100,39 +100,40 @@ class PdfTokenizer:
     # * Scanning
     @property
     def done(self) -> bool:
-        """Whether the parser has reached the end of data"""
+        """Whether the parser has reached the end of data."""
         return self.position >= len(self.data)
 
     def skip(self, n: int = 1) -> None:
-        """Skips/advances ``n`` characters in the tokenizer"""
+        """Skips/advances ``n`` characters in the tokenizer."""
         if not self.done:
             self.position += n
 
     def peek(self, n: int = 1) -> bytes:
-        """Peeks ``n`` characters into ``data`` without advancing through"""
+        """Peeks ``n`` characters into ``data`` without advancing through the tokenizer."""
         return self.data[self.position : self.position + n]
 
     def peek_line(self) -> bytes:
-        """Peeks from the current position until a EOL marker is found (not included)"""
+        """Peeks from the current position until an EOL marker is found (not included
+        in the output)."""
         start_pos = self.position
         line = self.consume_while(lambda _: not self.peek(2).startswith((EOL_CRLF, EOL_CR, EOL_LF)))
         self.position = start_pos
         return line
 
     def consume(self, n: int = 1) -> bytes:
-        """Consumes and returns ``n`` characters"""
+        """Consumes and returns ``n`` characters."""
         consumed = self.peek(n)
         self.skip(len(consumed))
 
         return consumed
 
     def matches(self, keyword: bytes) -> bool:
-        """Checks whether ``keyword`` starts at the current position"""
+        """Checks whether ``keyword`` starts at the current position."""
         return self.peek(len(keyword)) == keyword
 
     def _get_reference_if_matched(self) -> re.Match[bytes] | None:
         """Returns the Regex match if an indirect reference is at the current position
-        otherwise None"""
+        otherwise None."""
         if not self.peek().isdigit():
             return
 
@@ -183,7 +184,7 @@ class PdfTokenizer:
         return consumed
 
     def get_next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
-        """Parses and returns the next token"""
+        """Parses and returns the next token."""
         if self.done:
             return
 
@@ -246,7 +247,7 @@ class PdfTokenizer:
 
     def parse_hex_string(self) -> PdfHexString:
         """Parses a hexadecimal string. Hexadecimal strings usually include arbitrary binary
-        data in a PDF. If the sequence is uneven, the last character is assumed to be 0."""
+        data. If the sequence is uneven, the last character is assumed to be 0."""
         self.skip()  # adv. past the <
 
         content = self.consume_while(lambda ch: ch != b">")
