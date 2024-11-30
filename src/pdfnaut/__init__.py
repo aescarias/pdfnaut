@@ -10,6 +10,6 @@ from .document import PdfDocument
 __all__ = ("PdfParser", "PdfTokenizer", "PdfSerializer", "PdfDocument")
 
 __name__ = "pdfnaut"
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 __description__ = "Explore PDFs with ease"
 __license__ = "Apache 2.0"

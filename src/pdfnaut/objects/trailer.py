@@ -10,11 +10,11 @@ from .fields import DateField, EnumField, PdfDictionary, TextStringField
 
 class TrappedState(enum.Enum):
     No = 0
-    """Document has not been trapped"""
+    """Document has not been trapped."""
     Yes = 1
-    """Document has been already trapped"""
+    """Document has been already trapped."""
     Unknown = 2
-    """Unknown whether document is trapped partly, fully, or at all"""
+    """Unknown whether document is trapped partly, fully, or at all."""
 
 
 class Info(PdfDictionary):
@@ -26,7 +26,7 @@ class Info(PdfDictionary):
     """
 
     title = TextStringField("Title")
-    """The document's title"""
+    """The document's title."""
 
     author = TextStringField("Author")
     """The name of the person who created the document."""
@@ -38,13 +38,13 @@ class Info(PdfDictionary):
     """Keywords associated with the document."""
 
     creator = TextStringField("Creator")
-    """If the document was converted to PDF from another format (ex: DOCX), the name of 
+    """If the document was converted to PDF from another format (ex. DOCX), the name of 
     the PDF processor that created the original document from which it was converted 
-    (ex: Microsoft Word)."""
+    (ex. Microsoft Word)."""
 
     producer = TextStringField("Producer")
-    """If the document was converted to PDF from another format (ex: PostScript), the name of 
-    the PDF processor that converted it to PDF (ex: Adobe Distiller)."""
+    """If the document was converted to PDF from another format (ex. PostScript), the name of 
+    the PDF processor that converted it to PDF (ex. Adobe Distiller)."""
 
     creation_date_raw = TextStringField("CreationDate")
     """The date and time the document was created, as a text string."""

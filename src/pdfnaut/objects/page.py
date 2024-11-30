@@ -100,7 +100,13 @@ class Annotation(PdfDictionary):
 
 
 class Page(PdfDictionary):
-    """A page in the document (``§ 7.7.3.3 Page Objects``)."""
+    """A page in the document (``§ 7.7.3.3 Page Objects``).
+
+    Arguments:
+        size (tuple[int, int]):
+            The width and height of the physical medium in which the page should
+            be printed or displayed.
+    """
 
     resources = StandardField["PdfDictionary | None"]("Resources", None)
     """Resources required by the page contents.
@@ -134,12 +140,6 @@ class Page(PdfDictionary):
         return dictionary
 
     def __init__(self, size: tuple[int, int]) -> None:
-        """
-        Arguments:
-            size (tuple[int, int]):
-                The width and height of the physical medium in which the page should
-                be printed or displayed.
-        """
         super().__init__()
 
         self["Type"] = PdfName(b"Page")

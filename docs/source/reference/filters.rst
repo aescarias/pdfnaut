@@ -7,8 +7,8 @@ pdfnaut can encode and/or decode the following formats:
 
 - The ASCII family: ASCII85Decode (Adobe's implementation) and ASCIIHexDecode
 - The Crypt filter (decode only, requires dependency, untested)
-- FlateDecode (aka zlib/deflate)
-- RunLengthDecode (decode only)
+- FlateDecode (uses zlib/deflate)
+- RunLengthDecode
 
 .. automodule:: pdfnaut.filters
     :undoc-members:
