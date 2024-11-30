@@ -3,6 +3,7 @@ from __future__ import annotations
 from hashlib import md5
 from typing import Literal, Union
 
+from ..common.utils import get_value_from_bytes
 from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
@@ -17,12 +18,6 @@ def pad_password(password: bytes) -> bytes:
     from :const:`.PASSWORD_PADDING` as needed.
     """
     return password[:32] + PASSWORD_PADDING[: 32 - len(password)]
-
-
-def get_value_from_bytes(contents: PdfHexString | bytes) -> bytes:
-    """Returns the inner value of ``contents`` if it is an instance of :class:`.PdfHexString`,
-    otherwise returns ``contents``"""
-    return contents.value if isinstance(contents, PdfHexString) else contents
 
 
 class StandardSecurityHandler:
@@ -48,7 +43,7 @@ class StandardSecurityHandler:
 
     @property
     def key_length(self) -> int:
-        """The length of the encryption key in bytes"""
+        """The length of the encryption key in bytes."""
         return self.encryption.get("Length", 40) // 8
 
     def compute_encryption_key(self, password: bytes) -> bytes:

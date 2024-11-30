@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, Generator, Literal, cast
 
 from typing_extensions import Self
 
-from pdfnaut.objects.fields import FlagField, NameField, StandardField, TextStringField
-
+from ..common.fields import FlagField, NameField, StandardField, TextStringField
 from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.tokenizer import ContentStreamIterator

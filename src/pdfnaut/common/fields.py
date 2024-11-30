@@ -4,18 +4,15 @@ import datetime
 import enum
 from typing import Any, Generic, Type, TypeVar, cast
 
-from pdfnaut.cos.objects.base import (
+from ..cos.objects.base import (
     PdfHexString,
     PdfName,
     PdfObject,
     encode_text_string,
     parse_text_string,
 )
-from pdfnaut.cos.objects.containers import PdfDictionary
-from pdfnaut.cos.objects.date import PdfDate
-
-K = TypeVar("K")
-V = TypeVar("V")
+from ..cos.objects.containers import PdfDictionary
+from ..cos.objects.date import PdfDate
 
 
 class Required:

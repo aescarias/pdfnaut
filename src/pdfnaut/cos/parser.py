@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import hashlib
 import re
 from collections import UserDict
-from datetime import time
 from enum import IntEnum
 from functools import partial
 from io import BytesIO
@@ -11,6 +9,7 @@ from typing import Any, TypeVar, cast, overload
 
 from typing_extensions import TypeAlias
 
+from ..common.utils import generate_file_id, get_closest
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
@@ -29,15 +28,6 @@ from .tokenizer import PdfTokenizer
 
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
 INDIRECT_OBJ_HEADER_REGEX = re.compile(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj")
-
-
-def generate_file_id(filename: str, content: bytes) -> PdfHexString:
-    """Generates a file identifier as described in ``§ 14.4 File identifier``."""
-    id_digest = hashlib.md5(time().isoformat("auto").encode())
-    id_digest.update(filename.encode())
-    id_digest.update(str(len(content)).encode())
-
-    return PdfHexString(id_digest.hexdigest().encode())
 
 
 class PermsAcquired(IntEnum):
@@ -199,16 +189,6 @@ class PdfParser:
 
         self._encryption_key = None
 
-    # These are helper methods that can probably be moved out from here.
-
-    T = TypeVar("T")
-
-    def _ensure_object(self, obj: PdfReference[T] | T) -> T:
-        return self.get_object(obj) if isinstance(obj, PdfReference) else obj
-
-    def _get_closest(self, values: list[int], target: int) -> int:
-        return min(values, key=lambda offset: abs(offset - target))
-
     def _tok_matches_object_header(self) -> re.Match[bytes] | None:
         if not self._tokenizer.peek().isdigit():
             return
@@ -272,7 +252,7 @@ class PdfParser:
         if mat := pattern.match(header.value):
             return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
-        # Although not recommended, it is expected that some documents may start with
+        # Although not recommended, it is possible that some documents may start with
         # characters different than those of %PDF-n.m. Offsets should be calculated
         # based on the start of this token rather than the start of the document.
         if not self.strict:
@@ -391,12 +371,12 @@ class PdfParser:
             table_offsets = self._find_xref_offsets()
 
             # get the xref table nearest to our offset
-            self._tokenizer.position = self._get_closest(table_offsets, target)
+            self._tokenizer.position = get_closest(table_offsets, target)
             section = self.parse_xref_and_trailer()
 
             # make sure the user can see our corrections
             if "Prev" in section.trailer:
-                section.trailer["Prev"] = self._get_closest(
+                section.trailer["Prev"] = get_closest(
                     table_offsets, cast(int, section.trailer["Prev"])
                 )
 
@@ -644,7 +624,7 @@ class PdfParser:
             )
         elif isinstance(pdf_object, PdfArray):
             return PdfArray(
-                self._get_decrypted(obj, reference) for obj in pdf_object.data
+                (self._get_decrypted(obj, reference) for obj in pdf_object.data)
             )
         elif isinstance(pdf_object, PdfDictionary):
             # The Encrypt key does not need decrypting.
@@ -927,7 +907,7 @@ class PdfParser:
         if "ID" in self.trailer.data:
             ids = cast(PdfArray[PdfHexString | bytes], self.trailer.data["ID"])
             new_trailer.data["ID"] = PdfArray(
-                [ids[0], generate_file_id(filename, builder.content)]
+                [ids[0], generate_file_id(filename, len(builder.content))]
             )
 
         if use_compressed:

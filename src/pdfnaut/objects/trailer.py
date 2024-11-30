@@ -5,7 +5,7 @@ import enum
 
 from typing_extensions import Self
 
-from .fields import DateField, EnumField, PdfDictionary, TextStringField
+from ..common.fields import DateField, EnumField, PdfDictionary, TextStringField
 
 
 class TrappedState(enum.Enum):

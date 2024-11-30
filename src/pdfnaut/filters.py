@@ -26,6 +26,8 @@ def batched(iterable: Iterable[T], n: int, *, strict=False) -> Generator[tuple[T
     If ``strict`` is True, each batch must include exactly `n` elements, raising a
     ``ValueError`` otherwise.
 
+    This function is practically equivalent to ``itertools.batched``.
+
     Example:
         batched('ABCDEFG', 3) → ABC DEF G
     """
