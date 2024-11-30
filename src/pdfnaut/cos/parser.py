@@ -706,11 +706,11 @@ class PdfParser:
     @overload
     def get_object(
         self, reference: tuple[int, int], cache: bool = True
-    ) -> PdfObject | PdfStream | PdfNull: ...
+    ) -> PdfObject | PdfStream | PdfNull | FreeObject: ...
 
     def get_object(
         self, reference: PdfReference | tuple[int, int], cache: bool = True
-    ) -> PdfObject | PdfStream | PdfNull | Any:
+    ) -> PdfObject | PdfStream | PdfNull | FreeObject | Any:
         """Resolves a reference into the indirect object it points to.
 
         Arguments:
@@ -730,7 +730,10 @@ class PdfParser:
                 ``cache``if the object is new and is not included in the xref table.
 
         Returns:
-            The object the reference resolves to if valid, otherwise :class:`.PdfNull`.
+            The object the reference resolves to.
+
+            If the reference is invalid (i.e. does not exist), returns :class:`.PdfNull`.
+            If the object referred to is a free object, returns :class:`.FreeObject`.
         """
         if isinstance(reference, tuple):
             reference = PdfReference(*reference).with_resolver(self.get_object)
