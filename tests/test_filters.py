@@ -8,18 +8,18 @@ from pdfnaut.filters import ASCII85Filter, ASCIIHexFilter, FlateFilter, RunLengt
 
 
 def test_ascii() -> None:
-    assert ASCIIHexFilter().decode(b"50444673>") == b"PDFs"
-    assert ASCII85Filter().decode(b":ddco~>") == b"PDFs"
+    assert ASCIIHexFilter().decompress(b"50444673>") == b"PDFs"
+    assert ASCII85Filter().decompress(b":ddco~>") == b"PDFs"
 
-    assert ASCIIHexFilter().encode(b"band") == b"62616E64>"
-    assert ASCII85Filter().encode(b"band") == b"@UX.b~>"
+    assert ASCIIHexFilter().compress(b"band") == b"62616E64>"
+    assert ASCII85Filter().compress(b"band") == b"@UX.b~>"
 
 
 def test_flate() -> None:
     # No predictor
     encoded_str = b"x\x9c\x0bpq+\x06\x00\x03\x0f\x01N"
-    assert FlateFilter().decode(encoded_str) == b"PDFs"
-    assert FlateFilter().encode(b"PDFs") == encoded_str
+    assert FlateFilter().decompress(encoded_str) == b"PDFs"
+    assert FlateFilter().compress(b"PDFs") == encoded_str
 
 
 def test_rle() -> None:
@@ -33,7 +33,7 @@ def test_rle() -> None:
             open("tests/docs/filters/rle-input.jpg", "rb") as input_image,
             open("tests/docs/filters/rle-output.bin", "rb") as output,
         ):
-            assert RunLengthFilter().decode(rle_stream.raw) == input_image.read()
+            assert RunLengthFilter().decompress(rle_stream.raw) == input_image.read()
 
             input_image.seek(0)
-            assert RunLengthFilter().encode(input_image.read()) == output.read()
+            assert RunLengthFilter().compress(input_image.read()) == output.read()
