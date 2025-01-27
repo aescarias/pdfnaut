@@ -54,14 +54,14 @@ class ASCIIHexFilter(PdfFilter):
     This filter does not take any parameters. ``params`` will be ignored.
     """
 
-    def decompress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         if contents[-1:] != b">":
             raise PdfFilterError("ASCIIHex: EOD not at end of stream.")
 
         hexdata = bytearray(ch for ch in contents[:-1] if ch not in WHITESPACE)
         return b16decode(hexdata, casefold=True)
 
-    def compress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         return b16encode(contents) + b">"
 
 
@@ -72,10 +72,10 @@ class ASCII85Filter(PdfFilter):
     This filter does not take any parameters. ``params`` will be ignored.
     """
 
-    def decompress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         return a85decode(contents, ignorechars=WHITESPACE, adobe=True)
 
-    def compress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         # we do not need the starting delimiter with PDFs
         return a85encode(contents, adobe=True)[2:]
 
