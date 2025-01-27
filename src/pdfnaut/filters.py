@@ -43,8 +43,9 @@ def batched(iterable: Iterable[T], n: int, *, strict=False) -> Generator[tuple[T
 
 
 class PdfFilter(Protocol):
-    def decompress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: ...
-    def compress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: ...
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: ...
+
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes: ...
 
 
 class ASCIIHexFilter(PdfFilter):
@@ -95,7 +96,7 @@ class RunLengthFilter(PdfFilter):
     This filter does not take any parameters. ``params`` will be ignored.
     """
 
-    def decompress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         idx = 0
         output = bytes()
 
@@ -152,7 +153,7 @@ class RunLengthFilter(PdfFilter):
 
         return output
 
-    def compress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         # perform typical rle first than decode it.
         runs = [(len(list(group)), val.to_bytes(1, "big")) for val, group in groupby(contents)]
         decoded_runs = (length * val for length, val in runs)
@@ -202,9 +203,7 @@ class FlateFilter(PdfFilter):
         ``Length(Row) = Length(Sample) * Columns``
     """
 
-    def decompress(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, contents: bytes, *, params: PdfDictionary[str, int] | None = None
-    ) -> bytes:
+    def decode(self, contents: bytes, *, params: PdfDictionary[str, int] | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
             params = PdfDictionary()
 
@@ -225,7 +224,7 @@ class FlateFilter(PdfFilter):
         else:
             raise PdfFilterError(f"FlateDecode: Predictor {predictor} not supported.")
 
-    def compress(self, contents: bytes, *, params: PdfDictionary[str, int] | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def encode(self, contents: bytes, *, params: PdfDictionary[str, int] | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
             params = PdfDictionary()
 
@@ -363,10 +362,10 @@ class CryptFetchFilter(PdfFilter):
     - **Reference**: The indirect reference of the object to decrypt.
     """
 
-    def compress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
         raise NotImplementedError("Crypt: Encrypting streams not implemented.")
 
-    def decompress(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:  # pyright: ignore[reportIncompatibleMethodOverride]
         if params is None:
             raise ValueError("Crypt: This filter requires parameters.")
 

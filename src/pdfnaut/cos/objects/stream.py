@@ -56,7 +56,7 @@ class PdfStream:
             if filt.value == b"Crypt" and self._crypt_params.get("Handler"):
                 params.update(self._crypt_params)
 
-            output = SUPPORTED_FILTERS[filt.value]().decompress(self.raw, params=params)
+            output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
 
         return output
 
@@ -102,7 +102,7 @@ class PdfStream:
             if filt.value == b"Crypt" and crypt_params.get("Handler"):
                 params.update(crypt_params)
 
-            raw = SUPPORTED_FILTERS[filt.value]().compress(raw, params=params)
+            raw = SUPPORTED_FILTERS[filt.value]().encode(raw, params=params)
 
         details["Length"] = len(raw)
         return cls(details, raw)
