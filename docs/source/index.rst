@@ -84,7 +84,6 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    PDF Document <reference/document>
    PDF Objects <reference/objects>
    COS Objects <reference/cos/objects>
-   Common Objects <reference/common>
    Filters <reference/filters>
    Exceptions <reference/exceptions>
    Standard Security Handler <reference/standard_handler>
