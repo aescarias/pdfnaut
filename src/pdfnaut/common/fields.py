@@ -4,6 +4,7 @@ import datetime
 import enum
 from typing import Any, Generic, Type, TypeVar, cast
 
+from ..common.dates import encode_iso8824, parse_iso8824
 from ..cos.objects.base import (
     PdfHexString,
     PdfName,
@@ -12,7 +13,6 @@ from ..cos.objects.base import (
     parse_text_string,
 )
 from ..cos.objects.containers import PdfDictionary
-from ..cos.objects.date import PdfDate
 
 
 class Required:
@@ -155,16 +155,13 @@ class DateField:
     def __init__(self, field: str) -> None:
         self.field = field
 
-    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> PdfDate | None:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> datetime.datetime | None:
         text = TextStringField(self.field).__get__(obj)
         if text is not None:
-            return PdfDate.from_pdf(text)
+            return parse_iso8824(text)
 
-    def __set__(self, obj: PdfDictionary, value: PdfDate | datetime.datetime) -> None:
-        if isinstance(value, datetime.datetime):
-            value = PdfDate.from_datetime(value)
-
-        TextStringField(self.field).__set__(obj, value.as_pdf_string())
+    def __set__(self, obj: PdfDictionary, value: datetime.datetime) -> None:
+        TextStringField(self.field).__set__(obj, encode_iso8824(value))
 
     def __delete__(self, obj: PdfDictionary) -> None:
         obj.pop(self.field, None)

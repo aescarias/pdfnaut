@@ -7,7 +7,7 @@ The document information dictionary is specified in the ``/Info`` entry part of 
 
 Metadata streams store metadata in `XMP <https://en.wikipedia.org/wiki/Extensible_Metadata_Platform>`_ format and are the recommended way of applying object or document-level metadata.
 
-pdfnaut can natively read from and write to document information dictionaries. Metadata streams are not currently supported.
+pdfnaut can natively read from and write to document information dictionaries. Metadata streams are currently read-only.
 
 Reading document information
 ----------------------------
@@ -26,6 +26,7 @@ Note that the DocInfo dictionary and all of its fields are optional (may be ``No
     
     print(doc.info.title) # None
     print(doc.info.producer) # Nevrona Designs
+
 
 Writing document information
 ----------------------------

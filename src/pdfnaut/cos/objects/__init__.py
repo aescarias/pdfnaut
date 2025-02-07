@@ -11,7 +11,6 @@ from .base import (
     PdfReference,
 )
 from .containers import PdfArray, PdfDictionary
-from .date import PdfDate
 from .stream import PdfStream
 from .xref import (
     CompressedXRefEntry,
@@ -40,5 +39,4 @@ __all__ = (
     "InUseXRefEntry",
     "CompressedXRefEntry",
     "PdfStream",
-    "PdfDate",
 )

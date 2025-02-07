@@ -83,6 +83,7 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>
    PDF Objects <reference/objects>
+   Common Objects <reference/common>
    COS Objects <reference/cos/objects>
    Filters <reference/filters>
    Exceptions <reference/exceptions>

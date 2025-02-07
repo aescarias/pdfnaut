@@ -22,8 +22,3 @@ Page Objects
 .. automodule:: pdfnaut.objects.page
     :members:
 
-Fields
-------
-
-.. automodule:: pdfnaut.objects.fields
-    :members:

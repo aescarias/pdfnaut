@@ -50,12 +50,6 @@ Stream Objects
 .. automodule:: pdfnaut.cos.objects.stream
     :members:
 
-Date Objects
---------------
-
-.. automodule:: pdfnaut.cos.objects.date
-    :members:
-
 Container Objects
 -----------------
 

@@ -1,8 +1,12 @@
 # Unit tests for PDF encryption routines and the Standard security handler
 from __future__ import annotations
 
+from typing import cast
+
+from pdfnaut.common.utils import get_value_from_bytes
+from pdfnaut.cos.objects.base import PdfHexString, PdfReference
+from pdfnaut.cos.objects.containers import PdfDictionary
 from pdfnaut.cos.parser import PdfParser, PermsAcquired
-# from pdfnaut.typings.encryption import StandardEncrypt
 
 
 def test_std_security_handler():
@@ -37,14 +41,22 @@ def test_rc4_aes_decryption():
         parser.parse()
 
         parser.decrypt("null")
-        assert parser.trailer["Info"]["Producer"].value == b"pypdf"
+
+        info = cast(PdfDictionary, parser.trailer["Info"])
+        producer = cast("PdfHexString | bytes", info["Producer"])
+
+        assert get_value_from_bytes(producer) == b"pypdf"
 
     with open("tests/docs/encrypted-aes128.pdf", "rb") as fp:
         parser = PdfParser(fp.read())
         parser.parse()
 
         parser.decrypt("nil")
-        assert parser.trailer["Info"]["Producer"].value == b"pypdf"
+
+        info = cast(PdfDictionary, parser.trailer["Info"])
+        producer = cast("PdfHexString | bytes", info["Producer"])
+
+        assert get_value_from_bytes(producer) == b"pypdf"
 
 
 def test_rc4_aes_password_values():
@@ -52,21 +64,23 @@ def test_rc4_aes_password_values():
         parser = PdfParser(fp.read())
         parser.parse()
 
-        encr_metadata = parser.trailer["Info"]
+        encr_metadata = cast(PdfDictionary, parser.trailer["Info"])
 
-        encrypt_dict = parser.trailer["Encrypt"]
+        encrypt_dict = cast(PdfDictionary, parser.trailer["Encrypt"])
         assert parser.security_handler is not None
 
         # Passwords
         o_value = parser.security_handler.compute_owner_password(b"null", b"nil")
-        assert o_value.hex().lower().encode() == encrypt_dict["O"].raw.lower()
+        assert o_value.hex().lower().encode() == cast(PdfHexString, encrypt_dict["O"]).raw.lower()
 
         u_value = parser.security_handler.compute_user_password(b"nil")
-        assert u_value.hex().lower().encode() == encrypt_dict["U"].raw.lower()
+        assert u_value.hex().lower().encode() == cast(PdfHexString, encrypt_dict["U"]).raw.lower()
 
         # Encryption with passwords
         encr_key = parser.security_handler.compute_encryption_key(b"nil")
 
-        assert encr_metadata["Producer"].value == parser.security_handler.encrypt_object(
-            encr_key, b"pypdf", parser.trailer.data["Info"]
+        assert cast(
+            PdfHexString, encr_metadata["Producer"]
+        ).value == parser.security_handler.encrypt_object(
+            encr_key, b"pypdf", cast(PdfReference, parser.trailer.data["Info"])
         )

@@ -1,4 +1,6 @@
 # Unit tests for parsing a subset of handcrafted and example files.
+from __future__ import annotations
+
 import pytest
 
 from pdfnaut.cos import PdfParser
