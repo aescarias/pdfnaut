@@ -105,4 +105,37 @@ class PdfStream:
             raw = SUPPORTED_FILTERS[filt.value]().encode(raw, params=params)
 
         details["Length"] = len(raw)
-        return cls(details, raw)
+        return cls(details, raw, cast(dict[str, Any], crypt_params.data))
+
+    def modify(self, raw: bytes) -> None:
+        """Modifies this stream in place, setting its data to ``data``."""
+
+        filters = cast("PdfName | PdfArray[PdfName] | None", self.details.get("Filter"))
+        params = cast("PdfDictionary | PdfArray[PdfDictionary]", self.details.get("DecodeParms"))
+
+        if filters is None:
+            self.raw = raw
+            self.details["Length"] = len(self.raw)
+            return
+
+        if isinstance(filters, PdfName):
+            filters = PdfArray([filters])
+
+        if not isinstance(params, PdfArray):
+            params = PdfArray([params])
+
+        # Filters are applied from last to first
+        for filt, params in zip(reversed(filters), reversed(params)):
+            if filt.value not in SUPPORTED_FILTERS:
+                raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
+
+            if isinstance(params, PdfNull) or params is None:
+                params = PdfDictionary()
+
+            if filt.value == b"Crypt" and self._crypt_params.get("Handler"):
+                params.update(self._crypt_params)
+
+            raw = SUPPORTED_FILTERS[filt.value]().encode(raw, params=params)
+
+        self.raw = raw
+        self.details["Length"] = len(self.raw)
