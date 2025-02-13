@@ -4,8 +4,9 @@ import re
 from collections import UserDict
 from enum import IntEnum
 from functools import partial
-from io import BytesIO
-from typing import Any, TypeVar, cast, overload
+from io import BufferedIOBase, BytesIO
+from pathlib import Path
+from typing import Any, BinaryIO, TypeVar, cast, overload
 
 from typing_extensions import TypeAlias
 
@@ -73,9 +74,7 @@ class ObjectMap(UserDict[int, MapObject]):
 
     def fill(self) -> None:
         """Fills the object map with the items available in the PDF's xref table."""
-        self.initial_reference_map = {
-            obj: (obj, gen) for (obj, gen) in self._pdf.xref.keys()
-        }
+        self.initial_reference_map = {obj: (obj, gen) for (obj, gen) in self._pdf.xref.keys()}
         self.unresolved.clear()
 
         for obj, gen in self.initial_reference_map.values():
@@ -153,9 +152,7 @@ class PdfParser:
         """A list of all incremental updates present in the document (most recent update first)."""
 
         # placeholder to make the type checker happy
-        self.trailer = PdfDictionary[str, PdfObject](
-            {"Size": 0, "Root": PdfReference(0, 0)}
-        )
+        self.trailer = PdfDictionary[str, PdfObject]({"Size": 0, "Root": PdfReference(0, 0)})
         """The most recent trailer in the PDF document.
         
         For details on the contents of the trailer, see ``§ 7.5.5 File Trailer``.
@@ -259,9 +256,7 @@ class PdfParser:
             if mat := pattern.search(self._tokenizer.data):
                 if self._tokenizer.data[mat.start() - 1] == 37:  # %
                     self._tokenizer.data = self._tokenizer.data[mat.start() - 1 :]
-                    return (
-                        f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
-                    )
+                    return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
         raise PdfParseError("Expected PDF header at start of file.")
 
@@ -272,9 +267,7 @@ class PdfParser:
         entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
 
         for subsection in subsections:
-            for idx, entry in enumerate(
-                subsection.entries, subsection.first_obj_number
-            ):
+            for idx, entry in enumerate(subsection.entries, subsection.first_obj_number):
                 if isinstance(entry, FreeXRefEntry):
                     gen = entry.gen_if_used_again
                 elif isinstance(entry, InUseXRefEntry):
@@ -309,8 +302,7 @@ class PdfParser:
 
                     # But only append if they aren't a thing or they are marked as "free"
                     if update_entry is None or (
-                        isinstance(update_entry, FreeXRefEntry)
-                        and hybrid_entry is not None
+                        isinstance(update_entry, FreeXRefEntry) and hybrid_entry is not None
                     ):
                         entry_map[(obj, gen)] = hybrid_entry
                         hybrid_objnums.append(obj)
@@ -388,9 +380,7 @@ class PdfParser:
         table_offsets = []
 
         # looks for the start of a xref table
-        for mat in re.finditer(
-            rb"(?<!start)xref(\W*)(\d+) (\d+)", self._tokenizer.data
-        ):
+        for mat in re.finditer(rb"(?<!start)xref(\W*)(\d+) (\d+)", self._tokenizer.data):
             table_offsets.append(mat.start())
 
         # looks for indirect objects, then checks if they are xref streams
@@ -401,10 +391,7 @@ class PdfParser:
 
             if self._tokenizer.matches(b"<<"):
                 mapping = self._tokenizer.parse_dictionary()
-                if (
-                    isinstance(typ := mapping.get("Type"), PdfName)
-                    and typ.value == b"XRef"
-                ):
+                if isinstance(typ := mapping.get("Type"), PdfName) and typ.value == b"XRef":
                     table_offsets.append(mat.start())
 
         return sorted(table_offsets)
@@ -482,9 +469,7 @@ class PdfParser:
         and information from the PDF trailer.
 
         Described in ``§ 7.5.8 Cross-Reference Streams``."""
-        xref_stream = self.parse_indirect_object(
-            InUseXRefEntry(self._tokenizer.position, 0), None
-        )
+        xref_stream = self.parse_indirect_object(InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)
 
         contents = BytesIO(xref_stream.decode())
@@ -492,9 +477,7 @@ class PdfParser:
         xref_widths = cast(PdfArray[int], xref_stream.details["W"])
         xref_indices = cast(
             PdfArray[int],
-            xref_stream.details.get(
-                "Index", PdfArray([0, xref_stream.details["Size"]])
-            ),
+            xref_stream.details.get("Index", PdfArray([0, xref_stream.details["Size"]])),
         )
 
         subsections = []
@@ -507,9 +490,7 @@ class PdfParser:
             )
 
             for _ in range(subsection.count):
-                field_type = int.from_bytes(
-                    contents.read(xref_widths[0]) or b"\x01", "big"
-                )
+                field_type = int.from_bytes(contents.read(xref_widths[0]) or b"\x01", "big")
                 second = int.from_bytes(contents.read(xref_widths[1]), "big")
                 third = int.from_bytes(contents.read(xref_widths[2]), "big")
 
@@ -519,9 +500,7 @@ class PdfParser:
                         FreeXRefEntry(next_free_object=second, gen_if_used_again=third)
                     )
                 elif field_type == 1:
-                    subsection.entries.append(
-                        InUseXRefEntry(offset=second, generation=third)
-                    )
+                    subsection.entries.append(InUseXRefEntry(offset=second, generation=third))
                 elif field_type == 2:
                     subsection.entries.append(
                         CompressedXRefEntry(objstm_number=second, index_within=third)
@@ -579,11 +558,7 @@ class PdfParser:
     def _get_decrypted(
         self, pdf_object: PdfObject | PdfStream, reference: PdfReference | None
     ) -> PdfObject | PdfStream:
-        if (
-            self.security_handler is None
-            or not self._encryption_key
-            or reference is None
-        ):
+        if self.security_handler is None or not self._encryption_key or reference is None:
             return pdf_object
 
         if isinstance(pdf_object, PdfStream):
@@ -619,13 +594,9 @@ class PdfParser:
                 )
             )
         elif isinstance(pdf_object, bytes):
-            return self.security_handler.decrypt_object(
-                self._encryption_key, pdf_object, reference
-            )
+            return self.security_handler.decrypt_object(self._encryption_key, pdf_object, reference)
         elif isinstance(pdf_object, PdfArray):
-            return PdfArray(
-                (self._get_decrypted(obj, reference) for obj in pdf_object.data)
-            )
+            return PdfArray((self._get_decrypted(obj, reference) for obj in pdf_object.data))
         elif isinstance(pdf_object, PdfDictionary):
             # The Encrypt key does not need decrypting.
             if reference == self.trailer.data["Encrypt"]:
@@ -663,18 +634,14 @@ class PdfParser:
         # Have we gone way beyond the stream?
         try:
             if self._tokenizer.position >= next(next_entry_at).offset:
-                raise PdfParseError(
-                    "\\Length key in stream extent parses beyond object."
-                )
+                raise PdfParseError("\\Length key in stream extent parses beyond object.")
         except StopIteration:
             pass
 
         self._tokenizer.skip_whitespace()
         # Are we done?
         if not self._tokenizer.skip_if_matches(b"endstream"):
-            raise PdfParseError(
-                "\\Length key in stream extent does not match end of stream."
-            )
+            raise PdfParseError("\\Length key in stream extent does not match end of stream.")
 
         return contents
 
@@ -751,9 +718,7 @@ class PdfParser:
             else:
                 objstm = self.parse_indirect_object(
                     objstm_entry,
-                    PdfReference(*objstm_ref).with_resolver(
-                        partial(self.get_object, cache=False)
-                    ),
+                    PdfReference(*objstm_ref).with_resolver(partial(self.get_object, cache=False)),
                 )
 
             assert isinstance(objstm, PdfStream)
@@ -789,8 +754,8 @@ class PdfParser:
             return PermsAcquired.OWNER
 
         # Is this the owner password?
-        encryption_key, is_owner_pass = (
-            self.security_handler.authenticate_owner_password(password.encode())
+        encryption_key, is_owner_pass = self.security_handler.authenticate_owner_password(
+            password.encode()
         )
         if is_owner_pass:
             self._encryption_key = encryption_key
@@ -806,8 +771,14 @@ class PdfParser:
 
         return PermsAcquired.NONE
 
-    def save(self, filename: str) -> None:
-        """Saves the contents of this parser to ``filename``."""
+    def save(self, filepath: str | Path | BinaryIO | BufferedIOBase) -> None:
+        """Saves the contents of this parser to ``filepath``.
+
+        ``filepath`` may either be a string containing a path, a :class:`pathlib.Path`
+        instance, a binary stream (i.e. :class:`io.BufferedIOBase`), or a file-like object
+        (i.e. :class:`typing.BinaryIO`).
+        """
+
         builder = PdfSerializer()
         builder.write_header("2.0")
 
@@ -839,21 +810,18 @@ class PdfParser:
                     rows.append(
                         (
                             obj_num,
-                            FreeXRefEntry(
-                                entry.next_free_object, entry.gen_if_used_again
-                            ),
+                            FreeXRefEntry(entry.next_free_object, entry.gen_if_used_again),
                         )
                     )
                     continue
 
                 # Free entry now in use
-                offset = builder.write_object(
-                    (obj_num, entry.gen_if_used_again), resolved
-                )
+                offset = builder.write_object((obj_num, entry.gen_if_used_again), resolved)
                 rows.append((obj_num, InUseXRefEntry(offset, entry.gen_if_used_again)))
                 update_freelist = True
             elif isinstance(entry, InUseXRefEntry):
                 resolved = self.objects[obj_num]
+
                 # In use object freed
                 if isinstance(resolved, FreeObject):
                     rows.append((obj_num, FreeXRefEntry(-1, entry.generation + 1)))
@@ -876,9 +844,7 @@ class PdfParser:
         if update_freelist:
             # let's first get the members of the freelist
             freelist_members = [
-                idx
-                for idx, entry in enumerate(rows)
-                if isinstance(entry, FreeXRefEntry)
+                idx for idx, (_, entry) in enumerate(rows) if isinstance(entry, FreeXRefEntry)
             ]
 
             for freelist_idx, xref_idx in enumerate(freelist_members):
@@ -906,6 +872,14 @@ class PdfParser:
 
         if "ID" in self.trailer.data:
             ids = cast(PdfArray[PdfHexString | bytes], self.trailer.data["ID"])
+
+            if isinstance(filepath, BinaryIO):
+                filename = filepath.name
+            elif isinstance(filepath, BufferedIOBase):
+                filename = ""  # no filename
+            else:
+                filename = str(filepath)
+
             new_trailer.data["ID"] = PdfArray(
                 [ids[0], generate_file_id(filename, len(builder.content))]
             )
@@ -921,5 +895,8 @@ class PdfParser:
 
         builder.write_eof()
 
-        with open(filename, "wb") as output_fp:
-            output_fp.write(builder.content)
+        if isinstance(filepath, (BufferedIOBase, BinaryIO)):
+            filepath.write(builder.content)
+        else:
+            with open(filepath, "wb") as output_fp:
+                output_fp.write(builder.content)
