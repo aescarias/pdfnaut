@@ -1,7 +1,28 @@
+"""Utilities for parsing and encoding date formats: ISO 8601 and ISO 8824."""
+
 from __future__ import annotations
 
 import datetime
 import re
+
+
+def has_date(date: datetime.datetime) -> bool:
+    """Returns whether ``date`` has a date component. In this case, if either the year,
+    month or day isn't a default value."""
+    return date.year > 1 or date.month > 1 or date.day > 1
+
+
+def has_time(date: datetime.datetime) -> bool:
+    """Returns whether ``date`` has a time component. In this case, if either the hour,
+    minute, second or microsecond isn't a default value."""
+    return date.hour > 0 or date.minute > 0 or date.second > 0 or date.microsecond > 0
+
+
+def has_timezone(date: datetime.datetime) -> bool:
+    """Returns whether ``date`` specifies a timezone other than UTC."""
+
+    offset = date.utcoffset()
+    return offset is not None and offset.total_seconds() != 0
 
 
 def parse_iso8824(date_string: str) -> datetime.datetime:
@@ -51,27 +72,42 @@ def parse_iso8824(date_string: str) -> datetime.datetime:
     )
 
 
-def encode_iso8824(date: datetime.datetime) -> str:
+def encode_iso8824(date: datetime.datetime, *, full: bool = True) -> str:
     """Encodes a :class:`datetime.datetime` object into an ISO 8824 date string suitable
-    for storage in a PDF file."""
+    for storage in a PDF file.
+
+    If ``full`` is True, this function will encode all date and time values. Otherwise,
+    the function will perform partial encoding, only including components that aren't their
+    default values.
+    """
 
     datestr = f"D:{date.year}"
-    datestr += "".join(f"{val:02}" for val in (date.month, date.day) if val != 1)
 
-    datestr += "".join(f"{val:02}" for val in (date.hour, date.minute, date.second) if val != 0)
+    if has_date(date) or full:
+        datestr += f"{date.month:02}" if date.month > 1 or date.day > 1 or full else ""
+        datestr += f"{date.day:02}" if date.day > 1 or date.second > 0 or full else ""
 
-    offset = date.utcoffset()
-    if offset is None or offset.total_seconds() == 0:
-        return datestr + "Z"
+    if has_time(date) or has_timezone(date) or full:
+        datestr += f"{date.hour:02}" if date.hour > 0 or date.minute > 0 or full else ""
+        datestr += f"{date.minute:02}" if date.minute > 0 or date.second > 0 or full else ""
+        datestr += f"{date.second:02}" if date.second > 0 or has_timezone(date) or full else ""
 
-    offset_hours, offset_seconds = divmod(offset.total_seconds(), 3600)
-    offset_minutes = int(offset_seconds / 60)
+        offset = date.utcoffset()
+        # If no offset, assume UTC
+        if offset is None or offset.total_seconds() == 0:
+            return datestr + "Z"
 
-    return datestr + "'".join(f"{val:02}" for val in (offset_hours, offset_minutes))
+        offset_hours, offset_seconds = divmod(offset.total_seconds(), 3600)
+        offset_minutes = int(offset_seconds / 60)
+
+        return datestr + f"{offset_hours:+03n}'{offset_minutes:02}"
+
+    return datestr
 
 
 def parse_iso8601(date_string: str) -> datetime.datetime:
-    """Parses an ISO 6801 string into a :class:`datetime.datetime` object."""
+    """Parses a date string conforming to the ISO 8601 profile specified in
+    https://www.w3.org/TR/NOTE-datetime into a :class:`datetime.datetime` object."""
 
     pattern = re.compile(
         r"""^(?P<year>\d{4})(?:-(?P<month>\d{2}))?(?:-(?P<day>\d{2}))? # yyyy-mm-dd
@@ -106,3 +142,40 @@ def parse_iso8601(date_string: str) -> datetime.datetime:
         microsecond=int(fraction_micro),
         tzinfo=datetime.timezone(tz_offset),
     )
+
+
+def encode_iso8601(date: datetime.datetime, *, full: bool = True) -> str:
+    """Encodes a :class:`datetime.datetime` object into a date string conforming to the
+    ISO 6801 profile specified in https://www.w3.org/TR/NOTE-datetime.
+
+    If ``full`` is True, this function will encode all date and time values. Otherwise,
+    the function will perform partial encoding, only including components that aren't their
+    default values.
+    """
+
+    datestr = str(date.year)
+
+    if has_date(date) or full:
+        datestr += f"-{date.month:02}"
+        # Append day if present or if hour present
+        datestr += f"-{date.day:02}" if date.day > 1 or date.hour > 0 or full else ""
+
+    if has_time(date) or has_timezone(date) or full:
+        datestr += f"T{date.hour:02}:{date.minute:02}"
+
+        # Whether we have a second
+        if date.second > 0 or date.microsecond > 0 or full:
+            datestr += f":{date.second:02}"
+            datestr += f".{date.microsecond:06n}" if date.microsecond > 0 else ""
+
+        offset = date.utcoffset()
+        # If no offset, assume UTC
+        if offset is None or offset.total_seconds() == 0:
+            return datestr + "Z"
+
+        offset_hours, offset_seconds = divmod(offset.total_seconds(), 3600)
+        offset_minutes = int(offset_seconds / 60)
+
+        return datestr + f"{offset_hours:+03n}:{offset_minutes:02}"
+
+    return datestr

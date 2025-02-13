@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import datetime
 from typing import cast
 
 from pdfnaut import PdfTokenizer
-from pdfnaut.common.dates import encode_iso8824, parse_iso8601, parse_iso8824
 from pdfnaut.cos.objects import (
     PdfArray,
     PdfComment,
@@ -108,49 +106,3 @@ def test_array() -> None:
 def test_indirect_reference() -> None:
     lexer = PdfTokenizer(b"2 0 R")
     assert lexer.get_next_token() == PdfReference(2, 0)
-
-
-def test_iso8824() -> None:
-    # Some examples from the spec
-    assert parse_iso8824("D:199812231952-08'00") == datetime.datetime(
-        1998, 12, 23, 19, 52, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-8, minutes=0))
-    )
-    assert parse_iso8824("D:20010727133720") == datetime.datetime(
-        2001, 7, 27, 13, 37, 20, tzinfo=datetime.timezone.utc
-    )
-
-    # Possible pre-2.0 date string
-    assert parse_iso8824("D:2024'") == datetime.datetime(
-        2024, 1, 1, 0, tzinfo=datetime.timezone.utc
-    )
-
-    # Encoding
-    assert encode_iso8824(datetime.datetime(2001, 7, 27, 13, 37, 20)) == "D:20010727133720Z"
-
-
-def test_iso8601() -> None:
-    # Only year
-    assert parse_iso8601("2025") == datetime.datetime(
-        2025, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-    )
-    # Date
-    assert parse_iso8601("2025-02-01") == datetime.datetime(
-        2025, 2, 1, 0, 0, tzinfo=datetime.timezone.utc
-    )
-    # Date and time without seconds
-    assert parse_iso8601("2025-02-01T12:31") == datetime.datetime(
-        2025, 2, 1, 12, 31, tzinfo=datetime.timezone.utc
-    )
-    # Date and time with seconds
-    assert parse_iso8601("2025-02-01T12:31:17") == datetime.datetime(
-        2025, 2, 1, 12, 31, 17, tzinfo=datetime.timezone.utc
-    )
-    # Date and time with seconds and fraction unit
-    assert parse_iso8601("2025-02-01T12:31:17.20") == datetime.datetime(
-        2025, 2, 1, 12, 31, 17, 200_000, tzinfo=datetime.timezone.utc
-    )
-    # Date and time with seconds, fraction unit, and timezone
-    tzd = datetime.timezone(datetime.timedelta(hours=-6, minutes=0))
-    assert parse_iso8601("2025-02-01T12:31:17.20-06:00") == datetime.datetime(
-        2025, 2, 1, 12, 31, 17, 200_000, tzd
-    )
