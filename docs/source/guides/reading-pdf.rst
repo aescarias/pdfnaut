@@ -1,7 +1,7 @@
 Reading a PDF
 =============
 
-PDFs are, in essence, conformed of objects and references. You can access the objects of a PDF through means of its cross-reference table. Think of a PDF like JSON but with a way of tracking its objects.
+PDFs are, in essence, conformed of objects and references. To locate an object, a PDF file includes a cross-reference table specifying the offset of objects in the document.
 
 Opening a PDF
 -------------
@@ -16,7 +16,7 @@ To read a PDF with pdfnaut, use the :class:`~pdfnaut.cos.parser.PdfParser` class
         pdf = pdfnaut.PdfParser(fp.read())
         pdf.parse()
 
-:meth:`~pdfnaut.cos.parser.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects from the document. 
+:meth:`~pdfnaut.cos.parser.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects inside the document. 
 
 Inspecting objects
 ------------------

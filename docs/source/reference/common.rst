@@ -11,6 +11,7 @@ Dates
 -----
 
 .. automodule:: pdfnaut.common.dates
+    :members:
 
 Utils
 -----

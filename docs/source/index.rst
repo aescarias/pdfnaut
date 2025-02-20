@@ -11,13 +11,11 @@ pdfnaut
 
 pdfnaut aims to become a PDF processor for Python -- a library capable of reading and writing PDF documents.
 
-pdfnaut currently works best for handling low-level scenarios. A high-level reader and writer (:class:`~pdfnaut.document.PdfDocument`) is available although it's a work in progress.
-
-pdfnaut is currently capable of the following:
+pdfnaut includes a high-level API for reading and writing documents (:class:`~pdfnaut.document.PdfDocument`). pdfnaut is currently capable of the following:
 
 - Reading compressed & encrypted PDF documents (AES/ARC4, see note below).
 - Inspecting PDFs and extracting data from them.
-- Viewing and editing document information.
+- Viewing and editing document metadata.
 - Building PDFs from scratch.
 
 Install
@@ -40,7 +38,7 @@ Install
          python -m pip install pdfnaut
 
 .. important:: 
-   If you plan to use ``pdfnaut`` with encrypted documents, you must also install a crypt provider dependency such as pyca/cryptography or PyCryptodome. See :ref:`standard security handler`.
+   If you plan to use ``pdfnaut`` with encrypted documents, you must also install a crypt provider dependency such as pyca/cryptography or PyCryptodome. See :ref:`standard security handler` for details.
 
 Examples
 --------

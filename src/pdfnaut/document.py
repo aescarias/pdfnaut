@@ -4,6 +4,7 @@ from typing import Generator, cast
 
 from pdfnaut.cos.objects.base import parse_text_string
 from pdfnaut.objects.catalog import PageLayout, PageMode
+from pdfnaut.objects.xmp import XmpMetadata
 
 from .cos.objects import (
     PdfArray,
@@ -69,7 +70,7 @@ class PdfDocument(PdfParser):
         self.objects[root_ref.object_number] = value
 
     @property
-    def info(self) -> Info | None:
+    def doc_info(self) -> Info | None:
         """The ``Info`` entry in the catalog which includes document-level information
         described in ``§ 14.3.3 Document information dictionary``.
 
@@ -82,8 +83,8 @@ class PdfDocument(PdfParser):
 
         return Info.from_dict(cast(PdfDictionary, self.trailer["Info"]))
 
-    @info.setter
-    def info(self, value: Info | None) -> None:
+    @doc_info.setter
+    def doc_info(self, value: Info | None) -> None:
         info_ref = cast("PdfReference | None", self.trailer.data.get("Info"))
 
         # A new docinfo object will be created
@@ -116,13 +117,30 @@ class PdfDocument(PdfParser):
         return max((header_version, catalog_version.value.decode()))
 
     @property
-    def metadata(self) -> PdfStream | None:
+    def xmp_info(self) -> XmpMetadata | None:
         """The Metadata entry of the catalog which includes document-level metadata
         stored as XMP."""
         if "Metadata" not in self.catalog:
             return
 
-        return cast(PdfStream, self.catalog["Metadata"])
+        stm = cast(PdfStream, self.catalog["Metadata"])
+
+        return XmpMetadata(stm)
+
+    @xmp_info.setter
+    def xmp_info(self, xmp: XmpMetadata | None) -> None:
+        metadata_ref = cast("PdfReference | None", self.catalog.data.get("Metadata"))
+
+        # A new metadata object will be created
+        if metadata_ref is None and xmp is not None:
+            self.catalog["Metadata"] = self.objects.add(xmp.stream)
+        # A metadata object will be set
+        elif metadata_ref and isinstance(xmp, XmpMetadata):
+            self.objects[metadata_ref.object_number] = xmp.stream
+        # A metadata object will be removed
+        elif metadata_ref:
+            self.objects.delete(metadata_ref.object_number)
+            self.catalog.pop("Metadata", None)
 
     @property
     def page_tree(self) -> PdfDictionary:

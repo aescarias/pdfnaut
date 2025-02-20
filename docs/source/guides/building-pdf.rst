@@ -25,7 +25,7 @@ Next, we define the objects in the PDF. The first object (1, 0) will include our
         "Pages": PdfReference(2, 0)
     })
 
-Object (2, 0) will include our page tree. To keep things simple, our document will only have one page and will not apply filters.
+Object (2, 0) will include our page tree. To keep things simple, our document will only have one page. We will also not apply filters.
 
 .. code-block:: python
 
@@ -35,7 +35,7 @@ Object (2, 0) will include our page tree. To keep things simple, our document wi
         "Count": 1
     })
 
-Object (3, 0) is the page itself. We specify its media box (practically its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the fonts or resources used.
+Object (3, 0) is the page itself. We specify its media box (effectively, its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the fonts or resources used.
 
 .. code-block:: python
 
@@ -101,7 +101,7 @@ In the previous section, we defined the objects. This does not write them, thoug
 
 Writing the XRef section and trailer
 ------------------------------------
-After generating the section, we can proceed to write it. PDFs support two types of XRef section: a traditional XRef section and an XRef stream. To keep things readable, we will use the traditional approach. :meth:`~pdfnaut.cos.serializer.PdfSerializer.write_standard_xref_section` produces such section and returns the startxref offset that we can use later. 
+After generating the section, we can proceed to write it. PDFs support two types of XRef section: a traditional XRef section and an XRef stream. For this example, we will use the traditional approach. :meth:`~pdfnaut.cos.serializer.PdfSerializer.write_standard_xref_section` produces such section and returns the startxref offset that we can use later. 
 
 We then write the trailer and the startxref offset using :meth:`~pdfnaut.cos.serializer.write_trailer`. To end the PDF, we add the ``%%EOF`` marker and write the new document as usual.
 

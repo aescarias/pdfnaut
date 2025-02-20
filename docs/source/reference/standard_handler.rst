@@ -1,9 +1,9 @@
 Standard Security Handler
 =========================
 
-The Standard security handler is the password-based encryption method that PDFs use.
+The Standard security handler is the password-based encryption method used by PDFs.
 
-In pdfnaut, the Standard security handler depends on user-supplied providers known as **crypt providers.** The crypt providers available are AES-128 (in CBC mode) and ARC4. A third provider, the Identity provider, is included by default and does nothing.
+In pdfnaut, the Standard security handler relies on user-supplied providers known as **crypt providers.** The crypt providers available are AES-128 (in CBC mode) and ARC4. A third provider, the Identity provider, is included by default and does nothing.
 
 pdfnaut does not include these providers. You must provide them yourself or install one of the following packages:
 

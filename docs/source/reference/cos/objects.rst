@@ -24,11 +24,11 @@ The spec also defines general-purpose data structures built from the basic objec
 
   * ASCII strings.
   * Byte strings: hex strings or literal strings containing binary data.
-  * PDFDocEncoded strings: implemented partially. If another library registers the ``pdfdoc`` codec, pdfnaut is able to find and use it. Otherwise, it falls back to Latin-1 which is not desireable.
-  * Text strings: encoded in either PDFDocEncoding, UTF-16BE or (PDF 2.0) UTF-8.
+  * PDFDocEncoded strings
+  * Text strings: encoded in either PDFDocEncoding, UTF-16BE or (PDF 2.0) UTF-8. The latter was introduced in PDF 2.0
 
-* Dates: implemented as the :class:`~pdfnaut.cos.objects.date.PdfDate` class.
-* The following data structures are currently not explicitly implemented:
+* Dates: implemented as :func:`~pdfnaut.common.dates.encode_iso8824` and :func:`~pdfnaut.common.dates.parse_iso8824`.
+* The following data structures are currently not implemented explicitly:
 
   * File specifications
   * Functions

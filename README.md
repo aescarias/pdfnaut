@@ -10,33 +10,43 @@
 
 pdfnaut aims to become a PDF processor for parsing PDF 2.0 files.
 
-Currently, pdfnaut provides a low-level interface for reading and writing PDF objects as defined in the [PDF 2.0 specification](https://developer.adobe.com/document-services/docs/assets/5b15559b96303194340b99820d3a70fa/PDF_ISO_32000-2.pdf).
+pdfnaut provides both a low-level interface for reading and writing PDF objects as described in the [PDF 2.0 specification](https://developer.adobe.com/document-services/docs/assets/5b15559b96303194340b99820d3a70fa/PDF_ISO_32000-2.pdf) and a high-level document interface for actions like reading and writing metadata, accessing pages, creating objects, etc.
+
+## Installation
+
+pdfnaut requires at least Python 3.9 or later. To install via pip:
+
+```plaintext
+python -m pip install pdfnaut
+```
+
+If you plan to work with encrypted or protected PDF documents, you must install one of the supported crypt providers. See [this](https://pdfnaut.readthedocs.io/en/latest/reference/standard_handler.html#standard-security-handler) for details.
 
 ## Examples
 
-The newer high-level API
+Example 1: Accessing the content stream of a page
 
 ```py
 from pdfnaut import PdfDocument
 
-pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
+pdf = PdfDocument.from_filename("example.pdf")
 first_page = next(pdf.flattened_pages)
 
 if first_page.content_stream:
     print(first_page.content_stream.contents)
 ```
 
-The more mature low-level API
+Example 2: Reading document information
 
 ```py
-from pdfnaut import PdfParser
+from pdfnaut import PdfDocument
 
-with open("tests/docs/sample.pdf", "rb") as doc:
-    pdf = PdfParser(doc.read())
-    pdf.parse()
+pdf = PdfDocument.from_filename("example.pdf")
 
-    pages = pdf.trailer["Root"]["Pages"]
+assert pdf.doc_info is not None, "No document information available."
 
-    first_page_stream = pages["Kids"][0]["Contents"]
-    print(first_page_stream.decode())
+print(pdf.doc_info.title)
+print(pdf.doc_info.producer)
 ```
+
+For more examples on what pdfnaut can do, see the guides in our [documentation](https://pdfnaut.readthedocs.io/en/latest).
