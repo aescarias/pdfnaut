@@ -139,6 +139,10 @@ class PdfTokenizer:
 
         return re.match(rb"^(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.peek_line())
 
+    def _is_octal(self, byte: bytes) -> bool:
+        """Returns whether ``byte`` is a valid octal number (0-7)."""
+        return b"0" <= byte <= b"7"
+
     def skip_if_matches(self, keyword: bytes) -> bool:
         """Advances ``len(keyword)`` characters if ``keyword`` starts at the current
         position. Returns whether the match was successful."""
@@ -238,7 +242,7 @@ class PdfTokenizer:
                 # escape sequence matched
                 self.skip()
 
-                atom += chr(int(self.consume(2), 16)).encode()
+                atom += int(self.consume(2), 16).to_bytes(1, "little")
                 continue
 
             atom += self.consume()
@@ -323,6 +327,7 @@ class PdfTokenizer:
             if self.matches(b"\\"):
                 # Is this a default escape? (Table 3 § 7.3.4.2)
                 escape = STRING_ESCAPE.get(self.peek(2))
+
                 if escape is not None:
                     string += escape
                     self.skip(2)  # past the escape code
@@ -334,9 +339,11 @@ class PdfTokenizer:
                 matched = self.skip_if_matches(EOL_CRLF)
                 if not matched and self.peek() in EOL_CRLF:
                     self.skip()
-                elif self.peek().isdigit():
-                    octal_code = self.consume_while(bytes.isdigit, limit=3)
-                    string += chr(int(octal_code, 8)).encode()
+                elif self._is_octal(self.peek()):
+                    octal_code = self.consume_while(self._is_octal, limit=3)
+                    # the octal value will be 8 bit at most
+                    string += int(octal_code, 8).to_bytes(1, "little")
+                    continue
 
             if self.matches(b"("):
                 paren_depth += 1
@@ -346,6 +353,7 @@ class PdfTokenizer:
             # This avoids appending the delimiting paren
             if paren_depth != 0:
                 string += self.peek()
+
             self.skip()
 
         return string

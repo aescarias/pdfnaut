@@ -53,7 +53,7 @@ def test_literal_string() -> None:
     assert lexer.get_next_token() == b"This is a string with a (few) nested ((parentheses))"
 
     # String continued in next line
-    lexer = PdfTokenizer(b"(This is a string that is \r\n" b"continued on the next line)")
+    lexer = PdfTokenizer(b"(This is a string that is \r\ncontinued on the next line)")
     assert lexer.get_next_token() == b"This is a string that is \r\ncontinued on the next line"
 
     # String ending with a \ at the EOL and followed next line
@@ -63,6 +63,14 @@ def test_literal_string() -> None:
     # String with escape characters
     lexer = PdfTokenizer(b"(This is a string with a \\t tab character and a \\053 plus.))")
     assert lexer.get_next_token() == b"This is a string with a \t tab character and a + plus."
+
+    # String with contiguous octal sequences
+    lexer = PdfTokenizer(b"(\\110\\151\\41)")
+    assert lexer.get_next_token() == b"Hi!"
+
+    # String with invalid octal sequences
+    lexer = PdfTokenizer(b"(\\318 then \\387 and then \\981)")
+    assert lexer.get_next_token() == b"\318 then \387 and then 981"
 
 
 def test_hex_string() -> None:

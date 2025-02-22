@@ -350,6 +350,10 @@ class XmpMetadata:
 
     # * PDF namespace properties
     # * https://developer.adobe.com/xmp/docs/XMPNamespaces/pdf/
+    # Note: I have also seen other properties for the PDF namespace,
+    # such as Subject, Author, and Copyright. But, as far as I know,
+    # they're not official and seem to stem from improper reconciling
+    # of the DocInfo dictionary.
 
     pdf_producer = XMPTextProperty(namespaces["pdf"], "Producer")
     """The name of the tool that produced this PDF document."""

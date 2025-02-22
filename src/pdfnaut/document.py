@@ -22,8 +22,9 @@ from .objects.trailer import Info
 class PdfDocument(PdfParser):
     """A high-level interface over :class:`~.PdfParser`.
 
-    PDF authors who want to work with a document in a high-level way should use
-    this interface over ``PdfParser``."""
+    PDF authors who want to work with a document in a high-level way should
+    use this interface over ``PdfParser``.
+    """
 
     @classmethod
     def from_filename(cls, path: str, *, strict: bool = False) -> PdfDocument:
@@ -154,7 +155,8 @@ class PdfDocument(PdfParser):
     def outline_tree(self) -> PdfDictionary | None:
         """The document's outlines commonly referred to as bookmarks.
 
-        See ``§ 12.3.3 Document Outline``."""
+        See ``§ 12.3.3 Document Outline``.
+        """
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
 
     def decrypt(self, password: str) -> PermsAcquired:
@@ -219,7 +221,10 @@ class PdfDocument(PdfParser):
         """A language identifier that shall specify the natural language for all text in
         the document except where overridden by language specifications for structure
         elements or marked content (``§ 14.9.2 Natural language specification``).
-        If this entry is absent, the language shall be considered unknown."""
+
+        If this entry is absent, the language shall be considered unknown.
+        """
+
         if "Lang" not in self.catalog:
             return
 

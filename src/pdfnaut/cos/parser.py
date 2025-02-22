@@ -204,9 +204,10 @@ class PdfParser:
 
         Arguments:
             start_xref (int, optional):
-                The offset where the most recent XRef can be found.
+                The offset where the most recent XRef can be found. If no offset is
+                provided, this function will attempt to locate one.
         """
-        # Move back for the header
+        # Move to the header
         self._tokenizer.position = 0
         self.header_version = self.parse_header()
 
@@ -761,7 +762,7 @@ class PdfParser:
             self._encryption_key = encryption_key
             return PermsAcquired.OWNER
 
-        # Is this the user password
+        # Is this the user password?
         encryption_key, is_user_pass = self.security_handler.authenticate_user_password(
             password.encode()
         )
@@ -871,7 +872,7 @@ class PdfParser:
             new_trailer.data["Info"] = self.trailer.data["Info"]
 
         if "ID" in self.trailer.data:
-            ids = cast(PdfArray[PdfHexString | bytes], self.trailer.data["ID"])
+            ids = cast(PdfArray["PdfHexString | bytes"], self.trailer.data["ID"])
 
             if isinstance(filepath, BinaryIO):
                 filename = filepath.name
