@@ -48,16 +48,16 @@ AnnotationKind = Literal[
 
 class AnnotationFlags(enum.IntFlag):
     Null = 0
-    Invisible = 1 << 1
-    Hidden = 1 << 2
-    Print = 1 << 3
-    NoZoom = 1 << 4
-    NoRotate = 1 << 5
-    NoView = 1 << 6
-    ReadOnly = 1 << 7
-    Locked = 1 << 8
-    ToggleNoView = 1 << 9
-    LockedContents = 1 << 10
+    Invisible = 1 << 0
+    Hidden = 1 << 1
+    Print = 1 << 2
+    NoZoom = 1 << 3
+    NoRotate = 1 << 4
+    NoView = 1 << 5
+    ReadOnly = 1 << 6
+    Locked = 1 << 7
+    ToggleNoView = 1 << 8
+    LockedContents = 1 << 9
 
 
 class Annotation(PdfDictionary):
@@ -85,10 +85,23 @@ class Annotation(PdfDictionary):
     flags = FlagField("F", AnnotationFlags, AnnotationFlags.Null)
     """A set of flags specifying various characteristics of the annotation."""
 
+    color = StandardField["PdfArray[float] | None"]("C", None)
+    """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
+    for the following purposes: 
+        
+    - The background of the annotation's icon when closed
+    - The title bar of the annotation's popup window
+    - The border of a link annotation.
+    
+    The number of array elements determines the color space in which the color shall
+    be defined: 0 is no color, transparent; 1 is DeviceGray (grayscale); 3 is DeviceRGB;
+    and 4 is DeviceCMYK 
+    """
+
     language = TextStringField("Lang")
-    """A language identifier that shall specify the natural language for all text in
-    the annotation except where overridden by other explicit language specifications
-    (``§ 14.9.2 Natural language specification``)."""
+    """(PDF 2.0) A language identifier that shall specify the natural language for all 
+    text in the annotation except where overridden by other explicit language 
+    specifications (``§ 14.9.2 Natural language specification``)."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
@@ -114,12 +127,23 @@ class Page(PdfDictionary):
     If the page inherits its resources from an ancestor, this returns None.
     """
 
-    mediabox = StandardField[PdfArray[int]]("MediaBox")
-    """A rectangle specifying the boundaries of the physical medium in which the page
+    mediabox = StandardField[PdfArray["int | float"]]("MediaBox")
+    """A rectangle defining the boundaries of the physical medium in which the page
     should be printed or displayed."""
 
-    cropbox = StandardField["PdfArray[int] | None"]("CropBox", None)
-    """A rectangle specifying the visible region of the page."""
+    cropbox = StandardField["PdfArray[int | float] | None"]("CropBox", None)
+    """A rectangle defining the visible region of the page."""
+
+    bleedbox = StandardField["PdfArray[int | float] | None"]("BleedBox", None)
+    """A rectangle defining the region to which the contents of the page shall be 
+    clipped when output in a production environment."""
+
+    trimbox = StandardField["PdfArray[int | float] | None"]("TrimBox", None)
+    """A rectangle defining the intended dimensions of the finished page after trimming."""
+
+    artbox = StandardField["PdfArray[int | float] | None"]("ArtBox", None)
+    """A rectangle defining the extent of the page's meaningful content as intended 
+    by the page's creator."""
 
     user_unit = StandardField["int | float"]("UserUnit", 1)
     """The size of a user space unit, in multiples of 1/72 of an inch."""
@@ -138,7 +162,7 @@ class Page(PdfDictionary):
 
         return dictionary
 
-    def __init__(self, size: tuple[int, int]) -> None:
+    def __init__(self, size: tuple[int | float, int | float]) -> None:
         super().__init__()
 
         self["Type"] = PdfName(b"Page")
