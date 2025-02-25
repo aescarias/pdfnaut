@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Generator, cast
 
 from pdfnaut.cos.objects.base import parse_text_string
+from pdfnaut.cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
+from pdfnaut.cos.serializer import PdfSerializer
 from pdfnaut.objects.catalog import PageLayout, PageMode
 from pdfnaut.objects.xmp import XmpMetadata
 
@@ -31,6 +33,38 @@ class PdfDocument(PdfParser):
         """Loads a PDF document from a file ``path``."""
         with open(path, "rb") as fp:
             return PdfDocument(fp.read(), strict=strict)
+
+    @classmethod
+    def new(cls) -> PdfDocument:
+        """Creates a blank PDF document."""
+
+        builder = PdfSerializer()
+        builder.write_header("2.0")
+
+        builder.objects[(1, 0)] = PdfDictionary(
+            {"Type": PdfName(b"Catalog"), "Pages": PdfReference(2, 0)}
+        )
+        builder.objects[(2, 0)] = PdfDictionary(
+            {"Type": PdfName(b"Pages"), "Kids": PdfArray(), "Count": 0}
+        )
+
+        section: list[tuple[int, PdfXRefEntry]] = [(0, FreeXRefEntry(0, 65535))]
+
+        for (obj_num, gen_num), item in builder.objects.items():
+            offset = builder.write_object((obj_num, gen_num), item)
+            section.append((obj_num, InUseXRefEntry(offset, gen_num)))
+
+        subsections = builder.generate_xref_section(section)
+
+        startxref = builder.write_standard_xref_section(subsections)
+
+        builder.write_trailer(
+            PdfDictionary({"Size": subsections[0].count, "Root": PdfReference(1, 0)}), startxref
+        )
+
+        builder.write_eof()
+
+        return PdfDocument(builder.content)
 
     def __init__(self, data: bytes, *, strict: bool = False) -> None:
         super().__init__(data, strict=strict)

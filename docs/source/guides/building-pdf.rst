@@ -86,7 +86,7 @@ In the previous section, we defined the objects. This does not write them, thoug
 
 .. code-block:: python
 
-    rows: list[tuple[int, PdfXRefEntry]] = [
+    section: list[tuple[int, PdfXRefEntry]] = [
         (0, FreeXRefEntry(0, 65535))
     ]
 
