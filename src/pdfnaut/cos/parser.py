@@ -10,7 +10,7 @@ from typing import Any, BinaryIO, TypeVar, cast, overload
 
 from typing_extensions import TypeAlias
 
-from ..common.utils import generate_file_id, get_closest
+from ..common.utils import ensure_object, generate_file_id, get_closest
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
@@ -579,6 +579,7 @@ class PdfParser:
         mat = self._tok_matches_object_header()
         if not mat:
             raise PdfParseError("XRef entry does not point to indirect object.")
+
         self._tokenizer.skip(mat.end())
         self._tokenizer.skip_whitespace()
 
@@ -588,6 +589,7 @@ class PdfParser:
         # uh oh, a stream?
         if self._tokenizer.matches(b"stream"):
             extent = cast(PdfDictionary, contents)
+
             # the implicit get_object call might move us around so we must save and then
             # restore the previous position
             _current = self._tokenizer.position

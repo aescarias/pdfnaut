@@ -25,7 +25,7 @@ def test_docinfo_write() -> None:
     assert original_pdf.doc_info is not None
 
     # we don't need the microsecond since iso 8824 doesn't support them
-    modify_date = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    modify_date = datetime.datetime(2025, 3, 2, 15, 51, 0, tzinfo=datetime.timezone.utc)
 
     original_pdf.doc_info.title = "Sample PDF file"
     original_pdf.doc_info.modify_date = modify_date
@@ -100,7 +100,7 @@ def test_xmp_write() -> None:
     edited_pdf = PdfDocument(fp.read())
     assert edited_pdf.xmp_info is not None
 
-    assert edited_pdf.xmp_info.pdf_producer == "pdfnaut 0.7.0"
+    assert edited_pdf.xmp_info.pdf_producer == f"pdfnaut {pdfnaut.__version__}"
     assert edited_pdf.xmp_info.xmp_create_date == dt
     assert edited_pdf.xmp_info.xmp_modify_date == dt
     assert edited_pdf.xmp_info.dc_title == {"x-default": "The Tetons and the Snake River"}
