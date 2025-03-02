@@ -48,16 +48,46 @@ AnnotationKind = Literal[
 
 class AnnotationFlags(enum.IntFlag):
     Null = 0
+    """A default value."""
+
     Invisible = 1 << 0
+    """For non-standard annotation types, do not render or print the annotation.
+    If not set, the annotation shall be rendered according to its appearance stream.
+    """
+
     Hidden = 1 << 1
+    """Do not render the annotation or allow user interaction with it."""
+
     Print = 1 << 2
+    """Print the annotation when the page is printed, except where the Hidden flag
+    is set. If clear, do not print the annotation.
+    """
+
     NoZoom = 1 << 3
+    """Do not scale the annotation's appearance to the page's zoom factor."""
+
     NoRotate = 1 << 4
+    """Do not rotate the annotation to match the page's rotation."""
+
     NoView = 1 << 5
+    """Do not render the annotation or allow user interaction with it, but still
+    allow printing according to the Print flag.
+    """
+
     ReadOnly = 1 << 6
+    """Do not allow user interaction with the annotation. This is ignored for Widget
+    annotations."""
+
     Locked = 1 << 7
+    """Do not allow the annotation to be removed or its properties to be modified
+    but still allow its contents to be modified.
+    """
+
     ToggleNoView = 1 << 8
+    """Toggle the NoView flag when selecting or hovering over the annotation."""
+
     LockedContents = 1 << 9
+    """Do not allow the contents of the annotation to be modified."""
 
 
 class Annotation(PdfDictionary):

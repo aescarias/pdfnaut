@@ -50,6 +50,60 @@ class FreeObject:
 MapObject: TypeAlias = "PdfObject | PdfStream | FreeObject"
 
 
+class ObjectStream:
+    """A mapping of object numbers to PDF objects representing an object stream.
+
+    See ``§ 7.5.7 Object streams`` for details.
+    """
+
+    def __init__(self, pdf: PdfParser, stream: PdfStream) -> None:
+        self.stream = stream
+        self._pdf = pdf
+
+        # object index: resolved object
+        self.resolved_objects: dict[int, PdfObject] = {}
+
+        self._decoded = self.stream.decode()
+        self._first = cast(int, self.stream.details["First"])
+        self._n_objects = cast(int, self.stream.details["N"])
+
+        # list of tuples of (object number, relative offset within)
+        self.index_pairs = self.parse_indices()
+
+    def parse_indices(self) -> list[tuple[int, int]]:
+        """Parses the object stream's indices."""
+        index_tokenizer = PdfTokenizer(self._decoded[: self._first])
+        index_pairs = []
+
+        for _ in range(self._n_objects):
+            obj_num = cast(int, next(index_tokenizer))
+            relative_offset = cast(int, next(index_tokenizer))  # relative to /First
+            index_pairs.append((obj_num, relative_offset))
+
+        return index_pairs
+
+    def get_object(self, index: int, *, cache: bool = True) -> PdfObject:
+        """Gets an object at a specified ``index`` inside an object stream.
+
+        ``cache`` controls whether the object cache is accessed. If True,
+        this function will always retrieve from the object store if possible.
+        If False, this function will always retrieve from the stream.
+        """
+        if cache and index in self.resolved_objects:
+            return self.resolved_objects[index]
+
+        _, relative_offset = self.index_pairs[index]
+        start_of_obj_tokenizer = PdfTokenizer(self._decoded[self._first + relative_offset :])
+        start_of_obj_tokenizer.resolver = self._pdf.get_object
+
+        resolved = cast(PdfObject, next(start_of_obj_tokenizer))
+
+        if cache:
+            self.resolved_objects[index] = resolved
+
+        return resolved
+
+
 class ObjectMap(UserDict[int, MapObject]):
     """A mapping of object numbers to either object references, in-use objects or free objects.
 
@@ -95,7 +149,7 @@ class ObjectMap(UserDict[int, MapObject]):
         highest_objnum = max(self.keys())
         return PdfReference(highest_objnum + 1, 0)
 
-    def add(self, pdf_object: MapObject) -> PdfReference[MapObject]:
+    def add(self, pdf_object: PdfObject | PdfStream) -> PdfReference[PdfObject | PdfStream]:
         """Adds a new object to the map. Returns its reference."""
         reference = self._make_ref()
         self[reference.object_number] = pdf_object
@@ -111,12 +165,12 @@ class ObjectMap(UserDict[int, MapObject]):
         """Marks object with number ``obj_num`` as a free object."""
         self[obj_num] = FreeObject()
 
-    def __getitem__(self, number: int) -> PdfObject | PdfStream | FreeObject:
-        value = super().__getitem__(number)
+    def __getitem__(self, obj_num: int) -> MapObject:
+        value = super().__getitem__(obj_num)
 
-        if isinstance(value, PdfReference) and number in self.unresolved:
-            resolved = self[number] = value.get()
-            self.unresolved.discard(number)
+        if isinstance(value, PdfReference) and obj_num in self.unresolved:
+            resolved = self[obj_num] = value.get()
+            self.unresolved.discard(obj_num)
             return resolved
 
         return value
@@ -143,6 +197,9 @@ class PdfParser:
         self.strict = strict
         self._tokenizer = PdfTokenizer(data)
         self._tokenizer.resolver = self.get_object
+
+        #   object number: object stream
+        self._objstm_cache: dict[int, ObjectStream] = {}
 
         #   object number:  direct object
         self.objects = ObjectMap(self)
@@ -686,12 +743,14 @@ class PdfParser:
         if isinstance(reference, tuple):
             reference = PdfReference(*reference).with_resolver(self.get_object)
 
-        # If cache requested and the object hasn't been resolved or cached yet.
+        # If cache requested and the object is cached.
         if cache and reference.object_number not in self.objects.unresolved:
             return self.objects.get(reference.object_number)
 
         root_entry = self.xref.get((reference.object_number, reference.generation))
+
         if root_entry is None:
+            # the reference is referring to a new object not registered in the xref table
             if (obj_entry := self.objects.get(reference.object_number)) is not None:
                 return obj_entry
 
@@ -699,6 +758,7 @@ class PdfParser:
 
         if isinstance(root_entry, InUseXRefEntry):
             obj = self.parse_indirect_object(root_entry, reference)
+
             if not cache:
                 return obj
 
@@ -728,12 +788,15 @@ class PdfParser:
                 self.objects[root_entry.objstm_number] = objstm
                 self.objects.unresolved.discard(root_entry.objstm_number)
 
-            seq = PdfTokenizer(objstm.decode()[objstm.details["First"] :] or b"")
-            seq.resolver = self.get_object
+            if cache and root_entry.objstm_number in self._objstm_cache:
+                stm = self._objstm_cache[root_entry.objstm_number]
+            else:
+                stm = ObjectStream(self, objstm)
 
-            for idx, token in enumerate(seq):
-                if idx == root_entry.index_within:
-                    return token
+            if cache:
+                self._objstm_cache[root_entry.objstm_number] = stm
+
+            return stm.get_object(root_entry.index_within)
 
         return PdfNull()
 
@@ -871,19 +934,22 @@ class PdfParser:
         if "Info" in self.trailer.data:
             new_trailer.data["Info"] = self.trailer.data["Info"]
 
+        if isinstance(filepath, BinaryIO):
+            filename = filepath.name
+        elif isinstance(filepath, BufferedIOBase):
+            filename = ""  # no filename
+        else:
+            filename = str(filepath)
+
         if "ID" in self.trailer.data:
             ids = cast(PdfArray["PdfHexString | bytes"], self.trailer.data["ID"])
-
-            if isinstance(filepath, BinaryIO):
-                filename = filepath.name
-            elif isinstance(filepath, BufferedIOBase):
-                filename = ""  # no filename
-            else:
-                filename = str(filepath)
 
             new_trailer.data["ID"] = PdfArray(
                 [ids[0], generate_file_id(filename, len(builder.content))]
             )
+        else:
+            new_id = generate_file_id(filename, len(builder.content))
+            new_trailer.data["ID"] = PdfArray([new_id, new_id])
 
         if use_compressed:
             startxref = builder.write_compressed_xref_section(

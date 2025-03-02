@@ -8,8 +8,8 @@ from typing_extensions import TypeVar
 from ...exceptions import PdfResolutionError
 from .base import PdfObject, PdfReference
 
-DictKey = TypeVar("DictKey", default=str)
-DictVal = TypeVar("DictVal", default=PdfObject)
+DictKey = TypeVar("DictKey", default=str, infer_variance=True)
+DictVal = TypeVar("DictVal", default=PdfObject, infer_variance=True)
 
 
 class PdfDictionary(UserDict[DictKey, DictVal]):
