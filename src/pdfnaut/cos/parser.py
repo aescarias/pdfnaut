@@ -242,6 +242,11 @@ class PdfParser:
         """
 
         self._encryption_key = None
+        self._hot_references: list[PdfReference] = []
+        """A list of references being currently processed by :meth:`.get_object()`.
+        
+        This is here as a measure to prevent circular reference loops.
+        """
 
     def _tok_matches_object_header(self) -> re.Match[bytes] | None:
         if not self._tokenizer.peek().isdigit():
@@ -745,8 +750,18 @@ class PdfParser:
         if isinstance(reference, tuple):
             reference = PdfReference(*reference).with_resolver(self.get_object)
 
+        self._hot_references.append(reference)
+        if self._hot_references.count(reference) > 1:
+            loop = " -> ".join(
+                f"{ref.object_number} {ref.generation} R" for ref in self._hot_references
+            )
+            self._hot_references.clear()
+
+            raise PdfParseError(f"Possible circular reference loop hit: {loop}")
+
         # If cache requested and the object is cached.
         if cache and reference.object_number not in self.objects.unresolved:
+            self._hot_references.remove(reference)
             return self.objects.get(reference.object_number)
 
         root_entry = self.xref.get((reference.object_number, reference.generation))
@@ -754,6 +769,7 @@ class PdfParser:
         if root_entry is None:
             # the reference is referring to a new object not registered in the xref table
             if (obj_entry := self.objects.get(reference.object_number)) is not None:
+                self._hot_references.remove(reference)
                 return obj_entry
 
             return PdfNull()
@@ -762,11 +778,14 @@ class PdfParser:
             obj = self.parse_indirect_object(root_entry, reference)
 
             if not cache:
+                self._hot_references.remove(reference)
                 return obj
 
             # Add to cache then set the object as resolved.
             self.objects[reference.object_number] = obj
             self.objects.unresolved.discard(reference.object_number)
+
+            self._hot_references.remove(reference)
 
             return self.objects[reference.object_number]
         elif isinstance(root_entry, CompressedXRefEntry):
@@ -798,8 +817,10 @@ class PdfParser:
             if cache:
                 self._objstm_cache[root_entry.objstm_number] = stm
 
+            self._hot_references.remove(reference)
             return stm.get_object(root_entry.index_within)
 
+        self._hot_references.remove(reference)
         return PdfNull()
 
     def decrypt(self, password: str) -> PermsAcquired:
