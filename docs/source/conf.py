@@ -22,6 +22,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
+    "sphinx.ext.intersphinx",
     "sphinx_design",
     "sphinx_copybutton",
 ]
@@ -44,3 +45,10 @@ copybutton_prompt_is_regexp = True
 autoclass_content = "both"
 autodoc_class_signature = "separated"
 autodoc_default_options = {"show-inheritance": True}
+autodoc_type_aliases = {
+    "PdfObject": "~pdfnaut.cos.objects.base.PdfObject",
+    "PdfXRefEntry": "~pdfnaut.cos.objects.xref.PdfXRefEntry",
+    "MapObject": "~pdfnaut.cos.parser.MapObject",
+}
+
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}

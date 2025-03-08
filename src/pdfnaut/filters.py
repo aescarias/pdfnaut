@@ -21,23 +21,23 @@ T = TypeVar("T")
 # itertools recipe
 def batched(iterable: Iterable[T], n: int, *, strict=False) -> Generator[tuple[T, ...], None, None]:
     """Consumes ``iterable`` and yields batches of `n` elements (where `n` is an
-    integer greater than 1) until the iterator is exhausted.
+    integer greater than 1) until the iterator is fully consumed.
 
     If ``strict`` is True, each batch must include exactly `n` elements, raising a
-    ``ValueError`` otherwise.
+    :class:`ValueError` otherwise.
 
-    This function is practically equivalent to ``itertools.batched``.
+    This function is practically equivalent to :meth:`itertools.batched`.
 
     Example:
-        batched('ABCDEFG', 3) → ABC DEF G
+        batched('ABCDEFG', 3) -> ABC DEF G
     """
     if n < 1:
-        raise ValueError("n must be at least one")
+        raise ValueError("n must be at least one.")
 
     iterator = iter(iterable)
     while batch := tuple(islice(iterator, n)):
         if strict and len(batch) != n:
-            raise ValueError("batched(): incomplete batch")
+            raise ValueError("batched(): incomplete batch.")
 
         yield batch
 
@@ -92,6 +92,10 @@ class RunLengthFilter(PdfFilter):
     - If the length byte is in the range 129 to 255, the following byte shall be copied \
         ``257 - length`` bytes.
     - A length byte of 128 means EOD.
+
+    Implementation note: encoding is performed using a threshold determined by the
+    average of the lengths of each run. Values under such threshold are copied.
+    Values over such threshold are repeated.
 
     This filter does not take any parameters. ``params`` will be ignored.
     """
@@ -185,17 +189,19 @@ class FlateFilter(PdfFilter):
     """Filter for zlib/deflate compression (``§ 7.4.4 LZWDecode and FlateDecode Filters``).
     
     This filter supports predictors which can increase predictability of data and hence
-    improve compression. 2 predictor groups are supported: the PNG filters specified in 
-    ``§ 9. Filtering`` of the PNG spec and TIFF Predictor 2 in the TIFF 6.0 spec.
+    improve compression. 2 predictor groups are supported by the spec: the PNG filters 
+    defined in ``§ 9. Filtering`` of the PNG spec and TIFF Predictor 2 defined in the 
+    TIFF 6.0 spec and which is currently unimplemented.
 
     The predictor is specified by means of the Predictor key in ``params`` (default: 1).
     If the Predictor is not 1, the following parameters can be provided: 
     
-    - **Colors**: Amount of color components per sample. Can be any value greater than 1 \
-        (default: 1).
+    - **Colors**: Amount of color components per sample. Can be any value greater \
+        than 1 (default: 1).
     - **BitsPerComponent**: Bit length of each of the color components. \
         Possible values are: 1, 2, 4, 8 (default), and 16.
-    - **Columns**: Amount of samples per row. Can be any value greater than 1 (default: 1).
+    - **Columns**: Amount of samples per row. Can be any value greater than 1 \
+        (default: 1).
 
     Given these values, the length of a sample in bytes is given by 
         ``Length(Sample) = ceil((Colors * BitsPerComponent) / 8)`` 
@@ -333,7 +339,7 @@ class FlateFilter(PdfFilter):
                 output.extend(filter_type.to_bytes(1, "big") + encoded)
             elif filter_type == 5:  # Optimum
                 # TODO: we will default optimum to be paeth for now
-                # TODO: impl. actual heuristic
+                # TODO: implement actual heuristic
                 encoded = self._process_png_row(True, row, 4, previous, sample_length)
                 output.extend((4).to_bytes(1, "big") + row)
             else:

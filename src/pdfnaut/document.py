@@ -5,7 +5,7 @@ from typing import Generator, cast
 from pdfnaut.cos.objects.base import parse_text_string
 from pdfnaut.cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
 from pdfnaut.cos.serializer import PdfSerializer
-from pdfnaut.objects.catalog import PageLayout, PageMode
+from pdfnaut.objects.catalog import PageLayout, PageMode, UserAccessPermissions
 from pdfnaut.objects.xmp import XmpMetadata
 
 from .cos.objects import (
@@ -75,13 +75,13 @@ class PdfDocument(PdfParser):
         """The current access level of the document, specified as a value from the
         :class:`.PermsAcquired` enum.
 
-        - Owner: Full access to the document. If the document is not encrypted, \
+        - Owner (2): Full access to the document. If the document is not encrypted, \
         this is the default value.
-        - User: Access to the document under restrictions.
-        - None: Document is currently encrypted.
+        - User (1): Access to the document under restrictions.
+        - None (0): Document is currently encrypted.
         """
 
-        # some files use an empty string as a password
+        # files under permissions usually use an empty string as a password
         if self.has_encryption:
             self.access_level = self.decrypt("")
 
@@ -93,7 +93,7 @@ class PdfDocument(PdfParser):
     @property
     def catalog(self) -> PdfDictionary:
         """The root of the document's object hierarchy, including references to pages,
-        outlines, destinations, and other core attributes of a PDF document.
+        outlines, destinations, and other core elements of a PDF document.
 
         For details on the contents of the catalog, see ``§ 7.7.2 Document Catalog``.
         """
@@ -109,9 +109,11 @@ class PdfDocument(PdfParser):
         """The ``Info`` entry in the catalog which includes document-level information
         described in ``§ 14.3.3 Document information dictionary``.
 
-        Some documents may specify a metadata stream rather than an Info entry. This can be
-        accessed with :attr:`.PdfDocument.metadata`. PDF 2.0 deprecates all keys of this
-        entry except for ``CreationDate`` and ``ModDate``.
+        Some documents may specify a metadata stream rather than a DocInfo dictionary.
+        Such metadata can be accessed using :attr:`.PdfDocument.xmp_info`.
+
+        PDF 2.0 deprecates all keys of the DocInfo dictionary except for ``CreationDate``
+        and ``ModDate``.
         """
         if "Info" not in self.trailer:
             return
@@ -187,9 +189,8 @@ class PdfDocument(PdfParser):
 
     @property
     def outline_tree(self) -> PdfDictionary | None:
-        """The document's outlines commonly referred to as bookmarks.
-
-        See ``§ 12.3.3 Document Outline``.
+        """The document's outline tree including what is commonly referred to as
+        bookmarks. See ``§ 12.3.3 Document Outline``.
         """
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
 
@@ -263,3 +264,18 @@ class PdfDocument(PdfParser):
             return
 
         return parse_text_string(cast("PdfHexString | bytes", self.catalog["Lang"]))
+
+    @property
+    def access_permissions(self) -> UserAccessPermissions | None:
+        """User access permissions relating to the document.
+
+        See "Table 22: User Access Permissions" and :class:`.UserAccessPermissions`
+        for details.
+        """
+        if not self.has_encryption:
+            return
+
+        encrypt = cast(PdfDictionary, self.trailer["Encrypt"])
+
+        if (perms := encrypt.get("P")) is not None:
+            return UserAccessPermissions(perms)

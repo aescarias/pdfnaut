@@ -24,13 +24,14 @@ class PdfStream:
     """The raw data which is assumed to be encoded."""
 
     _crypt_params: dict[str, Any] = field(default_factory=dict, repr=False)
-    """Parameters specific to the Crypt filter"""
+    """Parameters specific to the Crypt filter."""
 
     def decode(self) -> bytes:
         """Returns the decoded contents of the stream. If no filter is defined,
         it returns the original contents.
 
-        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
+        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported.
+        """
 
         filters = cast("PdfName | PdfArray[PdfName] | None", self.details.get("Filter"))
         params = cast("PdfDictionary | PdfArray[PdfDictionary]", self.details.get("DecodeParms"))
@@ -71,7 +72,9 @@ class PdfStream:
         ``details``. The length of the encoded output will automatically be appended
         to ``details``.
 
-        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported."""
+        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported.
+        """
+
         if details is None:
             details = PdfDictionary()
 
@@ -108,7 +111,8 @@ class PdfStream:
         return cls(details, raw, cast(dict[str, Any], crypt_params.data))
 
     def modify(self, raw: bytes) -> None:
-        """Modifies this stream in place, setting its data to ``data``."""
+        """Modifies this stream in place by encoding the ``raw`` data according to
+        the parameters specified in the stream's extent."""
 
         filters = cast("PdfName | PdfArray[PdfName] | None", self.details.get("Filter"))
         params = cast("PdfDictionary | PdfArray[PdfDictionary]", self.details.get("DecodeParms"))

@@ -10,7 +10,7 @@ from typing import Any, BinaryIO, TypeVar, cast, overload
 
 from typing_extensions import TypeAlias
 
-from ..common.utils import ensure_object, generate_file_id, get_closest
+from ..common.utils import generate_file_id, get_closest
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
@@ -739,7 +739,7 @@ class PdfParser:
                 entries and will not write to the object store.
 
                 Note that the object store will be accessed regardless of the value of
-                ``cache``if the object is new and is not included in the xref table.
+                ``cache`` if the object is new and is not included in the xref table.
 
         Returns:
             The object the reference resolves to.
@@ -832,7 +832,7 @@ class PdfParser:
         should allow access according to the permissions specified in the document.
 
         Returns:
-            A :class:`.PermsAcquired` specifying the permissions acquired by ``password``.
+            A :class:`.PermsAcquired` value specifying the permissions acquired by ``password``.
 
             - If the document is not encrypted, defaults to :attr:`.PermsAcquired.OWNER`
             - if the document was not decrypted, defaults to :attr:`.PermsAcquired.NONE`

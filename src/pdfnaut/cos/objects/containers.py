@@ -13,8 +13,8 @@ DictVal = TypeVar("DictVal", default=PdfObject, infer_variance=True)
 
 
 class PdfDictionary(UserDict[DictKey, DictVal]):
-    """An associative table containing pairs of objects (entries) where each entry is
-    composed of a key (a name object) and a value (any PDF object)
+    """An associative table containing pairs of objects or entries where each entry is
+    composed of a key which is a name object and a value which is any PDF object
     (``§ 7.3.7 Dictionary objects``).
 
     :class:`PdfDictionary` is effectively a Python dictionary. Its keys are strings and

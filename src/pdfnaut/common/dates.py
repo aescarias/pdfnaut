@@ -20,7 +20,6 @@ def has_time(date: datetime.datetime) -> bool:
 
 def has_timezone(date: datetime.datetime) -> bool:
     """Returns whether ``date`` specifies a timezone other than UTC."""
-
     offset = date.utcoffset()
     return offset is not None and offset.total_seconds() != 0
 
@@ -77,8 +76,8 @@ def encode_iso8824(date: datetime.datetime, *, full: bool = True) -> str:
     for storage in a PDF file.
 
     If ``full`` is True, this function will encode all date and time values. Otherwise,
-    the function will perform partial encoding, only including components that aren't their
-    default values.
+    the function will perform partial encoding, only including components that aren't
+    their default values.
     """
 
     datestr = f"D:{date.year}"
@@ -149,8 +148,8 @@ def encode_iso8601(date: datetime.datetime, *, full: bool = True) -> str:
     ISO 6801 profile specified in https://www.w3.org/TR/NOTE-datetime.
 
     If ``full`` is True, this function will encode all date and time values. Otherwise,
-    the function will perform partial encoding, only including components that aren't their
-    default values.
+    the function will perform partial encoding, only including components that aren't
+    their default values.
     """
 
     datestr = str(date.year)

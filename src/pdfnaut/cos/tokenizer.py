@@ -156,8 +156,8 @@ class PdfTokenizer:
         self.skip_while(lambda ch: ch in WHITESPACE)
 
     def skip_next_eol(self, no_cr: bool = False) -> None:
-        """Skips the next EOL marker if matched. If ``no_cr`` is True, CR (``\\r``) will
-        not be treated as a newline."""
+        """Skips the next EOL marker if matched. If ``no_cr`` is True, CR (``\\r``) as is
+        will not be treated as a newline."""
         matched = self.skip_if_matches(EOL_CRLF)
         if no_cr and self.matches(EOL_CR):
             return
@@ -188,7 +188,7 @@ class PdfTokenizer:
         return consumed
 
     def get_next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
-        """Parses and returns the next token."""
+        """Parses and returns the token at the current position."""
         if self.done:
             return
 
@@ -314,9 +314,11 @@ class PdfTokenizer:
         return reference
 
     def parse_literal_string(self) -> bytes:
-        """Parses a literal string. Literal strings may be entirely ASCII or may include
-        arbitrary binary data (usually when they are encrypted). This parser does not currently
-        distinguish between different encodings."""
+        """Parses a literal string.
+
+        Literal strings may be composed entirely of ASCII or may include arbitrary
+        binary data. They may also include escape sequences and octal values (``\\ddd``).
+        """
         self.skip()  # past the (
 
         string = b""

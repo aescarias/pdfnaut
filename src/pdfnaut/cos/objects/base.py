@@ -18,6 +18,9 @@ class PdfNull:
     """A PDF object representing nothing (``§ 7.3.9 Null Object``)."""
 
     def __repr__(self) -> str:
+        return "PdfNull()"
+
+    def __str__(self) -> str:
         return "null"
 
 
@@ -28,6 +31,7 @@ class PdfComment:
     whitespace (``§ 7.2.4 Comments``)."""
 
     value: bytes
+    """The value of this comment."""
 
 
 if TYPE_CHECKING:
@@ -44,6 +48,7 @@ class PdfName(Generic[T]):
     (``§ 7.3.5 Name Objects``)."""
 
     value: T
+    """The value of this name."""
 
 
 @dataclass
@@ -52,7 +57,7 @@ class PdfHexString:
     (``§ 7.3.4.3 Hexadecimal Strings``)."""
 
     raw: bytes
-    """The hex value of the string"""
+    """The hex value of the string."""
 
     def __post_init__(self) -> None:
         # If uneven, we append a zero. (it's hexadecimal -- 2 chars = byte)
@@ -61,12 +66,12 @@ class PdfHexString:
 
     @classmethod
     def from_raw(cls, data: bytes):
-        """Creates a hexadecimal string from ``data``"""
+        """Creates a hexadecimal string from ``data``."""
         return cls(hexlify(data))
 
     @property
     def value(self) -> bytes:
-        """The decoded value of the hex string"""
+        """The decoded value of the hex string."""
         return unhexlify(self.raw)
 
 
@@ -78,12 +83,16 @@ class PdfReference(Generic[T]):
     """A reference to a PDF indirect object (``§ 7.3.10 Indirect objects``)."""
 
     object_number: int
+    """The object number of the object being referenced."""
+
     generation: int
+    """The generation of the object being referenced."""
 
     def __post_init__(self) -> None:
         self._resolver: ObjectGetter | None = None
 
     def with_resolver(self, resolver: ObjectGetter) -> Self:
+        """Appends a resolution method ``resolver`` to the reference."""
         self._resolver = resolver
         return self
 
@@ -93,7 +102,7 @@ class PdfReference(Generic[T]):
         if self._resolver:
             return self._resolver(self)
 
-        raise PdfResolutionError("Could not resolve")
+        raise PdfResolutionError("No resolution method available.")
 
 
 @dataclass
@@ -126,8 +135,8 @@ def encode_text_string(text: str, *, utf8: bool = False) -> bytes:
     with PDFDoc first then UTF-16BE if ``text`` cannot be encoded with PDFDoc.
 
     If ``utf8`` is True, ``text`` will be encoded in UTF-8 as fallback instead of UTF-16BE.
-    Note that UTF-8 text strings is a PDF 2.0 feature which may not be supported by all
-    libraries.
+    Note that UTF-8 text strings are a PDF 2.0 feature which may not be supported by all
+    PDF processors.
     """
     try:
         return text.encode("pdfdoc")

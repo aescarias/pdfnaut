@@ -95,7 +95,7 @@ class Annotation(PdfDictionary):
     with a location on a page of a PDF document (``§ 12.5 Annotations``)."""
 
     kind = NameField[AnnotationKind]("Subtype")
-    """The type of annotation (``Table 171: Annotation types``)"""
+    """The type of annotation. See "Table 171: Annotation types""" ""
 
     rect = StandardField[PdfArray["int | float"]]("Rect")
     """A rectangle specifying the location of the annotation in the page."""
@@ -207,6 +207,8 @@ class Page(PdfDictionary):
         contents = cast("PdfStream | PdfArray[PdfStream]", self["Contents"])
 
         if isinstance(contents, PdfArray):
+            # in case the Contents of a document are an array, they must be
+            # concatenated into a single one.
             return ContentStreamIterator(b"\n".join(stm.decode() for stm in contents))
 
         return ContentStreamIterator(contents.decode())

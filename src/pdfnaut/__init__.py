@@ -1,5 +1,5 @@
 """
-pdfnaut is a Python library for reading and writing PDFs at a low level.
+pdfnaut is a Python library for reading and writing PDFs.
 """
 
 from __future__ import annotations

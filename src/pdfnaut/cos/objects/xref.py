@@ -5,18 +5,6 @@ from typing import Union
 
 from .containers import PdfDictionary
 
-# @dataclass
-# class PdfXRefTable:
-#     """A cross-reference table which permits random access to objects across a PDF
-#     (``§ 7.5.4 Cross-reference table``).
-
-#     It is compromised of cross-reference sections. Initially, a PDF document contains a
-#     single section (or two if it's linearized). Additional sections are appended when the
-#     document is incrementally updated (``§ 7.5.6 Incremental updates``).
-#     """
-
-#     sections: list[PdfXRefSection]
-
 
 @dataclass
 class PdfXRefSection:
@@ -26,7 +14,10 @@ class PdfXRefSection:
     """
 
     subsections: list[PdfXRefSubsection]
+    """The subsections conforming this XRef section."""
+
     trailer: PdfDictionary
+    """The trailer dictionary specified within this XRef section."""
 
 
 @dataclass

@@ -162,7 +162,7 @@ class XMPProperty:
 
 
 class XMPTextProperty(XMPProperty):
-    """An XMP Text property -- a possible empty Unicode string."""
+    """An XMP Text property -- a possibly empty Unicode string."""
 
     def __get__(self, xmp: XmpMetadata, objtype: Any | None = None) -> str | None:
         self._fetch_xml_property(xmp)
@@ -183,10 +183,12 @@ class XMPLangAltProperty(XMPProperty):
     """An XMP Language Alternative property -- an alternative array of simple text items
     facilitating the selection of a text item based on a desired language.
 
-    This is a mapping of language names to text items for such language. The language
-    name is a value as defined in RFC 3066, composed of a primary language subtag and an
-    optional series of subsequent subtags. The default value, if known, should be the first
-    key in the dictionary and should have its language set to 'x-default'.
+    In this case, this array is represented as a mapping of language names to text items
+    corresponding to each language. The language name should be a value as defined in RFC
+    3066, composed of a primary language subtag and an optional series of subsequent subtags.
+
+    The default value, if known, should be the first item in the dictionary. A default
+    value may also be explicitly marked by setting its language to 'x-default'.
 
     See https://developer.adobe.com/xmp/docs/XMPNamespaces/XMPDataTypes/#language-alternative.
     """
@@ -230,8 +232,8 @@ class XMPLangAltProperty(XMPProperty):
 
 
 class XMPListProperty(XMPProperty):  # list being either a sequence or bag
-    """An array valued XMP property -- in this context, either an RDF sequence (to indicate
-    an ordered array) or an RDF bag (to indicate an unordered array).
+    """An array valued XMP property -- in this context, either an RDF sequence , used
+    for ordered arrays, or an RDF bag, used for unordered arrays.
 
     See § 7.7 Array valued XMP properties in Part 1 of the XMP specification.
     """
@@ -316,7 +318,7 @@ class XmpMetadata:
             a new stream containing a packet will be created.
 
     Raises:
-        PdfParseError: If ``raw_xmp`` does not contain a valid XMP packet.
+        PdfParseError: If :``stream`` does not contain a valid XMP packet.
     """
 
     def __init__(self, stream: PdfStream | None = None) -> None:
@@ -414,10 +416,7 @@ class XmpMetadata:
     # * https://developer.adobe.com/xmp/docs/XMPNamespaces/dc/
 
     dc_title = XMPLangAltProperty(namespaces["dc"], "title")
-    """The titles or names given to this resource as a mapping of language names to titles.
-
-    The 'x-default' key may also be included to specify a default value.
-    """
+    """The titles or names given to this resource as a mapping of language names to titles."""
 
     dc_creator = XMPListProperty(namespaces["dc"], "creator", kind="Seq")
     """The entities primarily responsible for creating this resource."""

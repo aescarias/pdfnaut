@@ -3,6 +3,8 @@ from __future__ import annotations
 from hashlib import md5
 from typing import Literal, Union
 
+from pdfnaut.exceptions import MissingCryptProviderError
+
 from ..common.utils import get_value_from_bytes
 from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
 from .providers import CRYPT_PROVIDERS, CryptProvider
@@ -206,8 +208,8 @@ class StandardSecurityHandler:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to
         ``§ 7.6.3.1 Algorithm 1: Encryption of data using the RC4 and AES algorithms``.
 
-        This algorithm is only applicable for Encrypt versions 1-4 (deprecated in PDF 2.0).
-        Encrypt version 5 uses a simpler algorithm described in `§ 7.6.3.2 Algorithm 1.A`.
+        This algorithm is only applicable for Encrypt versions 1 through 4 (deprecated in
+        PDF 2.0). Version 5 uses a simpler algorithm described in `§ 7.6.3.2 Algorithm 1.A`.
 
         Arguments:
             encryption_key (bytes):
@@ -254,7 +256,7 @@ class StandardSecurityHandler:
         elif isinstance(contents, bytes):
             data = contents
         else:
-            raise TypeError("contents arg must be a PDF stream or string")
+            raise TypeError("'contents' argument must be a PDF stream or string.")
 
         return (method, crypt_key, data)
 
@@ -269,7 +271,8 @@ class StandardSecurityHandler:
         """Encrypts the specified ``contents`` according to Algorithm 1 in
         ``§ 7.6.3 General Encryption Algorithm``.
 
-        For details on arguments, please see :meth:`.compute_object_crypt`"""
+        For details on arguments, please see :meth:`.compute_object_crypt`.
+        """
 
         crypt_method, key, decrypted = self.compute_object_crypt(
             encryption_key, contents, reference, crypt_filter=crypt_filter
@@ -288,7 +291,8 @@ class StandardSecurityHandler:
         """Decrypts the specified ``contents`` according to Algorithm 1 in
         ``§ 7.6.3 General Encryption Algorithm``.
 
-        For details on arguments, please see :meth:`.compute_object_crypt`"""
+        For details on arguments, please see :meth:`.compute_object_crypt`.
+        """
 
         crypt_method, key, encrypted = self.compute_object_crypt(
             encryption_key, contents, reference, crypt_filter=crypt_filter
@@ -299,9 +303,11 @@ class StandardSecurityHandler:
     def _get_provider(self, name: str) -> type[CryptProvider]:
         provider = CRYPT_PROVIDERS.get(name)
         if provider is None:
-            raise NotImplementedError(
-                f"Missing crypt provider for {name}. Register in CRYPT_PROVIDERS or install a compatible module."
+            raise MissingCryptProviderError(
+                f"No crypt provider available for {name!r}. You must register one or "
+                f"install a compatible module."
             )
+
         return provider
 
     CryptMethod = Literal["Identity", "ARC4", "AESV2"]
@@ -317,7 +323,7 @@ class StandardSecurityHandler:
         elif isinstance(contents, (bytes, PdfHexString)):
             cf_name = self.encryption.get("StrF", PdfName(b"Identity"))
         else:
-            raise TypeError("contents arg must be a PDF stream or string")
+            raise TypeError("'contents' argument must be a PDF stream or string.")
 
         if cf_name.value == b"Identity":
             return "Identity"  # No processing needed

@@ -6,10 +6,10 @@ The `PDF 2.0 specification <https://developer.adobe.com/document-services/docs/a
 .. csv-table:: pdfnaut Object Mapping
     :header: "PDF Object", "Python Object"
 
-    "Booleans (true/false)", "``True`` / ``False``"
-    "Integers (123)", "``int``"
-    "Real numbers (123.456)", "``float``"
-    "Literal strings (``(hello world)``)", "``bytes``"
+    "Booleans (true/false)", ":class:`bool`"
+    "Integers (123)", ":class:`int`"
+    "Real numbers (123.456)", ":class:`float`"
+    "Literal strings (``(hello world)``)", ":class:`bytes`"
     "Hexadecimal strings (``<616263>``)", ":class:`~pdfnaut.cos.objects.base.PdfHexString`"
     "Names (``/Type``)", ":class:`~pdfnaut.cos.objects.base.PdfName`"
     "Arrays (``[1 2 3]``)", ":class:`~pdfnaut.cos.objects.containers.PdfArray`"
@@ -41,6 +41,8 @@ The spec also defines general-purpose data structures built from the basic objec
 Base Objects
 ------------
 
+.. autodata:: pdfnaut.cos.objects.base.PdfObject
+
 .. automodule:: pdfnaut.cos.objects.base
     :members:
 
@@ -58,6 +60,8 @@ Container Objects
 
 XRef Objects
 ------------
+
+.. autodata:: pdfnaut.cos.objects.xref.PdfXRefEntry
 
 .. automodule:: pdfnaut.cos.objects.xref
     :members:

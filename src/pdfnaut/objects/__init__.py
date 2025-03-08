@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from .catalog import PageLayout, PageMode
+from .catalog import PageLayout, PageMode, UserAccessPermissions
 from .page import Annotation, AnnotationFlags, Page
 from .trailer import Info, TrappedState
+from .xmp import XmpMetadata
 
 __all__ = (
     "PageLayout",
@@ -12,4 +13,6 @@ __all__ = (
     "AnnotationFlags",
     "Info",
     "TrappedState",
+    "UserAccessPermissions",
+    "XmpMetadata",
 )
