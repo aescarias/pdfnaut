@@ -1,7 +1,7 @@
 [project]
 name = "pdfnaut"
 description = "Explore PDFs with ease"
-authors = [{ name = "Angel Carias", email = "lotta.dev@outlook.com" }]
+authors = [{ name = "Ángel Carias", email = "lotta.dev@outlook.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
@@ -15,7 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12"
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dynamic = ["version"]
 dependencies = ["typing-extensions >= 4.11.0"]

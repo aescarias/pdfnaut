@@ -49,4 +49,4 @@ print(pdf.doc_info.title)
 print(pdf.doc_info.producer)
 ```
 
-For more examples on what pdfnaut can do, see the guides in our [documentation](https://pdfnaut.readthedocs.io/en/latest).
+For more examples on what pdfnaut can do, see the [examples](https://github.com/aescarias/pdfnaut/tree/main/examples) directory in our repository or see the guides in our [documentation](https://pdfnaut.readthedocs.io/en/latest).
