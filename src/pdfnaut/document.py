@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import Generator, cast
+from collections.abc import Iterable, MutableSequence
+from typing import Generator, cast, overload
 
+from pdfnaut.common.utils import renumber_references
 from pdfnaut.cos.objects.base import parse_text_string
 from pdfnaut.cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
 from pdfnaut.cos.serializer import PdfSerializer
@@ -95,7 +97,7 @@ class PdfDocument(PdfParser):
         """The root of the document's object hierarchy, including references to pages,
         outlines, destinations, and other core elements of a PDF document.
 
-        For details on the contents of the catalog, see ``§ 7.7.2 Document Catalog``.
+        For details on the contents of the catalog, see § 7.7.2 Document Catalog.
         """
         return cast(PdfDictionary, self.trailer["Root"])
 
@@ -107,7 +109,7 @@ class PdfDocument(PdfParser):
     @property
     def doc_info(self) -> Info | None:
         """The ``Info`` entry in the catalog which includes document-level information
-        described in ``§ 14.3.3 Document information dictionary``.
+        described in § 14.3.3 Document information dictionary.
 
         Some documents may specify a metadata stream rather than a DocInfo dictionary.
         Such metadata can be accessed using :attr:`.PdfDocument.xmp_info`.
@@ -181,7 +183,7 @@ class PdfDocument(PdfParser):
 
     @property
     def page_tree(self) -> PdfDictionary:
-        """The document's page tree. See ``§ 7.7.3 Page Tree``.
+        """The document's page tree. See "§ 7.7.3 Page Tree" for details.
 
         For iterating over the pages of a PDF, prefer :attr:`.PdfDocument.flattened_pages`.
         """
@@ -190,7 +192,7 @@ class PdfDocument(PdfParser):
     @property
     def outline_tree(self) -> PdfDictionary | None:
         """The document's outline tree including what is commonly referred to as
-        bookmarks. See ``§ 12.3.3 Document Outline``.
+        bookmarks. See "§ 12.3.3 Document Outline" for details.
         """
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
 
@@ -255,7 +257,7 @@ class PdfDocument(PdfParser):
     def language(self) -> str | None:
         """A language identifier that shall specify the natural language for all text in
         the document except where overridden by language specifications for structure
-        elements or marked content (``§ 14.9.2 Natural language specification``).
+        elements or marked content (see "§ 14.9.2 Natural language specification" for details).
 
         If this entry is absent, the language shall be considered unknown.
         """
@@ -275,7 +277,169 @@ class PdfDocument(PdfParser):
         if not self.has_encryption:
             return
 
-        encrypt = cast(PdfDictionary, self.trailer["Encrypt"])
+        encrypt_dict = cast(PdfDictionary, self.trailer["Encrypt"])
 
-        if (perms := encrypt.get("P")) is not None:
+        if (perms := encrypt_dict.get("P")) is not None:
             return UserAccessPermissions(perms)
+
+    @property
+    def pages(self) -> PageList:
+        """The page list in the document."""
+
+        if not self.access_level:
+            raise PermissionError("Cannot read pages of encrypted document.")
+
+        pages = list(flatten_pages(self.page_tree))
+        return PageList(self, self.page_tree, pages)
+
+
+def flatten_pages(root: PdfDictionary | None = None) -> Generator[Page, None, None]:
+    """Yields all pages within ``root`` and its descendants."""
+
+    for page_ref in cast(list[PdfReference], root["Kids"].data):
+        page = cast(PdfDictionary, page_ref.get())
+
+        type_ = cast(PdfName, page["Type"])
+        if type_.value == b"Pages":
+            yield from flatten_pages(page)
+        elif type_.value == b"Page":
+            yield Page.from_dict(page, indirect_ref=page_ref)
+
+
+class PageList(MutableSequence[Page]):
+    def __init__(self, pdf: PdfParser, root_tree: PdfDictionary, indexed_pages: list[Page]) -> None:
+        self._pdf = pdf
+        self._root_tree = root_tree
+        self._indexed_pages = indexed_pages
+
+    def __len__(self) -> int:
+        return len(self._indexed_pages)
+
+    @overload
+    def __getitem__(self, index: int) -> Page: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> PageList: ...
+
+    def __getitem__(self, index: int | slice) -> Page | PageList:
+        if isinstance(index, slice):
+            return PageList(self._pdf, self._root_tree, self._indexed_pages[index])
+
+        page = self._indexed_pages[index]
+        return page
+
+    def __delitem__(self, index: int | slice) -> None:
+        # TODO: implement deletion
+        raise NotImplementedError
+
+    @overload
+    def __setitem__(self, index: int, value: Page) -> None: ...
+
+    @overload
+    def __setitem__(self, index: slice, value: Iterable[Page]) -> None: ...
+
+    def __setitem__(self, index: int | slice, value: Page | Iterable[Page]) -> None:
+        # TODO: Implement setting the pages in the tree
+        raise NotImplementedError
+
+    def _add_page_to_obj_store(self, page: Page) -> Page:
+        if page.indirect_ref is not None:
+            # page has an indirect ref, assume page comes from different
+            # document and create copy.
+            added_page, refs = renumber_references(
+                PdfDictionary(page.data.copy()),
+                self._pdf.get_object,
+                start=self._pdf.objects.get_next_ref().object_number,
+            )
+
+            for num, ref in refs.items():
+                self._pdf.objects[num] = ref
+        else:
+            # no indirect reference, assume new page and create copy.
+            added_page = PdfDictionary(page.data.copy())
+
+        page_ref = self._pdf.objects.add(added_page)
+
+        added_page = Page.from_dict(added_page, indirect_ref=page_ref)
+        return added_page
+
+    def _insert_page_into_tree(
+        self, page: Page, tree_index: int, *, tree: PdfDictionary, tree_ref: PdfReference
+    ) -> None:
+        if page.indirect_ref is None:
+            raise ValueError("Page has no indirect reference assigned.")
+
+        tree["Kids"].insert(tree_index, page.indirect_ref)
+        tree["Count"] += 1
+
+        page["Parent"] = tree_ref
+
+        parent = tree
+        while (parent := parent.get("Parent")) is not None:
+            parent["Count"] += 1
+
+    def _delete_page_in_tree(self, tree_index: int, tree: PdfDictionary) -> None:
+        page_ref: PdfReference = tree.data["Kids"].pop(tree_index)
+        self._pdf.objects.delete(page_ref.object_number)
+
+        tree["Count"] -= 1
+
+        parent = tree
+        while (parent := parent.get("Parent")) is not None:
+            parent["Count"] -= 1
+
+    def _get_tree_with_index(
+        self, root: PdfDictionary, root_ref: PdfReference, index: int
+    ) -> tuple[tuple[PdfDictionary, PdfReference, int] | None, int]:
+        kids = cast(PdfArray[PdfReference], root["Kids"].data)
+
+        for tree_index, page_ref in enumerate(kids):
+            page = page_ref.get()
+
+            type_ = cast(PdfName, page["Type"])
+
+            if type_.value == b"Pages":  # intermediate node
+                result, index = self._get_tree_with_index(page, page_ref, index)
+                if result is not None:
+                    return (result, index)
+            elif type_.value == b"Page":  # page node
+                if index <= 0:
+                    return (root, root_ref, tree_index), index
+
+                index -= 1
+
+        return (None, index)
+
+    def insert(self, index: int, value: Page) -> None:
+        """Inserts a page ``value`` at ``index``. ``index`` is the index of
+        the page before which to insert."""
+
+        index = min(index, len(self._indexed_pages))
+
+        inserting_page = self._add_page_to_obj_store(value)
+
+        root_tree_ref: PdfReference = self._pdf.trailer["Root"].data["Pages"]
+
+        if self._indexed_pages:
+            # document has pages, traverse the tree and insert at location
+            result, _ = self._get_tree_with_index(self._root_tree, root_tree_ref, index)
+        else:
+            result = None
+
+        if result is not None:
+            tree, tree_ref, tree_idx = result
+        else:
+            tree = self._root_tree
+            tree_ref = root_tree_ref
+            tree_idx = index
+
+        self._insert_page_into_tree(inserting_page, tree_idx, tree=tree, tree_ref=tree_ref)
+        self._indexed_pages.insert(index, value)
+
+    def append(self, value: Page) -> None:
+        """Appends a page ``value`` to the page list."""
+        self.insert(len(self._indexed_pages), value)
+
+    def pop(self, index: int = -1) -> Page:
+        # TODO: implement deleting a page. we already have delete_page_in_tree.
+        raise NotImplementedError

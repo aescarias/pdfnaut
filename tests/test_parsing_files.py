@@ -75,7 +75,9 @@ def test_pdf_with_xref_stream() -> None:
 
 
 def test_pdf_with_strict_mode() -> None:
-    """Tests a PDF document with a wrong XRef offset. Asserts that it will not open with strict=True."""
+    """Tests a PDF document with a wrong XRef offset. Asserts that it will not
+    open with strict=True and asserts that pdfnaut will correct it otherwise."""
+
     with pytest.raises(PdfParseError):
         with open("tests/docs/random-annots.pdf", "rb") as data:
             parser = PdfParser(data.read(), strict=True)

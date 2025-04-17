@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Generator, Literal, cast
 from typing_extensions import Self
 
 from ..common.fields import FlagField, NameField, StandardField, TextStringField
-from ..cos.objects.base import PdfName
+from ..cos.objects.base import PdfName, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.tokenizer import ContentStreamIterator
 
@@ -147,7 +147,11 @@ class Page(PdfDictionary):
     Arguments:
         size (tuple[int, int]):
             The width and height of the physical medium in which the page should
-            be printed or displayed.
+            be printed or displayed. Values provided in multiples of 1/72 of an inch.
+
+        indirect_ref (:class:`PdfReference`, optional):
+            The indirect reference that this page object represents.
+            In typical usage, this parameter should be none.
     """
 
     resources = StandardField["PdfDictionary | None"]("Resources", None)
@@ -186,17 +190,24 @@ class Page(PdfDictionary):
     """A metadata stream, generally written in XMP, containing information about this page."""
 
     @classmethod
-    def from_dict(cls, mapping: PdfDictionary) -> Self:
-        dictionary = cls(size=(0, 0))
+    def from_dict(cls, mapping: PdfDictionary, indirect_ref: PdfReference | None = None) -> Self:
+        dictionary = cls(size=(0, 0), indirect_ref=indirect_ref)
         dictionary.data = mapping.data
 
         return dictionary
 
-    def __init__(self, size: tuple[int | float, int | float]) -> None:
+    def __init__(
+        self, size: tuple[int | float, int | float], *, indirect_ref: PdfReference | None = None
+    ) -> None:
         super().__init__()
+
+        self.indirect_ref = indirect_ref
 
         self["Type"] = PdfName(b"Page")
         self["MediaBox"] = PdfArray([0, 0, *size])
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} mediabox={self.mediabox!r} rotation={self.rotation!r}>"
 
     @property
     def content_stream(self) -> ContentStreamIterator | None:
