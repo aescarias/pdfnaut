@@ -24,7 +24,7 @@ from ..cos.objects.xref import (
 )
 from ..exceptions import PdfParseError
 from ..security.standard_handler import StandardSecurityHandler
-from .serializer import PdfSerializer
+from .serializer import PdfSerializer, serialize
 from .tokenizer import PdfTokenizer
 
 PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
@@ -53,12 +53,25 @@ MapObject: TypeAlias = "PdfObject | PdfStream | FreeObject"
 class ObjectStream:
     """A mapping of object numbers to PDF objects representing an object stream.
 
-    See ``§ 7.5.7 Object streams`` for details.
+    See § 7.5.7 Object streams for details.
     """
 
-    def __init__(self, pdf: PdfParser, stream: PdfStream) -> None:
+    def __init__(self, pdf: PdfParser, stream: PdfStream, stream_objnum: int) -> None:
+        """
+        Arguments:
+            pdf (PdfParser):
+                The PDF parser or document to which this object stream belongs.
+
+            stream (PdfStream):
+                The stream being represented by this object.
+
+            stream_objnum (int):
+                The object number of this stream within the PDF document.
+        """
+
+        self.pdf = pdf
         self.stream = stream
-        self._pdf = pdf
+        self.stream_objnum = stream_objnum
 
         # object index: resolved object
         self.resolved_objects: dict[int, PdfObject] = {}
@@ -71,7 +84,12 @@ class ObjectStream:
         self.index_pairs = self.parse_indices()
 
     def parse_indices(self) -> list[tuple[int, int]]:
-        """Parses the object stream's indices."""
+        """Parses the object stream's indices.
+
+        The indices are a list of 2-element pairs specifying, in order, the object
+        number of an item within the stream and the object's location within the
+        stream relative to the offset in the /First key.
+        """
         index_tokenizer = PdfTokenizer(self._decoded[: self._first])
         index_pairs = []
 
@@ -85,16 +103,24 @@ class ObjectStream:
     def get_object(self, index: int, *, cache: bool = True) -> PdfObject:
         """Gets an object at a specified ``index`` inside an object stream.
 
-        ``cache`` controls whether the object cache is accessed. If True,
-        this function will always retrieve from the object store if possible.
-        If False, this function will always retrieve from the stream.
+        Arguments:
+            index (int):
+                The index of an object within the stream.
+
+            cache (bool, optional, keyword only):
+                Whether to access or write to the object store (by default, True).
+
+                If True, this method will always retrieve from and write objects
+                to the object store if possible. If False, this method will always
+                retrieve objects from the contents of the stream.
         """
+
         if cache and index in self.resolved_objects:
             return self.resolved_objects[index]
 
         _, relative_offset = self.index_pairs[index]
         start_of_obj_tokenizer = PdfTokenizer(self._decoded[self._first + relative_offset :])
-        start_of_obj_tokenizer.resolver = self._pdf.get_object
+        start_of_obj_tokenizer.resolver = self.pdf.get_object
 
         resolved = cast(PdfObject, next(start_of_obj_tokenizer))
 
@@ -102,6 +128,53 @@ class ObjectStream:
             self.resolved_objects[index] = resolved
 
         return resolved
+
+    def to_stream(self) -> PdfStream:
+        """Returns a :class:`.PdfStream` representing the contents of this object stream."""
+
+        object_string = b""
+        indices = []
+
+        for idx in range(self._n_objects):
+            if cached := self.resolved_objects.get(idx):
+                writing_object = cached
+            else:
+                writing_object = self.get_object(idx, cache=False)
+
+            obj_num, _ = self.index_pairs[idx]
+            entry = self.pdf.xref.get((obj_num, 0))
+
+            start_offset = len(object_string)
+
+            if entry is None:
+                new_obj_num = self.pdf.objects.add(writing_object).object_number
+
+                # guarantee that the pdf processor doesn't write a new object
+                # but rather uses the one from the object stream
+                self.pdf.xref[(new_obj_num, 0)] = CompressedXRefEntry(
+                    self.stream_objnum, start_offset
+                )
+            else:
+                new_obj_num = obj_num
+
+            object_string += serialize(writing_object) + b" "
+
+            indices.append((new_obj_num, start_offset))
+
+        index_string = b""
+        for obj_num, rel_offset in indices:
+            index_string += f"{obj_num} {rel_offset}".encode() + b" "
+
+        return PdfStream.create(
+            index_string + object_string,
+            self.stream.details
+            | PdfDictionary(
+                Type=PdfName(b"ObjStm"),
+                N=len(indices),
+                First=len(index_string),
+                Length=0,  # to be filled in
+            ),
+        )
 
 
 class ObjectMap(UserDict[int, MapObject]):
@@ -141,8 +214,8 @@ class ObjectMap(UserDict[int, MapObject]):
 
     T = TypeVar("T")
 
-    def _make_ref(self) -> PdfReference:
-        """Creates a new reference based on the current object number of the map."""
+    def get_next_ref(self) -> PdfReference:
+        """Creates a new reference based on the current object number in the map."""
         if not self:
             return PdfReference(1, 0)
 
@@ -150,15 +223,15 @@ class ObjectMap(UserDict[int, MapObject]):
         return PdfReference(highest_objnum + 1, 0)
 
     def add(self, pdf_object: PdfObject | PdfStream) -> PdfReference[PdfObject | PdfStream]:
-        """Adds a new object to the map. Returns its reference."""
-        reference = self._make_ref()
+        """Adds a new ``pdf_object`` to the map. Returns its reference."""
+        reference = self.get_next_ref()
         self[reference.object_number] = pdf_object
 
         return reference.with_resolver(self._pdf.get_object)
 
     def delete(self, obj_num: int) -> MapObject | None:
-        """Deletes object with number ``obj_num``. Returns the object if it exists,
-        otherwise returns None."""
+        """Deletes object with number ``obj_num``. Returns the object if it
+        exists, otherwise returns None."""
         return self.pop(obj_num, None)
 
     def free(self, obj_num: int) -> None:
@@ -187,8 +260,7 @@ class PdfParser:
         data (bytes):
             The document to be processed.
 
-    Keyword Arguments:
-        strict (bool, optional):
+        strict (bool, optional, keyword only):
             Whether to warn or fail on issues caused by non-spec-compliance.
             Defaults to False.
     """
@@ -212,7 +284,7 @@ class PdfParser:
         self.trailer = PdfDictionary[str, PdfObject]({"Size": 0, "Root": PdfReference(0, 0)})
         """The most recent trailer in the PDF document.
         
-        For details on the contents of the trailer, see ``§ 7.5.5 File Trailer``.
+        For details on the contents of the trailer, see § 7.5.5 File Trailer.
         """
 
         self.xref: dict[tuple[int, int], PdfXRefEntry] = {}
@@ -384,7 +456,7 @@ class PdfParser:
         return entry_map
 
     def lookup_xref_start(self) -> int:
-        """Scans through the PDF until it finds the XRef offset then returns it"""
+        """Scans through the PDF until it finds the XRef offset then returns it."""
         contents = bytearray()
 
         # The PDF spec tells us we need to parse from the end of the file
@@ -464,7 +536,8 @@ class PdfParser:
         cross reference tables and special objects.
 
         The trailer is separate if the XRef table is standard (uncompressed).
-        Otherwise it is part of the XRef object."""
+        Otherwise it is part of the XRef object.
+        """
         self._tokenizer.skip(7)  # past the 'trailer' keyword
         self._tokenizer.skip_whitespace()
 
@@ -473,7 +546,7 @@ class PdfParser:
 
     def parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in
-        ``§ 7.5.4 Cross-Reference Table``.
+        § 7.5.4 Cross-Reference Table.
 
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         should be called instead.
@@ -531,7 +604,8 @@ class PdfParser:
         """Parses a compressed cross-reference stream which includes both the XRef table
         and information from the PDF trailer.
 
-        Described in ``§ 7.5.8 Cross-Reference Streams``."""
+        As described in § 7.5.8 Cross-Reference Streams.
+        """
         xref_stream = self.parse_indirect_object(InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)
 
@@ -678,7 +752,11 @@ class PdfParser:
         return pdf_object
 
     def parse_stream(self, xref_entry: InUseXRefEntry, extent: int) -> bytes:
-        """Parses a PDF stream of length ``extent``"""
+        """Parses the contents of a PDF stream at ``xref_entry``.
+
+        ``extent`` specifies the amount of bytes the stream is expected to have.
+        """
+
         self._tokenizer.skip(6)  # past the 'stream' keyword
         self._tokenizer.skip_next_eol(no_cr=True)
 
@@ -789,7 +867,6 @@ class PdfParser:
 
             return self.objects[reference.object_number]
         elif isinstance(root_entry, CompressedXRefEntry):
-            # TODO: Add support for editing object streams
             # Get the object stream it's part of (gen always 0)
             objstm_ref = (root_entry.objstm_number, 0)
             objstm_entry = self.xref[objstm_ref]
@@ -812,7 +889,7 @@ class PdfParser:
             if cache and root_entry.objstm_number in self._objstm_cache:
                 stm = self._objstm_cache[root_entry.objstm_number]
             else:
-                stm = ObjectStream(self, objstm)
+                stm = ObjectStream(self, objstm, root_entry.objstm_number)
 
             if cache:
                 self._objstm_cache[root_entry.objstm_number] = stm
@@ -878,7 +955,10 @@ class PdfParser:
             ref_tup = self.objects.initial_reference_map.get(obj_num)
             # Object is new
             if ref_tup is None:
-                resolved = self.objects[obj_num]
+                resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])
+                if isinstance(resolved, ObjectStream):
+                    resolved = resolved.to_stream()
+
                 if isinstance(resolved, FreeObject):
                     rows.append((obj_num, FreeXRefEntry(-1, 0)))
                     update_freelist = True
@@ -891,7 +971,10 @@ class PdfParser:
             # Object is modified or left intact
             entry = self.xref[ref_tup]
             if isinstance(entry, FreeXRefEntry):
-                resolved = self.objects[obj_num]
+                resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])
+                if isinstance(resolved, ObjectStream):
+                    resolved = resolved.to_stream()
+
                 # Free entry left unmodified or can no longer be used
                 if isinstance(resolved, FreeObject) or entry.gen_if_used_again >= 65535:
                     rows.append(
@@ -907,7 +990,9 @@ class PdfParser:
                 rows.append((obj_num, InUseXRefEntry(offset, entry.gen_if_used_again)))
                 update_freelist = True
             elif isinstance(entry, InUseXRefEntry):
-                resolved = self.objects[obj_num]
+                resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])
+                if isinstance(resolved, ObjectStream):
+                    resolved = resolved.to_stream()
 
                 # In use object freed
                 if isinstance(resolved, FreeObject):
@@ -919,7 +1004,6 @@ class PdfParser:
                 offset = builder.write_object(ref_tup, resolved)
                 rows.append((obj_num, InUseXRefEntry(offset, entry.generation)))
             elif isinstance(entry, CompressedXRefEntry):
-                # TODO: Add support for compressed entries (aka object streams)
                 use_compressed = True
                 rows.append(
                     (
