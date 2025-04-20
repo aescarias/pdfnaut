@@ -51,3 +51,17 @@ def test_add_pages_to_doc_with_nested_tree() -> None:
     assert len(new_pdf.pages) == 6
     assert new_pdf.pages[0].mediabox == PdfArray([0, 0, 300, 300])
     assert new_pdf.pages[-1].mediabox == PdfArray([0, 0, 500, 500])
+
+
+def test_remove_pages_from_doc() -> None:
+    # flat tree
+    pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+
+    last_page = pdf.pages[-1]
+    assert pdf.pages.pop() == last_page
+
+    # nested tree
+    pdf = PdfDocument.from_filename(r"tests\docs\pdf-with-page-tree.pdf")
+
+    last_page = pdf.pages[-1]
+    assert pdf.pages.pop() == last_page

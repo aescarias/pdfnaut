@@ -16,6 +16,7 @@ pdfnaut includes a high-level API for reading and writing documents (:class:`~pd
 - Reading compressed & encrypted PDF documents (AES/ARC4, see note below).
 - Inspecting PDFs and extracting data from them.
 - Viewing and editing document metadata.
+- Appending, inserting, and removing pages.
 - Building PDFs from scratch.
 
 Install

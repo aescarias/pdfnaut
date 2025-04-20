@@ -200,15 +200,17 @@ class PdfDocument(PdfParser):
         self.access_level = super().decrypt(password)
         return self.access_level
 
-    def _flatten_pages(self, *, parent: PdfDictionary | None = None) -> Generator[Page, None, None]:
-        root = cast(PdfDictionary, parent or self.page_tree)
+    def _flatten_pages(self, root: PdfDictionary | None = None) -> Generator[Page, None, None]:
+        """Yields all pages within ``root`` and its descendants."""
 
-        for page in cast(PdfArray[PdfDictionary], root["Kids"]):
+        for page_ref in cast(list[PdfReference], root["Kids"].data):
+            page = cast(PdfDictionary, page_ref.get())
+
             type_ = cast(PdfName, page["Type"])
             if type_.value == b"Pages":
-                yield from self._flatten_pages(parent=page)
+                yield from self._flatten_pages(page)
             elif type_.value == b"Page":
-                yield Page.from_dict(page)
+                yield Page.from_dict(page, indirect_ref=page_ref)
 
     @property
     def flattened_pages(self) -> Generator[Page, None, None]:
@@ -289,24 +291,13 @@ class PdfDocument(PdfParser):
         if not self.access_level:
             raise PermissionError("Cannot read pages of encrypted document.")
 
-        pages = list(flatten_pages(self.page_tree))
+        pages = list(self._flatten_pages(self.page_tree))
         return PageList(self, self.page_tree, pages)
 
 
-def flatten_pages(root: PdfDictionary | None = None) -> Generator[Page, None, None]:
-    """Yields all pages within ``root`` and its descendants."""
-
-    for page_ref in cast(list[PdfReference], root["Kids"].data):
-        page = cast(PdfDictionary, page_ref.get())
-
-        type_ = cast(PdfName, page["Type"])
-        if type_.value == b"Pages":
-            yield from flatten_pages(page)
-        elif type_.value == b"Page":
-            yield Page.from_dict(page, indirect_ref=page_ref)
-
-
 class PageList(MutableSequence[Page]):
+    """A mutable sequence of the pages in a document."""
+
     def __init__(self, pdf: PdfParser, root_tree: PdfDictionary, indexed_pages: list[Page]) -> None:
         self._pdf = pdf
         self._root_tree = root_tree
@@ -341,6 +332,15 @@ class PageList(MutableSequence[Page]):
     def __setitem__(self, index: int | slice, value: Page | Iterable[Page]) -> None:
         # TODO: Implement setting the pages in the tree
         raise NotImplementedError
+
+    def _pos_idx_of(self, index: int) -> int:
+        # positive index is within 0 and len(self), both inclusive
+        # if index < 0, index = len(self) - abs(index)
+
+        if index >= 0:
+            return min(index, len(self))
+
+        return len(self) - abs(index)
 
     def _add_page_to_obj_store(self, page: Page) -> Page:
         if page.indirect_ref is not None:
@@ -412,10 +412,12 @@ class PageList(MutableSequence[Page]):
 
     def insert(self, index: int, value: Page) -> None:
         """Inserts a page ``value`` at ``index``. ``index`` is the index of
-        the page before which to insert."""
+        the page before which to insert.
 
-        index = min(index, len(self._indexed_pages))
+        When inserting, the page object is copied into the page list.
+        """
 
+        index = self._pos_idx_of(index)
         inserting_page = self._add_page_to_obj_store(value)
 
         root_tree_ref: PdfReference = self._pdf.trailer["Root"].data["Pages"]
@@ -440,6 +442,50 @@ class PageList(MutableSequence[Page]):
         """Appends a page ``value`` to the page list."""
         self.insert(len(self._indexed_pages), value)
 
+    def remove(self, value: Page) -> None:
+        """Removes the first occurrence of page ``value`` in the document.
+
+        Raises:
+            IndexError: The page list is empty or the page is not in this document.
+        """
+        index = self._indexed_pages.index(value)
+        self.pop(index)
+
     def pop(self, index: int = -1) -> Page:
-        # TODO: implement deleting a page. we already have delete_page_in_tree.
-        raise NotImplementedError
+        """Removes the page at ``index``.
+
+        Only the page object is removed from the document. The resources used by
+        the page are left intact as they may be used later on in other pages.
+
+        Raises:
+            IndexError: The page list is empty or the index does not exist.
+
+        Returns:
+            Page: The page object that was popped.
+        """
+
+        index = self._pos_idx_of(index)
+        root_tree_ref: PdfReference = self._pdf.trailer["Root"].data["Pages"]
+
+        if self._indexed_pages:
+            # document has pages, traverse the tree and insert at location
+            result, _ = self._get_tree_with_index(self._root_tree, root_tree_ref, index)
+        else:
+            result = None
+
+        if result is not None:
+            tree, _, tree_idx = result
+        else:
+            tree = self._root_tree
+            tree_idx = index
+
+        # delete the page from the tree
+        self._delete_page_in_tree(tree_idx, tree)
+        output = self._indexed_pages.pop(index)
+
+        # delete the page from the object store
+        if output.indirect_ref is not None:
+            self._pdf.objects.delete(output.indirect_ref.object_number)
+            output.indirect_ref = None
+
+        return output

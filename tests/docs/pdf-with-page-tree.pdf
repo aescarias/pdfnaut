@@ -1,0 +1,90 @@
+%PDF-2.0
+%ξαυτ
+1 0 obj
+<</Type /Catalog /Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type /Pages /Kids [8 0 R 13 0 R] /Count 4>>
+endobj
+3 0 obj
+<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>
+endobj
+4 0 obj
+<</Length 44>>
+stream
+BT
+/F1 20 Tf
+30 500 Td
+(Hello, world!) Tj
+ET
+endstream
+endobj
+5 0 obj
+<</Type /Page /MediaBox [0 0 612.4 791] /Resources <</Font <</F1 3 0 R>>>> /Contents 4 0 R /Parent 8 0 R>>
+endobj
+6 0 obj
+<</Length 44>>
+stream
+BT
+/F1 20 Tf
+30 500 Td
+(Hello, world!) Tj
+ET
+endstream
+endobj
+7 0 obj
+<</Type /Page /MediaBox [0 0 612.4 791] /Resources <</Font <</F1 3 0 R>>>> /Contents 6 0 R /Parent 8 0 R>>
+endobj
+8 0 obj
+<</Type /Pages /Parent 2 0 R /Count 2 /Kids [5 0 R 7 0 R]>>
+endobj
+9 0 obj
+<</Length 44>>
+stream
+BT
+/F1 20 Tf
+30 500 Td
+(Hello, world!) Tj
+ET
+endstream
+endobj
+10 0 obj
+<</Type /Page /MediaBox [0 0 612.4 791] /Resources <</Font <</F1 3 0 R>>>> /Contents 9 0 R /Parent 13 0 R>>
+endobj
+11 0 obj
+<</Length 44>>
+stream
+BT
+/F1 20 Tf
+30 500 Td
+(Hello, world!) Tj
+ET
+endstream
+endobj
+12 0 obj
+<</Type /Page /MediaBox [0 0 612.4 791] /Resources <</Font <</F1 3 0 R>>>> /Contents 11 0 R /Parent 13 0 R>>
+endobj
+13 0 obj
+<</Type /Pages /Parent 2 0 R /Count 2 /Kids [10 0 R 12 0 R]>>
+endobj
+xref
+0 14
+0000000000 65535 f
+0000000017 00000 n
+0000000067 00000 n
+0000000132 00000 n
+0000000203 00000 n
+0000000301 00000 n
+0000000426 00000 n
+0000000524 00000 n
+0000000649 00000 n
+0000000727 00000 n
+0000000825 00000 n
+0000000952 00000 n
+0000001051 00000 n
+0000001179 00000 n
+trailer
+<</Size 14 /Root 1 0 R /ID [<12dd27e3b14952b5e5bbf2f0abf7a97d> <12dd27e3b14952b5e5bbf2f0abf7a97d>]>>
+startxref
+1260
+%%EOF
