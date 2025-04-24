@@ -116,35 +116,35 @@ if not document.access_level:
 
 
 def print_doc_info(pdf: PdfDocument) -> None:
-    if document.doc_info is None:
+    if pdf.doc_info is None:
         print("Document has no information dictionary.")
         return
 
-    if document.doc_info.title is not None:
-        print(f"Title:           {document.doc_info.title}")
+    if pdf.doc_info.title is not None:
+        print(f"Title:           {pdf.doc_info.title}")
 
-    if document.doc_info.subject is not None:
-        print(f"Subject:         {document.doc_info.subject}")
+    if pdf.doc_info.subject is not None:
+        print(f"Subject:         {pdf.doc_info.subject}")
 
-    if document.doc_info.author is not None:
-        print(f"Author:          {document.doc_info.author}")
+    if pdf.doc_info.author is not None:
+        print(f"Author:          {pdf.doc_info.author}")
 
-    if document.doc_info.keywords is not None:
-        print(f"Keywords:        {document.doc_info.keywords}")
+    if pdf.doc_info.keywords is not None:
+        print(f"Keywords:        {pdf.doc_info.keywords}")
 
-    if document.doc_info.creator is not None:
-        print(f"Creator:         {document.doc_info.creator}")
+    if pdf.doc_info.creator is not None:
+        print(f"Creator:         {pdf.doc_info.creator}")
 
-    if document.doc_info.producer is not None:
-        print(f"Producer:        {document.doc_info.producer}")
+    if pdf.doc_info.producer is not None:
+        print(f"Producer:        {pdf.doc_info.producer}")
 
-    if document.doc_info.creation_date is not None:
-        print(f"Created:         {document.doc_info.creation_date}")
+    if pdf.doc_info.creation_date is not None:
+        print(f"Created:         {pdf.doc_info.creation_date}")
 
-    if document.doc_info.modify_date is not None:
-        print(f"Modified:        {document.doc_info.modify_date}")
+    if pdf.doc_info.modify_date is not None:
+        print(f"Modified:        {pdf.doc_info.modify_date}")
 
-    print(f"Trapping:        {document.doc_info.trapped.name}")
+    print(f"Trapping:        {pdf.doc_info.trapped.name}")
 
 
 print_doc_info(document)

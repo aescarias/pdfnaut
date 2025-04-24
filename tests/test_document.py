@@ -60,8 +60,37 @@ def test_remove_pages_from_doc() -> None:
     last_page = pdf.pages[-1]
     assert pdf.pages.pop() == last_page
 
+    assert len(pdf.pages) == 0
+
     # nested tree
     pdf = PdfDocument.from_filename(r"tests\docs\pdf-with-page-tree.pdf")
 
-    last_page = pdf.pages[-1]
-    assert pdf.pages.pop() == last_page
+    second_page = pdf.pages[1]
+    assert pdf.pages.pop(1) == second_page
+
+    assert len(pdf.pages) == 3
+
+    # nested tree via delitem
+    pdf = PdfDocument.from_filename(r"tests\docs\pdf-with-page-tree.pdf")
+
+    second_page = pdf.pages[1]
+    del pdf.pages[1]
+
+    assert len(pdf.pages) == 3
+
+
+def test_set_new_page() -> None:
+    pdf = PdfDocument.from_filename(r"tests\docs\pdf-with-page-tree.pdf")
+
+    new_page = Page(size=(595, 842))  # A4
+
+    pdf.pages[3] = new_page
+
+    assert pdf.pages[3] == new_page
+
+
+def test_set_page_from_doc() -> None:
+    origin_pdf = PdfDocument.from_filename(r"tests\docs\pdf-with-page-tree.pdf")
+    replacing_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+
+    origin_pdf.pages[0] = replacing_pdf.pages[0]
