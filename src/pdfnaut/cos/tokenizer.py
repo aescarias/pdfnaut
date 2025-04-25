@@ -4,12 +4,13 @@ import re
 from collections.abc import Callable
 from typing import cast
 
-from ..cos.objects import (
+from .objects import (
     ObjectGetter,
     PdfArray,
     PdfComment,
     PdfDictionary,
     PdfHexString,
+    PdfInlineImage,
     PdfName,
     PdfNull,
     PdfObject,
@@ -37,30 +38,77 @@ STRING_ESCAPE = {
 }
 
 
-class ContentStreamIterator:
-    """An iterator designed to consume the operators of a content stream.
+class ContentStreamTokenizer:
+    """A tokenizer designed to consume the contents within a content stream.
 
-    For each instruction in the stream, this iterator will yield a tuple including, in order,
-    the name of the operator and a list of operands.
+    This tokenizer relies on :class:`PdfTokenizer` to parse common tokens
+    but has special handling for the operators inside a content stream.
     """
 
     def __init__(self, contents: bytes) -> None:
         self.contents = contents
-        self.tokenizer = PdfTokenizer(contents, parse_operators=True)
+        self.tokenizer = PdfTokenizer(contents)
 
     def __iter__(self):
         return self
 
-    def __next__(self) -> tuple[str, PdfArray]:
-        operands = PdfArray()
-
-        for tok in self.tokenizer:
-            if not isinstance(tok, PdfOperator):
-                operands.append(cast(PdfObject, tok))
-            else:
-                return (tok.value.decode(), operands)
+    def __next__(self) -> PdfOperator | PdfComment:
+        while not self.tokenizer.done:
+            if (operator := self.get_next_token()) is not None and isinstance(
+                operator, PdfOperator
+            ):
+                return operator
 
         raise StopIteration
+
+    def get_next_token(self) -> PdfOperator | PdfComment | None:
+        if self.tokenizer.done:
+            return
+
+        operands = []
+        while not self.tokenizer.done:
+            if (tok := self.tokenizer.get_next_token(parse_references=False)) is not None:
+                if isinstance(tok, PdfComment):
+                    return tok
+
+                operands.append(tok)
+            elif (pk := self.tokenizer.peek()).isalpha() or pk in b"'\"":
+                name = self.tokenizer.consume_while(lambda ch: ch not in DELIMITERS + WHITESPACE)
+
+                if name == b"BI":
+                    # inline images must be handled specially so as to not
+                    # confuse the parser.
+                    return self.parse_inline_image()
+
+                return PdfOperator(name, operands)
+
+            self.tokenizer.skip()
+
+    def parse_inline_image(self) -> PdfOperator:
+        """Parses an inline image.
+
+        Inline images are an alternative to image XObjects designed
+        for embedding small images in a content stream.
+        """
+
+        mapping = self.tokenizer.parse_dictionary_until(b"ID")
+
+        # Abbreviated names are preferred: https://github.com/pdf-association/pdf-issues/issues/3
+        filter_names = mapping.get("F", mapping.get("Filter"))
+        if isinstance(filter_names, PdfName):
+            filter_names = PdfArray([filter_names])
+
+        filter_names = cast("PdfArray[PdfName] | None", filter_names)
+
+        # We must skip one character unless the filter used is ASCIIHex or ASCII85.
+        checking_filters = (b"A85", b"AHx", b"ASCIIHexDecode", b"ASCII85Decode")
+        if filter_names is None or all(fn.value not in checking_filters for fn in filter_names):
+            self.tokenizer.consume()
+
+        # TODO: handle pdf 2.0's /L & /Length for inline images
+        image_data = self.tokenizer.consume_while(lambda _: not self.tokenizer.peek(2) == b"EI")
+
+        return PdfOperator(self.tokenizer.consume(2), [PdfInlineImage(mapping, image_data)])
 
 
 class PdfTokenizer:
@@ -74,18 +122,12 @@ class PdfTokenizer:
     Arguments:
         data (bytes):
             The contents to be parsed.
-
-        parse_operators (bool, optional):
-            Whether to also parse the operators present in content streams.
-            Defaults to False.
     """
 
-    def __init__(self, data: bytes, *, parse_operators: bool = False) -> None:
+    def __init__(self, data: bytes) -> None:
         self.data = data
         self.position = 0
         self.resolver: ObjectGetter | None = None
-
-        self.parse_operators = parse_operators
 
     def __iter__(self):
         return self
@@ -187,8 +229,14 @@ class PdfTokenizer:
             consumed += self.consume()
         return consumed
 
-    def get_next_token(self) -> PdfObject | PdfComment | PdfOperator | None:
-        """Parses and returns the token at the current position."""
+    def get_next_token(self, *, parse_references: bool = True) -> PdfObject | PdfComment | None:
+        """Parses and returns the token at the current position.
+
+        Arguments:
+            parse_references (bool, optional, keyword only):
+                Whether to parse indirect references. This is intended for
+                content streams where indirect references are disallowed.
+        """
         if self.done:
             return
 
@@ -198,7 +246,7 @@ class PdfTokenizer:
             return False
         elif self.skip_if_matches(b"null"):
             return PdfNull()
-        elif mat := self._get_reference_if_matched():
+        elif parse_references and (mat := self._get_reference_if_matched()):
             return self.parse_indirect_reference(mat)
         elif self.peek().isdigit() or self.peek() in b"+-":
             return self.parse_numeric()
@@ -207,15 +255,13 @@ class PdfTokenizer:
         elif self.matches(b"/"):
             return self.parse_name()
         elif self.matches(b"<<"):
-            return self.parse_dictionary()
+            return self.parse_dictionary_until()
         elif self.matches(b"<"):
             return self.parse_hex_string()
         elif self.matches(b"("):
             return self.parse_literal_string()
         elif self.matches(b"%"):
             return self.parse_comment()
-        elif self.parse_operators and self.peek().isalpha() or self.peek() in b"'\"":
-            return self.parse_operator()
 
     def parse_numeric(self) -> int | float:
         """Parses a numeric object.
@@ -259,15 +305,23 @@ class PdfTokenizer:
 
         return PdfHexString(content)
 
-    def parse_dictionary(self) -> PdfDictionary:
-        """Parses a dictionary object. In a PDF, dictionary keys are name objects and
-        dictionary values are any object or reference. This parser maps name objects to
-        strings in this context."""
+    def parse_dictionary_until(self, delimiter: bytes = b">>") -> PdfDictionary:
+        """Parses a dictionary object.
+
+        In a PDF, dictionary keys are name objects and dictionary values are any
+        object or reference. This parser maps name objects to strings in this
+        context.
+
+        The 'delimiter' parameter specifies where this dictionary should end.
+        The common ending (and default value) is ">>" for dictionary objects.
+        However, this also accommodates for inline images which have the ID
+        operator that can be used as a delimiter.
+        """
         self.skip(2)  # adv. past the <<
 
         kv_pairs: list[PdfObject] = []
 
-        while not self.done and not self.matches(b">>"):
+        while not self.done and not self.matches(delimiter):
             if (token := self.get_next_token()) is not None:
                 kv_pairs.append(cast(PdfObject, token))
 
@@ -368,10 +422,3 @@ class PdfTokenizer:
         self.skip_whitespace()
 
         return PdfComment(line)
-
-    def parse_operator(self) -> PdfOperator:
-        """Parses a PDF operator. Operators can be found in content streams and are only
-        parsed if :attr:`.parse_operators` is true."""
-
-        operator = self.consume_while(lambda ch: ch not in DELIMITERS + WHITESPACE)
-        return PdfOperator(operator)

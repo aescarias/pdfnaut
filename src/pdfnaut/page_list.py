@@ -5,8 +5,6 @@ from typing import Any, Iterator, cast, overload
 
 from typing_extensions import Self
 
-from pdfnaut.cos.objects.base import PdfObject
-
 from .common.utils import renumber_references
 from .cos.objects import PdfArray, PdfDictionary, PdfName, PdfReference
 from .cos.parser import PdfParser

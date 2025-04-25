@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import cast
 
-from pdfnaut import PdfTokenizer
 from pdfnaut.cos.objects import (
     PdfArray,
     PdfComment,
@@ -14,6 +13,8 @@ from pdfnaut.cos.objects import (
     PdfNull,
     PdfReference,
 )
+from pdfnaut.cos.objects.base import PdfOperator
+from pdfnaut.cos.tokenizer import ContentStreamTokenizer, PdfTokenizer
 
 
 def test_null_and_boolean() -> None:
@@ -114,3 +115,20 @@ def test_array() -> None:
 def test_indirect_reference() -> None:
     lexer = PdfTokenizer(b"2 0 R")
     assert lexer.get_next_token() == PdfReference(2, 0)
+
+
+def test_content_stream() -> None:
+    # test that we aren't parsing the references
+    lexer = ContentStreamTokenizer(b"1 0 0 RG 0 w")
+    assert list(lexer) == [PdfOperator(b"RG", [1, 0, 0]), PdfOperator(b"w", [0])]
+
+    # test that we are parsing other objects
+    lexer = ContentStreamTokenizer(b"/F1 12 Tf 72 712 Td (A stream with an indirect length) Tj")
+    assert list(lexer) == [
+        PdfOperator(b"Tf", [PdfName(b"F1"), 12]),
+        PdfOperator(b"Td", [72, 712]),
+        PdfOperator(b"Tj", [b"A stream with an indirect length"]),
+    ]
+
+    # test that we are parsing inline images correctly
+    # example adapted from § 8.9.7 "Inline images"

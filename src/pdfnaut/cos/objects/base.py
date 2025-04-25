@@ -3,7 +3,7 @@ from __future__ import annotations
 from binascii import hexlify, unhexlify
 from codecs import BOM_UTF8, BOM_UTF16_BE
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Generic, TypeVar, Union, cast
 
 from typing_extensions import Self
@@ -107,9 +107,18 @@ class PdfReference(Generic[T]):
 
 @dataclass
 class PdfOperator:
-    """A PDF operator within a content stream (``§ 7.8.2 Content streams``)."""
+    """A PDF operator within a content stream. See § 7.8.2 "Content streams"."""
 
-    value: bytes
+    name: bytes
+    args: list[PdfObject | PdfInlineImage]
+
+
+@dataclass
+class PdfInlineImage:
+    """A PDF inline image within a content stream. See § 8.9.7 "Inline images"."""
+
+    details: PdfDictionary
+    contents: bytes = field(repr=False)
 
 
 def parse_text_string(encoded: PdfHexString | bytes) -> str:

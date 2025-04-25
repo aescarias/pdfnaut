@@ -165,16 +165,14 @@ class ObjectStream:
         for obj_num, rel_offset in indices:
             index_string += f"{obj_num} {rel_offset}".encode() + b" "
 
-        return PdfStream.create(
-            index_string + object_string,
-            self.stream.details
-            | PdfDictionary(
-                Type=PdfName(b"ObjStm"),
-                N=len(indices),
-                First=len(index_string),
-                Length=0,  # to be filled in
-            ),
+        objstm_data = self.stream.details | PdfDictionary(
+            Type=PdfName(b"ObjStm"),
+            N=len(indices),
+            First=len(index_string),
+            Length=0,  # to be filled in
         )
+
+        return PdfStream.create(index_string + object_string, cast(PdfDictionary, objstm_data))
 
 
 class ObjectMap(UserDict[int, MapObject]):
@@ -525,7 +523,7 @@ class PdfParser:
             self._tokenizer.skip_whitespace()
 
             if self._tokenizer.matches(b"<<"):
-                mapping = self._tokenizer.parse_dictionary()
+                mapping = self._tokenizer.parse_dictionary_until()
                 if isinstance(typ := mapping.get("Type"), PdfName) and typ.value == b"XRef":
                     table_offsets.append(mat.start())
 
@@ -542,7 +540,7 @@ class PdfParser:
         self._tokenizer.skip_whitespace()
 
         # next token is a dictionary
-        return self._tokenizer.parse_dictionary()
+        return self._tokenizer.parse_dictionary_until()
 
     def parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in

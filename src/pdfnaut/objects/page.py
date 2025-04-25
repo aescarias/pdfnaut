@@ -8,7 +8,7 @@ from typing_extensions import Self
 from ..common.fields import FlagField, NameField, StandardField, TextStringField
 from ..cos.objects.base import PdfName, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
-from ..cos.tokenizer import ContentStreamIterator
+from ..cos.tokenizer import ContentStreamTokenizer
 
 if TYPE_CHECKING:
     from ..cos.objects.stream import PdfStream
@@ -210,7 +210,7 @@ class Page(PdfDictionary):
         return f"<{self.__class__.__name__} mediabox={self.mediabox!r} rotation={self.rotation!r}>"
 
     @property
-    def content_stream(self) -> ContentStreamIterator | None:
+    def content_stream(self) -> ContentStreamTokenizer | None:
         """An iterator over the instructions producing the contents of this page."""
         if "Contents" not in self:
             return
@@ -220,9 +220,9 @@ class Page(PdfDictionary):
         if isinstance(contents, PdfArray):
             # in case the Contents of a document are an array, they must be
             # concatenated into a single one.
-            return ContentStreamIterator(b"\n".join(stm.decode() for stm in contents))
+            return ContentStreamTokenizer(b"\n".join(stm.decode() for stm in contents))
 
-        return ContentStreamIterator(contents.decode())
+        return ContentStreamTokenizer(contents.decode())
 
     @property
     def annotations(self) -> Generator[Annotation, None, None]:
