@@ -248,7 +248,7 @@ class PdfTokenizer:
             return PdfNull()
         elif parse_references and (mat := self._get_reference_if_matched()):
             return self.parse_indirect_reference(mat)
-        elif self.peek().isdigit() or self.peek() in b"+-":
+        elif self.peek().isdigit() or self.peek() in b".+-":
             return self.parse_numeric()
         elif self.matches(b"["):
             return self.parse_array()
@@ -269,7 +269,7 @@ class PdfTokenizer:
         PDF has two types of numbers: integers (40, -30) and real numbers (3.14). The range
         and precision of these numbers may depend on the machine used to process the PDF.
         """
-        prefix_or_digit = self.consume()  # either a digit or a sign prefix
+        prefix_or_digit = self.consume()  # either a digit, a dot, or a sign prefix
         number = prefix_or_digit + self.consume_while(lambda ch: ch.isdigit() or ch == b".")
 
         # is this a float (a real number)?

@@ -26,10 +26,10 @@ def test_null_and_boolean() -> None:
 
 
 def test_numeric() -> None:
-    lexer = PdfTokenizer(b"-1 +25 46 -32.591 +52.871 3.1451")
+    lexer = PdfTokenizer(b"-1 +25 46 -32.591 +52.871 3.1451 -.302 3. .25")
     tokens = list(lexer)
 
-    assert tokens == [-1, 25, 46, -32.591, 52.871, 3.1451]
+    assert tokens == [-1, 25, 46, -32.591, 52.871, 3.1451, -0.302, 3.0, 0.25]
 
 
 def test_name_object() -> None:
@@ -129,6 +129,3 @@ def test_content_stream() -> None:
         PdfOperator(b"Td", [72, 712]),
         PdfOperator(b"Tj", [b"A stream with an indirect length"]),
     ]
-
-    # test that we are parsing inline images correctly
-    # example adapted from § 8.9.7 "Inline images"
