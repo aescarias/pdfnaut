@@ -110,15 +110,22 @@ class PdfOperator:
     """A PDF operator within a content stream. See § 7.8.2 "Content streams"."""
 
     name: bytes
-    args: list[PdfObject | PdfInlineImage]
+    """The name of this operator."""
+
+    args: list[PdfObject] | list[PdfInlineImage]
+    """The arguments or operands provided to this operator."""
 
 
+# TODO: convert this into a PdfStream-like class
 @dataclass
 class PdfInlineImage:
     """A PDF inline image within a content stream. See § 8.9.7 "Inline images"."""
 
     details: PdfDictionary
-    contents: bytes = field(repr=False)
+    """Details about the inline image."""
+
+    raw: bytes = field(repr=False)
+    """The raw contents of the inline image."""
 
 
 def parse_text_string(encoded: PdfHexString | bytes) -> str:

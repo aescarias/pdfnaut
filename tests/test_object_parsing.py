@@ -129,3 +129,29 @@ def test_content_stream() -> None:
         PdfOperator(b"Td", [72, 712]),
         PdfOperator(b"Tj", [b"A stream with an indirect length"]),
     ]
+
+    # test that we are parsing an inline image
+    lexer = ContentStreamTokenizer(b"""\
+BI              % Begin inline image object
+    /W 17 /H 17 % Width and height in samples
+    /CS /RGB    % Color space
+    /BPC 8      % Bits per component
+    /F [/A85]   % Filters
+ID              % Begin image data
+E,8rmAS?!uA7]d(AoD]4Bl.9kAH~>
+EI              % End inline image object
+    """)
+
+    operator = list(lexer)
+
+    assert operator[0].name == b"EI"
+    assert operator[0].args[0].details == PdfDictionary(
+        {
+            "W": 17,
+            "H": 17,
+            "CS": PdfName(b"RGB"),
+            "BPC": 8,
+            "F": PdfArray([PdfName(b"A85")]),
+        }
+    )
+    assert operator[0].args[0].raw == b"E,8rmAS?!uA7]d(AoD]4Bl.9kAH~>\n"

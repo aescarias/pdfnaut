@@ -523,7 +523,7 @@ class PdfParser:
             self._tokenizer.skip_whitespace()
 
             if self._tokenizer.matches(b"<<"):
-                mapping = self._tokenizer.parse_dictionary_until()
+                mapping = self._tokenizer.parse_dictionary()
                 if isinstance(typ := mapping.get("Type"), PdfName) and typ.value == b"XRef":
                     table_offsets.append(mat.start())
 
@@ -540,7 +540,7 @@ class PdfParser:
         self._tokenizer.skip_whitespace()
 
         # next token is a dictionary
-        return self._tokenizer.parse_dictionary_until()
+        return self._tokenizer.parse_dictionary()
 
     def parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in

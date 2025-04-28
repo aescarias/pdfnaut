@@ -52,7 +52,7 @@ class ContentStreamTokenizer:
     def __iter__(self):
         return self
 
-    def __next__(self) -> PdfOperator | PdfComment:
+    def __next__(self) -> PdfOperator:
         while not self.tokenizer.done:
             if (operator := self.get_next_token()) is not None and isinstance(
                 operator, PdfOperator
@@ -62,6 +62,11 @@ class ContentStreamTokenizer:
         raise StopIteration
 
     def get_next_token(self) -> PdfOperator | PdfComment | None:
+        """Consumes the next token.
+
+        The return value is either a :class:`.PdfOperator` or a :class:`.PdfComment`
+        in case a token was consumed or `None` if the end of data has been reached.
+        """
         if self.tokenizer.done:
             return
 
@@ -89,21 +94,33 @@ class ContentStreamTokenizer:
 
         Inline images are an alternative to image XObjects designed
         for embedding small images in a content stream.
-        """
 
-        mapping = self.tokenizer.parse_dictionary_until(b"ID")
+        Returns an operator ``EI`` (for 'end image') with a :class:`PdfInlineImage`
+        as its first and only operand.
+        """
+        mapping = self.tokenizer.parse_kv_map_until(b"ID")
 
         # Abbreviated names are preferred: https://github.com/pdf-association/pdf-issues/issues/3
         filter_names = mapping.get("F", mapping.get("Filter"))
+        if filter_names is None:
+            filter_names = PdfArray()
+
         if isinstance(filter_names, PdfName):
             filter_names = PdfArray([filter_names])
 
-        filter_names = cast("PdfArray[PdfName] | None", filter_names)
+        filter_names = cast("PdfArray[PdfName]", filter_names)
 
-        # We must skip one character unless the filter used is ASCIIHex or ASCII85.
-        checking_filters = (b"A85", b"AHx", b"ASCIIHexDecode", b"ASCII85Decode")
-        if filter_names is None or all(fn.value not in checking_filters for fn in filter_names):
+        # If the next character is whitespace, consume it.
+        if self.tokenizer.peek() in WHITESPACE:
             self.tokenizer.consume()
+
+        # However, if the filter is ASCIIHex or ASCII85, consume all of the whitespace
+        # (including comments)
+        checking_filters = (b"A85", b"AHx", b"ASCIIHexDecode", b"ASCII85Decode")
+
+        if any(fn.value in checking_filters for fn in filter_names):
+            self.tokenizer.skip_whitespace()
+            self.tokenizer.skip_if_comment()
 
         # TODO: handle pdf 2.0's /L & /Length for inline images
         image_data = self.tokenizer.consume_while(lambda _: not self.tokenizer.peek(2) == b"EI")
@@ -193,6 +210,13 @@ class PdfTokenizer:
             return True
         return False
 
+    def skip_if_comment(self) -> bool:
+        """Advances through a PDF comment in case one occurs at the current position."""
+        if self.matches(b"%"):
+            self.parse_comment()
+            return True
+        return False
+
     def skip_whitespace(self) -> None:
         """Advances through PDF whitespace."""
         self.skip_while(lambda ch: ch in WHITESPACE)
@@ -255,7 +279,7 @@ class PdfTokenizer:
         elif self.matches(b"/"):
             return self.parse_name()
         elif self.matches(b"<<"):
-            return self.parse_dictionary_until()
+            return self.parse_dictionary()
         elif self.matches(b"<"):
             return self.parse_hex_string()
         elif self.matches(b"("):
@@ -305,24 +329,32 @@ class PdfTokenizer:
 
         return PdfHexString(content)
 
-    def parse_dictionary_until(self, delimiter: bytes = b">>") -> PdfDictionary:
+    def parse_dictionary(self) -> PdfDictionary:
         """Parses a dictionary object.
 
         In a PDF, dictionary keys are name objects and dictionary values are any
         object or reference. This parser maps name objects to strings in this
         context.
+        """
+
+        self.skip(2)  # adv. past the <<
+        return self.parse_kv_map_until(b">>")
+
+    def parse_kv_map_until(self, delimiter: bytes) -> PdfDictionary:
+        """Parses from the current position a dictionary-like object,
+        that is, an object composed of keys that are name objects and values
+        that are any object.
 
         The 'delimiter' parameter specifies where this dictionary should end.
         The common ending (and default value) is ">>" for dictionary objects.
         However, this also accommodates for inline images which have the ID
         operator that can be used as a delimiter.
         """
-        self.skip(2)  # adv. past the <<
 
         kv_pairs: list[PdfObject] = []
 
         while not self.done and not self.matches(delimiter):
-            if (token := self.get_next_token()) is not None:
+            if (token := self.get_next_token()) is not None and not isinstance(token, PdfComment):
                 kv_pairs.append(cast(PdfObject, token))
 
             # Only advance when no token matches. The individual object
@@ -330,7 +362,7 @@ class PdfTokenizer:
             if token is None:
                 self.skip()
 
-        self.skip(2)  # adv. past the >>
+        self.skip(len(delimiter))
 
         return PdfDictionary(
             {
@@ -346,7 +378,7 @@ class PdfTokenizer:
         items = PdfArray[PdfObject]()
 
         while not self.done and not self.matches(b"]"):
-            if (token := self.get_next_token()) is not None:
+            if (token := self.get_next_token()) is not None and not isinstance(token, PdfComment):
                 items.append(cast(PdfObject, token))
 
             if token is None:
