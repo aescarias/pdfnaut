@@ -34,11 +34,13 @@ def get_closest(values: Iterable[int], target: int) -> int:
 
 
 def generate_file_id(filename: str, content_size: int) -> PdfHexString:
-    """Generates a file identifier as described in ``§ 14.4 File identifiers``.
-    File identifiers are values that uniquely separate a revision of a document from another.
+    """Generates a file identifier using ``filename`` and ``content_size`` as
+    described in § 14.4 "File identifiers".
 
-    The file identifier is generated using the same information specified in the standard.
-    That is, the current time (formatted as ISO), the file path, and the file size in bytes.
+    File identifiers are values that uniquely separate a revision of a document
+    from another. The file identifier is generated using the same information
+    specified in the standard, that is, the current time, the file path and
+    the file size in bytes.
     """
 
     id_digest = hashlib.md5(time().isoformat("auto").encode())
@@ -64,10 +66,10 @@ def renumber_references(
             An integer from which to start numbering new references (by default, 1).
 
     Returns:
-        A tuple of two items: the root object with the renumbered references and a
+        A tuple of two items including the root object with the renumbered references and a
         mapping of reference numbers to items that can be written to the object store.
 
-    .. warning:
+    .. warning::
         Because this function works recursively, ``root`` should not contain cyclic
         references, that is, reference paths that may point back to ``root``.
     """

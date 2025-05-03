@@ -95,7 +95,7 @@ class Annotation(PdfDictionary):
     with a location on a page of a PDF document (``§ 12.5 Annotations``)."""
 
     kind = NameField[AnnotationKind]("Subtype")
-    """The type of annotation. See "Table 171: Annotation types""" ""
+    """The type of annotation. See "Table 171: Annotation types" for details."""
 
     rect = StandardField[PdfArray["int | float"]]("Rect")
     """A rectangle specifying the location of the annotation in the page."""

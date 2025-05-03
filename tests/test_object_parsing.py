@@ -89,7 +89,7 @@ def test_dictionary() -> None:
 
 
 def test_comment_and_eol() -> None:
-    lexer = PdfTokenizer(b"% This is a comment\r\n" b"12 % This is another comment\r" b"25\n")
+    lexer = PdfTokenizer(b"% This is a comment\r\n12 % This is another comment\r25\n")
     assert isinstance(com := next(lexer), PdfComment) and com.value == b" This is a comment"
     assert next(lexer) == 12
     assert isinstance(com := next(lexer), PdfComment) and com.value == b" This is another comment"
@@ -121,6 +121,15 @@ def test_content_stream() -> None:
     # test that we aren't parsing the references
     lexer = ContentStreamTokenizer(b"1 0 0 RG 0 w")
     assert list(lexer) == [PdfOperator(b"RG", [1, 0, 0]), PdfOperator(b"w", [0])]
+
+    # test without padding
+    lexer = ContentStreamTokenizer(b"/F29 12 Tf 100 740 Td[(Lorem)-447(ipsum)-446(text.)]TJ")
+
+    assert list(lexer) == [
+        PdfOperator(b"Tf", [PdfName(b"F29"), 12]),
+        PdfOperator(b"Td", [100, 740]),
+        PdfOperator(b"TJ", [PdfArray([b"Lorem", -447, b"ipsum", -446, b"text."])]),
+    ]
 
     # test that we are parsing other objects
     lexer = ContentStreamTokenizer(b"/F1 12 Tf 72 712 Td (A stream with an indirect length) Tj")

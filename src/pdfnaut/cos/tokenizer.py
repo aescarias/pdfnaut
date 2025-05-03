@@ -77,6 +77,7 @@ class ContentStreamTokenizer:
                     return tok
 
                 operands.append(tok)
+                continue
             elif (pk := self.tokenizer.peek()).isalpha() or pk in b"'\"":
                 name = self.tokenizer.consume_while(lambda ch: ch not in DELIMITERS + WHITESPACE)
 
