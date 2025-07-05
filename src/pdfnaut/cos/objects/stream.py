@@ -143,3 +143,11 @@ class PdfStream:
 
         self.raw = raw
         self.details["Length"] = len(self.raw)
+
+    def __hash__(self) -> int:
+        if self._crypt_params is not None:
+            params = PdfDictionary(self._crypt_params)
+        else:
+            params = None
+
+        return hash((self.__class__, hash(self.details), self.raw, params))

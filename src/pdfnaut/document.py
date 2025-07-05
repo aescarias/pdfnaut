@@ -19,7 +19,7 @@ from .cos.objects import (
 from .cos.parser import FreeObject, PdfParser, PermsAcquired
 from .objects.page import Page
 from .objects.trailer import Info
-from .page_list import PageList
+from .page_list import PageList, flatten_pages
 
 
 class PdfDocument(PdfParser):
@@ -86,6 +86,8 @@ class PdfDocument(PdfParser):
         if self.has_encryption:
             self.access_level = self.decrypt("")
 
+        self._page_list: PageList | None = None
+
     @property
     def has_encryption(self) -> bool:
         """Whether this document includes encryption."""
@@ -107,7 +109,7 @@ class PdfDocument(PdfParser):
 
     @property
     def doc_info(self) -> Info | None:
-        """The ``Info`` entry in the catalog which includes document-level information
+        """The ``/Info`` entry in the catalog which includes document-level information
         described in § 14.3.3 Document information dictionary.
 
         Some documents may specify a metadata stream rather than a DocInfo dictionary.
@@ -140,11 +142,12 @@ class PdfDocument(PdfParser):
 
     @property
     def pdf_version(self) -> str:
-        """The version of the PDF standard used in this document.
+        """The version of the PDF standard implemented by this document.
 
-        The version of a PDF may be identified by either its header or the Version entry
-        in the catalog. If the Version entry is absent or the header specifies a later
-        version, the header version is returned. Otherwise, the Version entry is returned.
+        For obtaining the PDF version, the ``/Version`` entry in the catalog
+        is checked. If no such key is present, the version specified in the
+        header is returned. If both are present, the version returned is the
+        latest specified according to lexicographical comparison.
         """
         header_version = self.header_version
         catalog_version = cast("PdfName | None", self.catalog.get("Version"))
@@ -156,13 +159,12 @@ class PdfDocument(PdfParser):
 
     @property
     def xmp_info(self) -> XmpMetadata | None:
-        """The Metadata entry of the catalog which includes document-level metadata
-        stored as XMP."""
+        """The ``/Metadata`` entry of the catalog which includes document-level
+        metadata stored as XMP."""
         if "Metadata" not in self.catalog:
             return
 
         stm = cast(PdfStream, self.catalog["Metadata"])
-
         return XmpMetadata(stm)
 
     @xmp_info.setter
@@ -184,7 +186,8 @@ class PdfDocument(PdfParser):
     def page_tree(self) -> PdfDictionary:
         """The document's page tree. See "§ 7.7.3 Page Tree" for details.
 
-        For iterating over the pages of a PDF, prefer :attr:`.PdfDocument.flattened_pages`.
+        For iterating over the pages of a PDF, prefer :attr:`.PdfDocument.flattened_pages`
+        or :attr:`PdfDocument.pages`.
         """
         return cast(PdfDictionary, self.catalog["Pages"])
 
@@ -199,22 +202,10 @@ class PdfDocument(PdfParser):
         self.access_level = super().decrypt(password)
         return self.access_level
 
-    def _flatten_pages(self, root: PdfDictionary | None = None) -> Generator[Page, None, None]:
-        """Yields all pages within ``root`` and its descendants."""
-
-        for page_ref in cast(list[PdfReference], root["Kids"].data):
-            page = cast(PdfDictionary, page_ref.get())
-
-            type_ = cast(PdfName, page["Type"])
-            if type_.value == b"Pages":
-                yield from self._flatten_pages(page)
-            elif type_.value == b"Page":
-                yield Page.from_dict(page, indirect_ref=page_ref)
-
     @property
     def flattened_pages(self) -> Generator[Page, None, None]:
         """A generator suitable for iterating over the pages of a PDF."""
-        return self._flatten_pages()
+        return flatten_pages(self.page_tree)
 
     @property
     def page_layout(self) -> PageLayout:
@@ -270,7 +261,7 @@ class PdfDocument(PdfParser):
 
     @property
     def access_permissions(self) -> UserAccessPermissions | None:
-        """User access permissions relating to the document.
+        """User access permissions relating to the document if any.
 
         See "Table 22: User Access Permissions" and :class:`.UserAccessPermissions`
         for details.
@@ -290,5 +281,9 @@ class PdfDocument(PdfParser):
         if not self.access_level:
             raise PermissionError("Cannot read pages of encrypted document.")
 
-        pages = list(self._flatten_pages(self.page_tree))
-        return PageList(self, self.page_tree, self.catalog.data["Pages"], pages)
+        if self._page_list is None:
+            self._page_list = PageList(
+                self, self.page_tree, cast(PdfReference, self.catalog.data["Pages"])
+            )
+
+        return self._page_list

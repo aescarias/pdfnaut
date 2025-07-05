@@ -13,6 +13,13 @@ from ...exceptions import PdfResolutionError
 if TYPE_CHECKING:
     from .containers import PdfArray, PdfDictionary
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeVar
+
+    T = TypeVar("T", default=bytes)
+else:
+    T = TypeVar("T")  # pytest complains if this is not here
+
 
 class PdfNull:
     """A PDF object representing nothing (``§ 7.3.9 Null Object``)."""
@@ -34,15 +41,7 @@ class PdfComment:
     """The value of this comment."""
 
 
-if TYPE_CHECKING:
-    from typing_extensions import TypeVar
-
-    T = TypeVar("T", default=bytes)
-else:
-    T = TypeVar("T")  # pytest complains if this is not here
-
-
-@dataclass
+@dataclass(order=True)
 class PdfName(Generic[T]):
     """An atomic symbol uniquely defined by a sequence of 8-bit characters
     (``§ 7.3.5 Name Objects``)."""
@@ -50,8 +49,11 @@ class PdfName(Generic[T]):
     value: T
     """The value of this name."""
 
+    def __hash__(self) -> int:
+        return hash((self.__class__, self.value))
 
-@dataclass
+
+@dataclass(order=True)
 class PdfHexString:
     """A PDF hexadecimal string which can be used to include arbitrary binary data in a PDF
     (``§ 7.3.4.3 Hexadecimal Strings``)."""
@@ -74,6 +76,9 @@ class PdfHexString:
         """The decoded value of the hex string."""
         return unhexlify(self.raw)
 
+    def __hash__(self) -> int:
+        return hash((self.__class__, self.raw))
+
 
 T = TypeVar("T")
 
@@ -92,7 +97,7 @@ class PdfReference(Generic[T]):
         self._resolver: ObjectGetter | None = None
 
     def with_resolver(self, resolver: ObjectGetter) -> Self:
-        """Appends a resolution method ``resolver`` to the reference."""
+        """Sets a resolution method ``resolver`` for this reference."""
         self._resolver = resolver
         return self
 
@@ -103,6 +108,9 @@ class PdfReference(Generic[T]):
             return self._resolver(self)
 
         raise PdfResolutionError("No resolution method available.")
+
+    def __hash__(self) -> int:
+        return hash((self.__class__, self.object_number, self.generation))
 
 
 @dataclass

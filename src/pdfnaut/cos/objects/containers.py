@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import UserDict, UserList
 from typing import SupportsIndex, cast, overload
 
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, override
 
 from ...exceptions import PdfResolutionError
 from .base import PdfObject, PdfReference
@@ -37,6 +37,9 @@ class PdfDictionary(UserDict[DictKey, DictVal]):
     def __setitem__(self, key: DictKey, value: DictVal | PdfReference[DictVal]) -> None:
         self.data[key] = cast(DictVal, value)
 
+    def __hash__(self) -> int:
+        return hash((self.__class__, tuple(hash(v) for v in self.data.items())))
+
 
 ArrVal = TypeVar("ArrVal", default=PdfObject)
 
@@ -68,3 +71,6 @@ class PdfArray(UserList[ArrVal]):
                 pass
 
         return cast(ArrVal, item)
+
+    def __hash__(self) -> int:  # type: ignore -- our arrays are hashable!
+        return hash((self.__class__, tuple(hash(v) for v in self.data)))

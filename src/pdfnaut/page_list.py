@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, MutableSequence
+from collections.abc import Generator, Iterable, MutableSequence
+from copy import deepcopy
 from typing import Any, Iterator, cast, overload
 
 from typing_extensions import Self
@@ -11,33 +12,79 @@ from .cos.parser import PdfParser
 from .objects.page import Page
 
 
+def flatten_pages(root: PdfDictionary) -> Generator[Page, None, None]:
+    """Yields all :class:`.Page` objects within ``root`` and its descendants."""
+
+    kids = cast(PdfArray, root["Kids"])
+
+    for page_ref in cast(list[PdfReference], kids.data):
+        page = cast(PdfDictionary, page_ref.get())
+
+        type_ = cast(PdfName, page["Type"])
+        if type_.value == b"Pages":
+            yield from flatten_pages(page)
+        elif type_.value == b"Page":
+            yield Page.from_dict(page, indirect_ref=page_ref)
+
+
 class PageList(MutableSequence[Page]):
-    """A mutable sequence of the pages in a document."""
+    """A mutable sequence of the pages in a document.
+
+    This class isn't designed to be constructed by a user. To access the page
+    list of a PDF, use :class:`PdfDocument.pages`.
+    """
 
     def __init__(
         self,
         pdf: PdfParser,
         root_tree: PdfDictionary,
         root_tree_ref: PdfReference,
-        indexed_pages: list[Page],
     ) -> None:
         self._pdf = pdf
         self._root_tree = root_tree
         self._root_tree_ref = root_tree_ref
-        self._indexed_pages = indexed_pages
+        self._indexed_page_cache = list(flatten_pages(self._root_tree))
+        self._last_hash = hash(self._root_tree)
+
+    def _update_on_hash(self) -> None:
+        # process: if the page tree has changed, only replace the pages
+        # in the indexed page cache that have also changed.
+
+        if self._last_hash == hash(self._root_tree):
+            return
+
+        page_list: list[Page] = []
+
+        for idx, page in enumerate(flatten_pages(self._root_tree)):
+            if 0 <= idx < len(self._indexed_page_cache):
+                # page in list, check if it is different.
+                prev_page = self._indexed_page_cache[idx]
+                if hash(prev_page) != hash(page):
+                    page_list.append(page)
+                else:
+                    page_list.append(prev_page)
+            else:
+                # page not in list, simply append.
+                page_list.append(page)
+
+        self._indexed_page_cache = page_list
+
+    def _get_indexed_pages(self) -> list[Page]:
+        self._update_on_hash()
+        return self._indexed_page_cache
 
     # * mutable sequence methods
     def __len__(self) -> int:
-        return len(self._indexed_pages)
+        return len(self._get_indexed_pages())
 
     def __contains__(self, value: object) -> bool:
-        return value in self._indexed_pages
+        return value in self._get_indexed_pages()
 
     def __iter__(self) -> Iterator[Page]:
-        return iter(self._indexed_pages)
+        return iter(self._get_indexed_pages())
 
     def __reversed__(self) -> Iterator[Page]:
-        return reversed(self._indexed_pages)
+        return reversed(self._get_indexed_pages())
 
     @overload
     def __getitem__(self, index: int) -> Page: ...
@@ -46,7 +93,7 @@ class PageList(MutableSequence[Page]):
     def __getitem__(self, index: slice) -> list[Page]: ...
 
     def __getitem__(self, index: int | slice) -> Page | list[Page]:
-        return self._indexed_pages[index]
+        return self._get_indexed_pages()[index]
 
     @overload
     def __setitem__(self, index: int, value: Page) -> None: ...
@@ -58,30 +105,24 @@ class PageList(MutableSequence[Page]):
         if isinstance(index, slice):
             raise NotImplementedError
 
+        assert isinstance(value, Page)
+
         result, _ = self._get_tree_with_index(self._root_tree, self._root_tree_ref, index)
         if result is None:
-            raise IndexError("Assignment index out of range.")
+            raise IndexError("page tree assignment index out of range")
 
         tree, _, tree_idx = result
 
-        # check whether this page comes from another document
-        obj = None
-        is_ref_not_in_doc = (
-            value.indirect_ref is None
-            or (obj := self._pdf.objects.get(value.indirect_ref.object_number)) is None
-        )
-        is_object_equal = obj is not None and hasattr(obj, "data") and obj.data is value.data
-
-        if is_ref_not_in_doc or not is_object_equal:
-            value = self._add_page_to_obj_store(value)
+        value = self._add_page_to_obj_store(value)
 
         # delete the page being replaced from the object store
         replacing_ref = tree["Kids"].data[tree_idx]
         self._pdf.objects.delete(replacing_ref.object_number)
+        self._indexed_page_cache[index].indirect_ref = None
 
         # set the page
         tree["Kids"][tree_idx] = value.indirect_ref
-        self._indexed_pages[index] = value
+        self._indexed_page_cache[index] = value
 
     def __delitem__(self, index: int | slice) -> None:
         if isinstance(index, slice):
@@ -90,43 +131,54 @@ class PageList(MutableSequence[Page]):
         self.pop(index)
 
     def __iadd__(self, values: Iterable[Page]) -> Self:
-        raise NotImplementedError
+        self.extend(values)
+        return self
 
     def index(self, value: Any, start: int = 0, stop: int = ...) -> int:
-        return self._indexed_pages.index(value, start, stop)
+        """Returns the index at which page ``value`` was first found in the
+        range of ``start`` included to ``stop`` excluded."""
+        return self._get_indexed_pages().index(value, start, stop)
 
     def count(self, value: Any) -> int:
-        return self._indexed_pages.count(value)
+        """Returns the amount of times page ``value`` appears in the page list."""
+        return self._get_indexed_pages().count(value)
 
     def insert(self, index: int, value: Page) -> None:
         """Inserts a page ``value`` at ``index``. ``index`` is the index of
         the page before which to insert.
 
         When inserting, the page object is copied into the page list.
-        """
 
-        index = self._pos_idx_of(index)
+        Note: The identity of the output shall match the identity of the input page.
+         The input page shall receive the indirect reference of the inserted page.
+        """
+        if index < -len(self):
+            index = 0
+        elif index >= len(self):
+            return self._append_pages_to_tree([value])
+        else:
+            index = self._pos_idx_of(index)
+
         inserting_page = self._add_page_to_obj_store(value)
 
-        if self._indexed_pages:
+        if self._get_indexed_pages():
             # document has pages, traverse the tree and insert at location
             result, _ = self._get_tree_with_index(self._root_tree, self._root_tree_ref, index)
         else:
-            result = None
+            # document has no pages, insert in root page tree
+            result = (self._root_tree, self._root_tree_ref, index)
 
-        if result is not None:
-            tree, tree_ref, tree_idx = result
-        else:
-            tree = self._root_tree
-            tree_ref = self._root_tree_ref
-            tree_idx = index
+        # This should always be the case but, for good measure, we check it.
+        assert result is not None, f"expected tree for index {index}."
+
+        tree, tree_ref, tree_idx = result
 
         self._insert_page_into_tree(inserting_page, tree_idx, tree=tree, tree_ref=tree_ref)
-        self._indexed_pages.insert(index, value)
+        self._indexed_page_cache.insert(index, value)
 
     def append(self, value: Page) -> None:
         """Appends a page ``value`` to the page list."""
-        self.insert(len(self._indexed_pages), value)
+        self.insert(len(self._get_indexed_pages()), value)
 
     def clear(self) -> None:
         raise NotImplementedError
@@ -135,13 +187,25 @@ class PageList(MutableSequence[Page]):
         raise NotImplementedError
 
     def extend(self, values: Iterable[Page]) -> None:
-        raise NotImplementedError
+        """Appends a list of pages ``values`` into the page list.
+
+        When extending, all pages will be copied and inserted into the last page
+        tree within the page list.
+
+        Notes:
+        - Resources not part of the page object, such as bookmarks or form
+        objects, will not be preserved. You must add those yourself.
+        - The indirect reference for each of the pages will only be changed if
+        the pages have no references applied to them.
+        """
+        self._append_pages_to_tree(values)
 
     def pop(self, index: int = -1) -> Page:
         """Removes the page at ``index``.
 
-        Only the page object is removed from the document. The resources used by
-        the page are left intact as they may be used later on in other pages.
+        Only the page object is removed from the document. Additionally, its
+        reference is also invalidated. The resources used by the page are left
+        intact as they may be used later on in other pages.
 
         Raises:
             IndexError: The page list is empty or the index does not exist.
@@ -149,10 +213,9 @@ class PageList(MutableSequence[Page]):
         Returns:
             Page: The page object that was popped.
         """
-
         index = self._pos_idx_of(index)
 
-        if self._indexed_pages:
+        if self._get_indexed_pages():
             # document has pages, traverse the tree and insert at location
             result, _ = self._get_tree_with_index(self._root_tree, self._root_tree_ref, index)
         else:
@@ -166,7 +229,7 @@ class PageList(MutableSequence[Page]):
 
         # delete the page from the tree
         self._delete_page_in_tree(tree_idx, tree)
-        output = self._indexed_pages.pop(index)
+        output = self._indexed_page_cache.pop(index)
 
         # delete the page from the object store
         if output.indirect_ref is not None:
@@ -181,7 +244,9 @@ class PageList(MutableSequence[Page]):
         Raises:
             IndexError: The page list is empty or the page is not in this document.
         """
-        index = self._indexed_pages.index(value)
+        index = self.index(value)
+        value.indirect_ref = None
+
         self.pop(index)
 
     # * helper methods
@@ -195,9 +260,8 @@ class PageList(MutableSequence[Page]):
         return len(self) - abs(index)
 
     def _add_page_to_obj_store(self, page: Page) -> Page:
-        # Ensure that the page has no parent. having one will cause a
+        # Ensure that the page has no parent. Having one will cause a
         # reference loop and the page will be re-parented anyways.
-
         if "Parent" in page:
             page.pop("Parent")
 
@@ -205,7 +269,7 @@ class PageList(MutableSequence[Page]):
             # page has an indirect ref, assume page comes from different
             # document and create copy.
             added_page, refs = renumber_references(
-                PdfDictionary(page.data.copy()),
+                PdfDictionary(deepcopy(page.data)),
                 self._pdf.get_object,
                 start=self._pdf.objects.get_next_ref().object_number,
             )
@@ -214,18 +278,24 @@ class PageList(MutableSequence[Page]):
                 self._pdf.objects[num] = ref
         else:
             # no indirect reference, assume new page and create copy.
-            added_page = PdfDictionary(page.data.copy())
+            added_page = PdfDictionary(deepcopy(page.data))
 
         page_ref = self._pdf.objects.add(added_page)
-
         added_page = Page.from_dict(added_page, indirect_ref=page_ref)
+
+        # only set the reference if the page has none.
+        if page.indirect_ref is None:
+            page.indirect_ref = page_ref
+            page.data = added_page.data
+            return page
+
         return added_page
 
     def _insert_page_into_tree(
         self, page: Page, tree_index: int, *, tree: PdfDictionary, tree_ref: PdfReference
     ) -> None:
         if page.indirect_ref is None:
-            raise ValueError("Page has no indirect reference assigned.")
+            raise ValueError("Page has no indirect reference assigned to it.")
 
         tree["Kids"].insert(tree_index, page.indirect_ref)
         tree["Count"] += 1
@@ -236,6 +306,17 @@ class PageList(MutableSequence[Page]):
         while (parent := parent.get("Parent")) is not None:
             parent["Count"] += 1
 
+    def _append_pages_to_tree(self, values: Iterable[Page]) -> None:
+        last_tree, last_tree_ref = self._get_last_tree(self._root_tree, self._root_tree_ref)
+
+        for value in values:
+            inserting_page = self._add_page_to_obj_store(value)
+
+            self._insert_page_into_tree(
+                inserting_page, len(last_tree["Kids"]), tree=last_tree, tree_ref=last_tree_ref
+            )
+            self._indexed_page_cache.insert(len(self._indexed_page_cache), value)
+
     def _delete_page_in_tree(self, tree_index: int, tree: PdfDictionary) -> None:
         tree.data["Kids"].pop(tree_index)
 
@@ -244,6 +325,21 @@ class PageList(MutableSequence[Page]):
         parent = tree
         while (parent := parent.get("Parent")) is not None:
             parent["Count"] -= 1
+
+    def _get_last_tree(
+        self, root: PdfDictionary, root_ref: PdfReference
+    ) -> tuple[PdfDictionary, PdfReference]:
+        kids = cast(PdfArray[PdfReference], root["Kids"]).data
+        result = (root, root_ref)
+
+        for page_ref in kids:
+            page = page_ref.get()
+            type_ = cast(PdfName, page["Type"])
+
+            if type_.value == b"Pages":
+                result = self._get_last_tree(page, page_ref)
+
+        return result
 
     def _get_tree_with_index(
         self, root: PdfDictionary, root_ref: PdfReference, index: int
