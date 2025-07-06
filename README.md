@@ -14,7 +14,7 @@ pdfnaut provides a high-level interface for reading and writing PDF documents as
 
 ## Installation
 
-pdfnaut requires at least Python 3.9 or later. To install via pip:
+pdfnaut requires at least Python 3.9 or later. To install pdfnaut via pip:
 
 ```plaintext
 python -m pip install pdfnaut

@@ -3,12 +3,11 @@ name = "pdfnaut"
 description = "Explore PDFs with ease"
 authors = [{ name = "Ángel Carias", email = "lotta.dev@outlook.com" }]
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
 requires-python = ">=3.9"
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: Apache Software License",
     "Topic :: File Formats",
     "Topic :: Office/Business :: Office Suites",
     "Topic :: Software Development :: Libraries",
