@@ -1,16 +1,16 @@
 Standard Security Handler
 =========================
 
-The Standard security handler is the password-based encryption method used by PDFs.
+The standard security handler is the password-based encryption method used by PDFs.
 
-In pdfnaut, the Standard security handler relies on user-supplied providers known as **crypt providers.** The crypt providers available are AES-128 (in CBC mode) and ARC4. A third provider, the Identity provider, is included by default and does nothing.
+In pdfnaut, the standard security handler relies on user-supplied providers known as **crypt providers**. The crypt providers available are AES-128 (in CBC mode) and ARC4. A third provider, the Identity provider, is implemented by default and does nothing.
 
-pdfnaut does not include these providers. You must provide them yourself or install one of the following packages:
+pdfnaut does not include implementations for these providers. You must provide them yourself either manually or by installing one of the following packages:
 
 - `pyca/cryptography <https://cryptography.io/en/latest/>`_ 
 - `PyCryptodome <https://pycryptodome.readthedocs.io/en/stable/>`_ 
 
-pdfnaut first checks for the presence of `cryptography` falling back on `PyCryptodome` if the former isn't available. If neither is available, no encryption functionalities will be available.
+When selecting a crypt provider, pdfnaut first checks for the presence of `cryptography` falling back to `PyCryptodome` if the former isn't available. If neither is available, no encryption functionalities will be provided.
 
 To add your own crypt providers, modify one of the values in the `CRYPT_PROVIDERS` dictionary of :mod:`pdfnaut.security.providers`. The keys available are `ARC4`, `AESV2`, and `Identity`. `Identity` is already implemented.
 

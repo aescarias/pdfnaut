@@ -9,20 +9,23 @@ from ..common.fields import DateField, EnumField, PdfDictionary, TextStringField
 
 
 class TrappedState(enum.Enum):
+    """The document trapping support state."""
+
     No = 0
     """Document has not been trapped."""
     Yes = 1
-    """Document has been already trapped."""
+    """Document has been trapped."""
     Unknown = 2
     """Unknown whether document is trapped partly, fully, or at all."""
 
 
 class Info(PdfDictionary):
-    """The document information dictionary (``§ 14.3.3 Document information dictionary``).
+    """Document-level metadata representing the structure described in § 14.3.3,
+    "Document information dictionary".
 
-    It represents document-level metadata and is stored in the trailer. Since PDF 2.0,
-    most of its function has been superseded by a document-level Metadata stream, with
-    exception of the CreationDate and ModDate keys.
+    Since PDF 2.0, most of its keys have been deprecated in favor of their equivalents
+    in the document-level Metadata stream. The only keys not deprecated are the
+    CreationDate and ModDate keys.
     """
 
     title = TextStringField("Title")
@@ -64,7 +67,7 @@ class Info(PdfDictionary):
         TrappedState.Unknown,
     )
     """A value indicating whether the document has been modified to include trapping 
-    information (``§ 14.11.6 Trapping support``)."""
+    information (see § 14.11.6, "Trapping support")."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:

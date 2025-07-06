@@ -47,6 +47,8 @@ AnnotationKind = Literal[
 
 
 class AnnotationFlags(enum.IntFlag):
+    """Flags for a particular annotation. See § 12.5.3, "Annotation flags" for details."""
+
     Null = 0
     """A default value."""
 
@@ -92,7 +94,7 @@ class AnnotationFlags(enum.IntFlag):
 
 class Annotation(PdfDictionary):
     """An annotation associates an object such as a note, link or rich media element
-    with a location on a page of a PDF document (``§ 12.5 Annotations``)."""
+    with a location on a page of a PDF document (see § 12.5, "Annotations")."""
 
     kind = NameField[AnnotationKind]("Subtype")
     """The type of annotation. See "Table 171: Annotation types" for details."""
@@ -131,7 +133,7 @@ class Annotation(PdfDictionary):
     language = TextStringField("Lang")
     """(PDF 2.0) A language identifier that shall specify the natural language for all 
     text in the annotation except where overridden by other explicit language 
-    specifications (``§ 14.9.2 Natural language specification``)."""
+    specifications (see § 14.9.2, "Natural language specification")."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
@@ -142,14 +144,14 @@ class Annotation(PdfDictionary):
 
 
 class Page(PdfDictionary):
-    """A page in the document (``§ 7.7.3.3 Page Objects``).
+    """A page in the document (see § 7.7.3.3, "Page Objects").
 
     Arguments:
         size (tuple[int, int]):
             The width and height of the physical medium in which the page should
             be printed or displayed. Values provided in multiples of 1/72 of an inch.
 
-        indirect_ref (:class:`PdfReference`, optional):
+        indirect_ref (PdfReference, optional):
             The indirect reference that this page object represents.
             In typical usage, this parameter should be none.
     """
@@ -226,6 +228,6 @@ class Page(PdfDictionary):
 
     @property
     def annotations(self) -> Generator[Annotation, None, None]:
-        """All annotations associated with this page (``§ 12.5 Annotations``)"""
+        """All annotations associated with this page (see § 12.5, "Annotations" and :class:`.Annotation`)."""
         for annot in cast(PdfArray[PdfDictionary], self.get("Annots", PdfArray())):
             yield Annotation.from_dict(annot)

@@ -28,7 +28,7 @@ def parse_iso8824(date_string: str) -> datetime.datetime:
     """Parses an ISO/IEC 8824 date string into a :class:`datetime.datetime` object
     (for example, ``D:20010727133720``).
 
-    This is the type of date string described in § 7.9.4 Dates of the PDF spec.
+    This is the type of date string described in § 7.9.4, "Dates" of the PDF spec.
     """
 
     # dates may end with an apostrophe (pdf 1.7 and below)

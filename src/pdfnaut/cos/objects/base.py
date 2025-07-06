@@ -4,25 +4,20 @@ from binascii import hexlify, unhexlify
 from codecs import BOM_UTF8, BOM_UTF16_BE
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Generic, Union, cast
 
-from typing_extensions import Self
+from typing_extensions import Self, TypeVar
 
 from ...exceptions import PdfResolutionError
 
 if TYPE_CHECKING:
     from .containers import PdfArray, PdfDictionary
 
-if TYPE_CHECKING:
-    from typing_extensions import TypeVar
-
-    T = TypeVar("T", default=bytes)
-else:
-    T = TypeVar("T")  # pytest complains if this is not here
+T = TypeVar("T", default=bytes)
 
 
 class PdfNull:
-    """A PDF object representing nothing (``§ 7.3.9 Null Object``)."""
+    """A PDF object representing a unique state (see § 7.3.9, "Null Object")."""
 
     def __repr__(self) -> str:
         return "PdfNull()"
@@ -34,8 +29,8 @@ class PdfNull:
 @dataclass
 class PdfComment:
     """A comment introduced by the presence of the percent sign (``%``) outside a string or
-    inside a string. Comments have no syntactical meaning and shall be interpreted as
-    whitespace (``§ 7.2.4 Comments``)."""
+    inside a content stream. Comments have no syntactical meaning and shall be interpreted as
+    whitespace (see § 7.2.4, "Comments")."""
 
     value: bytes
     """The value of this comment."""
@@ -44,7 +39,7 @@ class PdfComment:
 @dataclass(order=True)
 class PdfName(Generic[T]):
     """An atomic symbol uniquely defined by a sequence of 8-bit characters
-    (``§ 7.3.5 Name Objects``)."""
+    (see, § 7.3.5, "Name Objects")."""
 
     value: T
     """The value of this name."""
@@ -55,19 +50,20 @@ class PdfName(Generic[T]):
 
 @dataclass(order=True)
 class PdfHexString:
-    """A PDF hexadecimal string which can be used to include arbitrary binary data in a PDF
-    (``§ 7.3.4.3 Hexadecimal Strings``)."""
+    """A string of characters encoded in hexadecimal useful for including arbitrary
+    binary data in a PDF (see § 7.3.4.3, "Hexadecimal Strings")."""
 
     raw: bytes
     """The hex value of the string."""
 
     def __post_init__(self) -> None:
-        # If uneven, we append a zero. (it's hexadecimal -- 2 chars = byte)
+        # If the final digit of a hexadecimal string is missing, the final digit
+        # shall be assumed to be 0.
         if len(self.raw) % 2 != 0:
             self.raw += b"0"
 
     @classmethod
-    def from_raw(cls, data: bytes):
+    def from_raw(cls, data: bytes) -> Self:
         """Creates a hexadecimal string from ``data``."""
         return cls(hexlify(data))
 
@@ -85,7 +81,7 @@ T = TypeVar("T")
 
 @dataclass
 class PdfReference(Generic[T]):
-    """A reference to a PDF indirect object (``§ 7.3.10 Indirect objects``)."""
+    """A reference to a PDF indirect object (see § 7.3.10, "Indirect objects")."""
 
     object_number: int
     """The object number of the object being referenced."""
@@ -115,7 +111,7 @@ class PdfReference(Generic[T]):
 
 @dataclass
 class PdfOperator:
-    """A PDF operator within a content stream. See § 7.8.2 "Content streams"."""
+    """A PDF operator within a content stream (see § 7.8.2, "Content streams")."""
 
     name: bytes
     """The name of this operator."""
@@ -127,7 +123,7 @@ class PdfOperator:
 # TODO: convert this into a PdfStream-like class
 @dataclass
 class PdfInlineImage:
-    """A PDF inline image within a content stream. See § 8.9.7 "Inline images"."""
+    """A PDF inline image within a content stream (see § 8.9.7, "Inline images")."""
 
     details: PdfDictionary
     """Details about the inline image."""
@@ -137,12 +133,11 @@ class PdfInlineImage:
 
 
 def parse_text_string(encoded: PdfHexString | bytes) -> str:
-    """Parses a text string as defined in ``§ 7.9.2.2 Text string type``.
+    """Parses a text string as described in § 7.9.2.2, "Text string type".
 
     Text strings may either be encoded in PDFDocEncoding, UTF-16BE, or (PDF 2.0) UTF-8.
-    Each encoding is indicated by a byte-order mark at the beginning (``\xfe\xff``
-    for UTF-16BE and ``\xef\xbb\xbf`` for UTF-8). PDFDocEncoded strings have no such
-    mark.
+    Each encoding is indicated by a byte-order mark at the beginning (``FE FF`` for
+    UTF-16BE and ``EF BB BF`` for UTF-8). PDFDocEncoded strings have no such mark.
     """
     value = cast(bytes, encoded.value if isinstance(encoded, PdfHexString) else encoded)
 

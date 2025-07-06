@@ -22,7 +22,7 @@ class Required:
 
 
 class TextStringField:
-    """A field defining a key whose value is a text string (``§ 7.9.2.2 Text string type``)."""
+    """A field defining a key whose value is a text string (see § 7.9.2.2, "Text string type")."""
 
     def __init__(self, field: str) -> None:
         self.field = field
@@ -69,13 +69,14 @@ T = TypeVar("T")
 
 
 class StandardField(Generic[T]):
-    """A field defining a key whose value is one of the following basic types: boolean,
-    numeric, arrays, dictionaries, names, streams, and null.
+    """A field defining a key whose value is one of the following basic types: booleans,
+    numbers, arrays, dictionaries, names, streams, and the null object.
 
-    Text strings and dates have special handling and are better served by the
+    Text strings and dates require special handling and are better served by the
     :class:`.TextStringField` and :class:`.DateField` classes respectively.
 
-    Names part of an enumeration are better served by the :class:`.EnumField` class."""
+    Names part of an enumeration are better served by the :class:`.EnumField` class.
+    """
 
     def __init__(self, field: str, default: T | Type[Required] = Required) -> None:
         self.field = field
@@ -150,7 +151,7 @@ class FlagField(Generic[E]):
 
 
 class DateField:
-    """A field defining a key whose value is a date (``§ 7.9.4 Dates``)."""
+    """A field defining a key whose value is a date (see § 7.9.4, "Dates")."""
 
     def __init__(self, field: str) -> None:
         self.field = field

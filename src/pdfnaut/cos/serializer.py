@@ -158,7 +158,7 @@ class PdfSerializer:
         self.objects: dict[tuple[int, int], PdfObject | PdfStream] = {}
 
     def write_header(self, version: str, *, with_binary_marker: bool = True) -> None:
-        """Appends the PDF file header to the document (``§ 7.5.2 File Header``).
+        """Appends the PDF file header to the document (see § 7.5.2, "File Header").
 
         Arguments:
             version (str):
@@ -180,10 +180,10 @@ class PdfSerializer:
         """Appends an indirect object to the document.
 
         Arguments:
-            reference (:class:`.PdfReference` | :class:`tuple[int, int]`):
+            reference (PdfReference | tuple[int, int]):
                 The object number and generation to which the object should be assigned.
 
-            contents (:class:`.PdfObject` | :class:`.PdfStream`):
+            contents (PdfObject | PdfStream):
                 The contents to associate with the reference.
 
         Returns:
@@ -237,7 +237,7 @@ class PdfSerializer:
         ]
 
     def write_standard_xref_section(self, subsections: list[PdfXRefSubsection]) -> int:
-        """Appends a standard XRef section (``§ 7.5.4 Cross-Reference Table``) to the document.
+        """Appends a standard XRef section (see § 7.5.4, "Cross-Reference Table") to the document.
         Returns the ``startxref`` offset that should be written to the document."""
         startxref = len(self.content)
         self.content += b"xref" + self.eol
@@ -262,7 +262,7 @@ class PdfSerializer:
         return startxref
 
     def write_compressed_xref_section(self, section: PdfXRefSection) -> int:
-        """Appends a compressed XRef stream (``§ 7.5.8 Cross-Reference Streams``) from
+        """Appends a compressed XRef stream (see § 7.5.8, "Cross-Reference Streams") from
         ``section`` (to use as part of the extent) to the document.
 
         Returns the ``startxref`` offset that should be written to the document."""
@@ -305,7 +305,7 @@ class PdfSerializer:
     def write_trailer(
         self, trailer: PdfDictionary | None = None, startxref: int | None = None
     ) -> None:
-        """Appends a standard ``trailer`` to the document (``§ 7.5.5 File Trailer``)
+        """Appends a standard ``trailer`` to the document (see § 7.5.5, "File Trailer")
         alongside the ``startxref`` offset.
 
         Both arguments are optional, indicating their presence in the appended output.

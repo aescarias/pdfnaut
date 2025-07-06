@@ -23,9 +23,9 @@ def pad_password(password: bytes) -> bytes:
 
 
 class StandardSecurityHandler:
-    """An implementation of ``§ 7.6.4 Standard security handler``
+    """An implementation of § 7.6.4 "Standard security handler"
 
-    The Standard security handler includes access permissions and allows up to 2 passwords:
+    The standard security handler includes access permissions and allows up to 2 passwords:
     the owner password which has all permissions and the user password which should only
     have the permissions specified by the document.
     """
@@ -33,11 +33,11 @@ class StandardSecurityHandler:
     def __init__(self, encryption: PdfDictionary, ids: list[PdfHexString | bytes]) -> None:
         """
         Arguments:
-            encryption (:class:`.PdfDictionary`):
-                The Standard encryption dictionary specified in the document's trailer.
-                (``§ 7.6.4 Standard encryption dictionary``)
+            encryption (PdfDictionary):
+                The standard encryption dictionary specified in the document's trailer.
+                (see § 7.6.4, "Standard encryption dictionary")
 
-            ids (:class:`PdfArray[PdfHexString | bytes]`).
+            ids (PdfArray[PdfHexString | bytes]).
                 The ID array specified in the document's trailer.
         """
         self.encryption = encryption
@@ -50,7 +50,7 @@ class StandardSecurityHandler:
 
     def compute_encryption_key(self, password: bytes) -> bytes:
         """Computes an encryption key from ``password`` according to Algorithm 2 in
-        ``§ 7.6.4.3.1 File encryption key algorithm``"""
+        § 7.6.4.3.1, "File encryption key algorithm"."""
         # a)
         padded_password = pad_password(password)  # a)
 
@@ -77,7 +77,7 @@ class StandardSecurityHandler:
 
     def compute_owner_password(self, owner_password: bytes, user_password: bytes) -> bytes:
         """Computes the O (``owner_password``) value in the Encrypt dictionary according
-        to Algorithm 3 in ``§ 7.6.4.4 Password algorithms``.
+        to Algorithm 3 in § 7.6.4.4, "Password algorithms".
 
         As a fallback if there is no owner password, ``user_password`` is also specified.
         """
@@ -109,7 +109,7 @@ class StandardSecurityHandler:
 
     def compute_user_password(self, password: bytes) -> bytes:
         """Computes the U (user password) value in the Encrypt dictionary according to
-        Algorithm 4 (rev. 2) and Algorithm 5 (rev. 3 and 4) in ``§ 7.6.4.4 Password algorithms``.
+        Algorithm 4 (rev. 2) and Algorithm 5 (rev. 3 and 4) in § 7.6.4.4, "Password algorithms".
         """
         # 4 & 5. a)
         encr_key = self.compute_encryption_key(password)
@@ -135,11 +135,10 @@ class StandardSecurityHandler:
 
     def authenticate_user_password(self, password: bytes) -> tuple[bytes, bool]:
         """Authenticates the provided user ``password`` according to Algorithms 6
-        (based on Algos. 4 and 5) in ``§ 7.6.4.4 Password Algorithms``.
+        (based on Algos. 4 and 5) in § 7.6.4.4, "Password Algorithms".
 
-        Returns:
-            A tuple of two values: the encryption key that should decrypt the document and
-            whether authentication was successful.
+        Returns a tuple of two values: the encryption key that should decrypt the
+        document and whether authentication was successful.
         """
         # first step from Algorithms 4 and 5
         encryption_key = self.compute_encryption_key(password)
@@ -169,11 +168,10 @@ class StandardSecurityHandler:
 
     def authenticate_owner_password(self, password: bytes) -> tuple[bytes, bool]:
         """Authenticates the provided owner ``password`` (or user ``password`` if none)
-        according to Algorithm 7 (based on Algo. 3) in ``§ 7.6.4.4 Password Algorithms``.
+        according to Algorithm 7 (based on Algo. 3) in § 7.6.4.4, "Password Algorithms".
 
-        Returns:
-            A tuple of two values: the encryption key that should decrypt the document and
-            whether authentication was successful.
+        Returns a tuple of two values: the encryption key that should decrypt the
+        document and whether authentication was successful.
         """
         # (a) to (d) in Algorithm 3
         padded_password = pad_password(password)
@@ -206,10 +204,10 @@ class StandardSecurityHandler:
         crypt_filter: PdfDictionary | None = None,
     ) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all needed parameters to encrypt or decrypt ``contents`` according to
-        ``§ 7.6.3.1 Algorithm 1: Encryption of data using the RC4 and AES algorithms``.
+        § 7.6.3.1, "Algorithm 1: Encryption of data using the RC4 and AES algorithms".
 
         This algorithm is only applicable for Encrypt versions 1 through 4 (deprecated in
-        PDF 2.0). Version 5 uses a simpler algorithm described in `§ 7.6.3.2 Algorithm 1.A`.
+        PDF 2.0). Version 5 uses a simpler algorithm described in § 7.6.3.2, "Algorithm 1.A".
 
         Arguments:
             encryption_key (bytes):
@@ -228,9 +226,8 @@ class StandardSecurityHandler:
                 The specific crypt filter to be referenced when decrypting the document.
                 If not specified, the default for this type of ``contents`` will be used.
 
-        Returns:
-            A tuple of 3 values: the crypt method to apply (AES-CBC or ARC4),
-            the key to use with this method, and the data to encrypt/decrypt.
+        Returns a tuple of 3 values: the crypt method to apply (AES-CBC or ARC4),
+        the key to use with this method, and the data to encrypt/decrypt.
         """
         # NOTE: step a) is satisfied by the "reference" parameter
 
@@ -269,7 +266,7 @@ class StandardSecurityHandler:
         crypt_filter: PdfDictionary | None = None,
     ) -> bytes:
         """Encrypts the specified ``contents`` according to Algorithm 1 in
-        ``§ 7.6.3 General Encryption Algorithm``.
+        § 7.6.3, "General Encryption Algorithm".
 
         For details on arguments, please see :meth:`.compute_object_crypt`.
         """
@@ -289,7 +286,7 @@ class StandardSecurityHandler:
         crypt_filter: PdfDictionary | None = None,
     ) -> bytes:
         """Decrypts the specified ``contents`` according to Algorithm 1 in
-        ``§ 7.6.3 General Encryption Algorithm``.
+        § 7.6.3, "General Encryption Algorithm".
 
         For details on arguments, please see :meth:`.compute_object_crypt`.
         """

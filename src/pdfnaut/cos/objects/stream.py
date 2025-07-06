@@ -15,13 +15,13 @@ from .containers import PdfArray, PdfDictionary
 class PdfStream:
     """A sequence of bytes that may be of unlimited length. Objects with a large
     amount of data like images or fonts are usually represented by streams
-    (``§ 7.3.8 Stream objects``)."""
+    (see § 7.3.8, "Stream objects")."""
 
     details: PdfDictionary[str, PdfObject]
-    """The stream extent dictionary (``§ 7.3.8.2 Stream extent``)."""
+    """The stream extent dictionary as described in § 7.3.8.2, "Stream extent"."""
 
     raw: bytes = field(repr=False)
-    """The raw data which is assumed to be encoded."""
+    """The raw data in the stream."""
 
     _crypt_params: dict[str, Any] = field(default_factory=dict, repr=False)
     """Parameters specific to the Crypt filter."""
@@ -30,7 +30,7 @@ class PdfStream:
         """Returns the decoded contents of the stream. If no filter is defined,
         it returns the original contents.
 
-        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported.
+        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter used is unsupported.
         """
 
         filters = cast("PdfName | PdfArray[PdfName] | None", self.details.get("Filter"))
@@ -72,7 +72,7 @@ class PdfStream:
         ``details``. The length of the encoded output will automatically be appended
         to ``details``.
 
-        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter is unsupported.
+        Raises :class:`.pdfnaut.exceptions.PdfFilterError` if a filter used is unsupported.
         """
 
         if details is None:

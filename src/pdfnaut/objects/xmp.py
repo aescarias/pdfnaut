@@ -232,10 +232,10 @@ class XMPLangAltProperty(XMPProperty):
 
 
 class XMPListProperty(XMPProperty):  # list being either a sequence or bag
-    """An array valued XMP property -- in this context, either an RDF sequence , used
+    """An array valued XMP property -- in this context, either an RDF sequence, used
     for ordered arrays, or an RDF bag, used for unordered arrays.
 
-    See § 7.7 Array valued XMP properties in Part 1 of the XMP specification.
+    See § 7.7 "Array valued XMP properties" in Part 1 of the XMP specification.
     """
 
     def __get__(self, xmp: XmpMetadata, objtype: Any | None) -> list[Any] | None:
@@ -313,12 +313,12 @@ class XmpMetadata:
     For information about XMP, see https://developer.adobe.com/xmp/docs/.
 
     Arguments:
-        stream (:class:`PdfStream`, optional):
+        stream (PdfStream, optional):
             The XMP packet to parse as a PDF stream. If ``stream`` is None,
             a new stream containing a packet will be created.
 
     Raises:
-        PdfParseError: If :``stream`` does not contain a valid XMP packet.
+        PdfParseError: If ``stream`` does not contain a valid XMP packet.
     """
 
     def __init__(self, stream: PdfStream | None = None) -> None:

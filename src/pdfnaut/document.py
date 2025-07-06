@@ -2,12 +2,6 @@ from __future__ import annotations
 
 from typing import Generator, cast
 
-from pdfnaut.cos.objects.base import parse_text_string
-from pdfnaut.cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
-from pdfnaut.cos.serializer import PdfSerializer
-from pdfnaut.objects.catalog import PageLayout, PageMode, UserAccessPermissions
-from pdfnaut.objects.xmp import XmpMetadata
-
 from .cos.objects import (
     PdfArray,
     PdfDictionary,
@@ -16,9 +10,14 @@ from .cos.objects import (
     PdfReference,
     PdfStream,
 )
+from .cos.objects.base import parse_text_string
+from .cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
 from .cos.parser import FreeObject, PdfParser, PermsAcquired
+from .cos.serializer import PdfSerializer
+from .objects.catalog import PageLayout, PageMode, UserAccessPermissions
 from .objects.page import Page
 from .objects.trailer import Info
+from .objects.xmp import XmpMetadata
 from .page_list import PageList, flatten_pages
 
 
@@ -98,7 +97,7 @@ class PdfDocument(PdfParser):
         """The root of the document's object hierarchy, including references to pages,
         outlines, destinations, and other core elements of a PDF document.
 
-        For details on the contents of the catalog, see § 7.7.2 Document Catalog.
+        For details on the contents of the catalog, see § 7.7.2, "Document Catalog".
         """
         return cast(PdfDictionary, self.trailer["Root"])
 
@@ -110,7 +109,7 @@ class PdfDocument(PdfParser):
     @property
     def doc_info(self) -> Info | None:
         """The ``/Info`` entry in the catalog which includes document-level information
-        described in § 14.3.3 Document information dictionary.
+        described in § 14.3.3, "Document information dictionary".
 
         Some documents may specify a metadata stream rather than a DocInfo dictionary.
         Such metadata can be accessed using :attr:`.PdfDocument.xmp_info`.
@@ -184,17 +183,17 @@ class PdfDocument(PdfParser):
 
     @property
     def page_tree(self) -> PdfDictionary:
-        """The document's page tree. See "§ 7.7.3 Page Tree" for details.
+        """The document's page tree. See § 7.7.3, "Page Tree" for details.
 
-        For iterating over the pages of a PDF, prefer :attr:`.PdfDocument.flattened_pages`
-        or :attr:`PdfDocument.pages`.
+        For iterating over the pages of a PDF, prefer :attr:`PdfDocument.pages`
+        or :attr:`.PdfDocument.flattened_pages`.
         """
         return cast(PdfDictionary, self.catalog["Pages"])
 
     @property
     def outline_tree(self) -> PdfDictionary | None:
         """The document's outline tree including what is commonly referred to as
-        bookmarks. See "§ 12.3.3 Document Outline" for details.
+        bookmarks. See § 12.3.3, "Document Outline" for details.
         """
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
 
@@ -249,7 +248,7 @@ class PdfDocument(PdfParser):
     def language(self) -> str | None:
         """A language identifier that shall specify the natural language for all text in
         the document except where overridden by language specifications for structure
-        elements or marked content (see "§ 14.9.2 Natural language specification" for details).
+        elements or marked content (see § 14.9.2, "Natural language specification").
 
         If this entry is absent, the language shall be considered unknown.
         """
@@ -263,8 +262,7 @@ class PdfDocument(PdfParser):
     def access_permissions(self) -> UserAccessPermissions | None:
         """User access permissions relating to the document if any.
 
-        See "Table 22: User Access Permissions" and :class:`.UserAccessPermissions`
-        for details.
+        See "Table 22: User Access Permissions" and :class:`.UserAccessPermissions`.
         """
         if not self.has_encryption:
             return

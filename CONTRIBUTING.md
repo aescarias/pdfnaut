@@ -8,10 +8,11 @@ When reporting an issue, please provide a *Minimal Reproducible Example (MRE)*. 
 
 Your issue report should include:
 
-- A description of the issue (alongside the issue title)
+- A description of the issue (alongside the issue title).
+- Steps for reproducing this issue.
 - A **Minimal Reproducible Example (MRE)** as described above.
-- What you expected to see when following the MRE.
-- The actual behavior you see when following the MRE.
+- What you expected to see when running the MRE.
+- The actual behavior you see when running the MRE.
 - The version of ``pdfnaut`` being used.
 
 ## Contributing to Source Code
@@ -26,7 +27,7 @@ Your issue report should include:
 
 ### Versioning
 
-Our project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). In short:
+pdfnaut follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). In short:
 
 - Major versions are ground-breaking changes. These hold no guarantees.
 - Minor versions include additions that guarantee an upgrade is possible but not a downgrade.
@@ -44,15 +45,15 @@ Commit messages should be descriptive and concise. Commit messages should also s
 
 The scopes currently in use are:
 
-- `docs`: Docstrings; comments; guides and related resources
-- `writer`: Serialization; writing documents
-- `parser`: Tokenizing; parsing and reading; filters
-- `tests`: Code coverage; unit testing
-- `security`: Encryption; permissions
-- `objects`: Basic objects; common data structures; high-level objects
+- `docs` for docstrings, comments, guides, and related resources.
+- `writer` for serialization and writing documents.
+- `parser` for tokenizing, parsing and reading, and filters.
+- `tests` for code coverage and unit testing.
+- `security` for encryption and permission-related features.
+- `objects` for basic objects, common data structures, and high-level objects.
 
 The commit types currently in use are:
 
 - `feat` for new features.
-- `fix` For bug fixes (if applicable, reference the issue the commit resolves)
+- `fix` For bug fixes (if applicable, reference the issue the commit resolves).
 - `chore` for anything else not covered in the other types.

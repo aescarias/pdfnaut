@@ -150,7 +150,7 @@ class PageList(MutableSequence[Page]):
         When inserting, the page object is copied into the page list.
 
         Note: The identity of the output shall match the identity of the input page.
-         The input page shall receive the indirect reference of the inserted page.
+        The input page shall receive the indirect reference of the inserted page.
         """
         if index < -len(self):
             index = 0
@@ -193,10 +193,10 @@ class PageList(MutableSequence[Page]):
         tree within the page list.
 
         Notes:
-        - Resources not part of the page object, such as bookmarks or form
-        objects, will not be preserved. You must add those yourself.
-        - The indirect reference for each of the pages will only be changed if
-        the pages have no references applied to them.
+            - Resources not part of the page object, such as bookmarks or form
+              objects, will not be preserved. You must add those yourself.
+            - The indirect reference for each of the pages will only be changed if
+              the pages have no references applied to them.
         """
         self._append_pages_to_tree(values)
 

@@ -51,10 +51,8 @@ MapObject: TypeAlias = "PdfObject | PdfStream | FreeObject"
 
 
 class ObjectStream:
-    """A mapping of object numbers to PDF objects representing an object stream.
-
-    See § 7.5.7 Object streams for details.
-    """
+    """A mapping of object numbers to PDF objects representing an object stream
+    (see § 7.5.7, "Object Streams")."""
 
     def __init__(self, pdf: PdfParser, stream: PdfStream, stream_objnum: int) -> None:
         """
@@ -282,7 +280,7 @@ class PdfParser:
         self.trailer = PdfDictionary[str, PdfObject]({"Size": 0, "Root": PdfReference(0, 0)})
         """The most recent trailer in the PDF document.
         
-        For details on the contents of the trailer, see § 7.5.5 File Trailer.
+        For details on the contents of the trailer, see § 7.5.5, "File Trailer".
         """
 
         self.xref: dict[tuple[int, int], PdfXRefEntry] = {}
@@ -544,7 +542,7 @@ class PdfParser:
 
     def parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in
-        § 7.5.4 Cross-Reference Table.
+        § 7.5.4, "Cross-Reference Table".
 
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         should be called instead.
@@ -599,10 +597,8 @@ class PdfParser:
         return subsections
 
     def parse_compressed_xref(self) -> PdfXRefSection:
-        """Parses a compressed cross-reference stream which includes both the XRef table
-        and information from the PDF trailer.
-
-        As described in § 7.5.8 Cross-Reference Streams.
+        """Parses a compressed cross-reference stream which includes both the XRef table and
+        information from the PDF trailer as described in § 7.5.8, "Cross-Reference Streams".
         """
         xref_stream = self.parse_indirect_object(InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)
@@ -649,7 +645,7 @@ class PdfParser:
         self, xref_entry: InUseXRefEntry, reference: PdfReference | None
     ) -> PdfObject | PdfStream:
         """Parses an indirect object not within an object stream, or basically, an object
-        that is directly referred to by an ``xref_entry`` and a ``reference``"""
+        that is directly referred to by an ``xref_entry`` and a ``reference``."""
         self._tokenizer.position = xref_entry.offset
         self._tokenizer.skip_whitespace()
 
@@ -802,7 +798,7 @@ class PdfParser:
         """Resolves a reference into the indirect object it points to.
 
         Arguments:
-            reference (:class:`.PdfReference` | :class:`tuple[int, int]`):
+            reference (PdfReference | tuple[int, int]):
                 A :class:`.PdfReference` object or a tuple of two integers representing,
                 in order, the object number and the generation number.
 
@@ -907,7 +903,7 @@ class PdfParser:
         should allow access according to the permissions specified in the document.
 
         Returns:
-            A :class:`.PermsAcquired` value specifying the permissions acquired by ``password``.
+            PermsAcquired: A value specifying the permissions acquired by ``password``.
 
             - If the document is not encrypted, defaults to :attr:`.PermsAcquired.OWNER`
             - if the document was not decrypted, defaults to :attr:`.PermsAcquired.NONE`
@@ -937,8 +933,8 @@ class PdfParser:
         """Saves the contents of this parser to ``filepath``.
 
         ``filepath`` may either be a string containing a path, a :class:`pathlib.Path`
-        instance, a binary stream (i.e. :class:`io.BufferedIOBase`), or a file-like object
-        (i.e. :class:`typing.BinaryIO`).
+        instance, a binary stream (i.e. any subclass of :class:`io.BufferedIOBase`), or a
+        file-like object (i.e. any subclass of :class:`typing.BinaryIO`).
         """
 
         builder = PdfSerializer()

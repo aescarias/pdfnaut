@@ -1,20 +1,15 @@
-.. pdfnaut documentation master file, created by
-   sphinx-quickstart on Fri Mar  1 16:14:45 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 pdfnaut
 =======
 
 .. warning::
-   This library is currently in a very early stage of development. It has only been tested with a small set of known to be spec-compliant documents. 
+   This library is currently in a very early stage of development. Expect bugs or issues.
 
-pdfnaut aims to become a PDF processor for Python -- a library capable of reading and writing PDF documents.
+pdfnaut aims to become a PDF processor for Python capable of reading and writing PDF documents.
 
-pdfnaut includes a high-level API for reading and writing documents (:class:`~pdfnaut.document.PdfDocument`). pdfnaut is currently capable of the following:
+pdfnaut provides high-level APIs for performing the following actions:
 
 - Reading compressed & encrypted PDF documents (AES/ARC4, see note below).
-- Inspecting PDFs and extracting data from them.
+- Inspecting PDF structure.
 - Viewing and editing document metadata.
 - Appending, inserting, and removing pages.
 - Building PDFs from scratch.
@@ -22,7 +17,7 @@ pdfnaut includes a high-level API for reading and writing documents (:class:`~pd
 Install
 -------
 
-``pdfnaut`` can be installed from PyPI:
+``pdfnaut`` can be installed from PyPI. pdfnaut requires at least Python 3.9 or later.
 
 .. tab-set::
 
@@ -39,37 +34,30 @@ Install
          python -m pip install pdfnaut
 
 .. important:: 
-   If you plan to use ``pdfnaut`` with encrypted documents, you must also install a crypt provider dependency such as pyca/cryptography or PyCryptodome. See :ref:`standard security handler` for details.
+   To use pdfnaut for reading encrypted documents, you must also install a crypt provider as described in :ref:`standard security handler`.
 
 Examples
 --------
 
-The low-level API, seen in the example below, illustrates how ``pdfnaut`` can be used to inspect PDFs and retrieve information. Of course, each PDF will have a different structure and so knowledge of that structure is needed.
-
-.. code-block:: python
-
-   from pdfnaut import PdfParser
-
-   with open("tests/docs/sample.pdf", "rb") as doc:
-      pdf = PdfParser(doc.read())
-      pdf.parse()
-
-      pages = pdf.trailer["Root"]["Pages"]
-
-      first_page_stream = pages["Kids"][0]["Contents"]
-      print(first_page_stream.decode())
-
-The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.parser.PdfParser`. Notably, it includes a helper property for accessing pages called :attr:`~pdfnaut.document.PdfDocument.flattened_pages`.
+pdfnaut provides its API through :class:`~pdfnaut.document.PdfDocument` which allows performing common actions within a PDF. For example, to access the content stream of the first page in the document, you can do as follows:
 
 .. code-block:: python
    
    from pdfnaut import PdfDocument
 
    pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-   first_page = next(pdf.flattened_pages)
+   for operator in pdf.pages[0].content_stream:
+      print(operator)
+
+Reading document information from a PDF is also simple:
+
+.. code-block:: python
    
-   if first_page.content_stream:
-      print(first_page.content_stream.contents)
+   from pdfnaut import PdfDocument
+
+   pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
+   print(pdf.doc_info.title)
+   print(pdf.doc_info.author)
 
 
 .. toctree::
@@ -97,7 +85,7 @@ The high-level API currently provides some abstraction for :class:`~pdfnaut.cos.
    Reading and inspecting a PDF <guides/reading-pdf>
    Building a PDF from scratch <guides/building-pdf>
    Modifying PDF metadata <guides/modifying-pdf-metadata>
-
+   Working with pages <guides/working-with-pages>
 
 Indices and tables
 ==================

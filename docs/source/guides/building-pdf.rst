@@ -1,7 +1,7 @@
-Building a PDF
-==============
+Building a PDF from scratch
+===========================
 
-pdfnaut provides an interface for building new PDF documents called :class:`~pdfnaut.cos.serializer.PdfSerializer`. The serializer provides all functions needed to write a new document.
+pdfnaut provides a low-level interface for building new PDF documents called :class:`~pdfnaut.cos.serializer.PdfSerializer`. The serializer provides all functions needed to create a new document.
 
 Writing the PDF Header
 ----------------------
@@ -35,7 +35,7 @@ Object (2, 0) will include our page tree. To keep things simple, our document wi
         "Count": 1
     })
 
-Object (3, 0) is the page itself. We specify its media box (effectively, its page size) to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the fonts or resources used.
+Object (3, 0) is the page itself. In the object, we specify its media box which sets the page position to (0, 0) and the page size to be 500 by 500 units (by default, each PDF unit in user space represents 1/72 of an inch, similar to a point in desktop publishing). We also specify where the Contents of this page are and the fonts or resources used.
 
 .. code-block:: python
 
@@ -51,7 +51,7 @@ Object (3, 0) is the page itself. We specify its media box (effectively, its pag
         "Contents": PdfReference(5, 0)
     })
 
-Object (4, 0) is the font specified in Resources. Again, for simplicity, we will specify Helvetica -- one of a few standard fonts that a PDF renderer should support by default.
+Object (4, 0) is the font specified in Resources. Again, for simplicity, we will specify Helvetica -- one of a few standard fonts that a PDF renderer is expected to support by default.
 
 .. code-block:: python
 
@@ -95,9 +95,6 @@ In the previous section, we defined the objects. This does not write them, thoug
         rows.append((obj_num, InUseXRefEntry(offset, gen_num)))
 
     subsections = builder.generate_xref_section(section)
-
-.. seealso:: 
-    :meth:`~pdfnaut.cos.serializer.PdfSerializer.generate_xref_section`
 
 Writing the XRef section and trailer
 ------------------------------------

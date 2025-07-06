@@ -18,14 +18,14 @@ from .objects import (
     PdfReference,
 )
 
-# as defined in § 7.2.3 Character Set, Table 1 & Table 2
+# as defined in § 7.2.3, "Character Set", Table 1 & 2
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
 EOL_CR = b"\r"
 EOL_LF = b"\n"
 EOL_CRLF = b"\r\n"
 
-# as defined in § 7.3.4.2 Literal Strings, Table 3
+# as defined in § 7.3.4.2, "Literal Strings", Table 3
 STRING_ESCAPE = {
     b"\\n": b"\n",
     b"\\r": b"\r",
@@ -93,15 +93,16 @@ class ContentStreamTokenizer:
     def parse_inline_image(self) -> PdfOperator:
         """Parses an inline image.
 
-        Inline images are an alternative to image XObjects designed
-        for embedding small images in a content stream.
+        Inline images are an alternative to image XObjects designed for embedding
+        small images in a content stream.
 
-        Returns an operator ``EI`` (for 'end image') with a :class:`PdfInlineImage`
+        Returns an operator ``EI`` (for "end image") with a :class:`.PdfInlineImage`
         as its first and only operand.
         """
         mapping = self.tokenizer.parse_kv_map_until(b"ID")
 
-        # Abbreviated names are preferred: https://github.com/pdf-association/pdf-issues/issues/3
+        # Abbreviated names are preferred according to
+        # https://github.com/pdf-association/pdf-issues/issues/3
         filter_names = mapping.get("F", mapping.get("Filter"))
         if filter_names is None:
             filter_names = PdfArray()
@@ -109,21 +110,21 @@ class ContentStreamTokenizer:
         if isinstance(filter_names, PdfName):
             filter_names = PdfArray([filter_names])
 
-        filter_names = cast("PdfArray[PdfName]", filter_names)
+        filter_names = cast(PdfArray[PdfName], filter_names)
 
         # If the next character is whitespace, consume it.
         if self.tokenizer.peek() in WHITESPACE:
             self.tokenizer.consume()
 
         # However, if the filter is ASCIIHex or ASCII85, consume all of the whitespace
-        # (including comments)
+        # (including comments).
         checking_filters = (b"A85", b"AHx", b"ASCIIHexDecode", b"ASCII85Decode")
 
         if any(fn.value in checking_filters for fn in filter_names):
             self.tokenizer.skip_whitespace()
             self.tokenizer.skip_if_comment()
 
-        # TODO: handle pdf 2.0's /L & /Length for inline images
+        # TODO: handle PDF 2.0's /L & /Length for inline images
         image_data = self.tokenizer.consume_while(lambda _: not self.tokenizer.peek(2) == b"EI")
 
         return PdfOperator(self.tokenizer.consume(2), [PdfInlineImage(mapping, image_data)])

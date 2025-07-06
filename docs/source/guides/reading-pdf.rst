@@ -110,7 +110,6 @@ We find ourselves with a stream. The contents of pages are defined in streams kn
 
 .. note::
 
-    The stream above is abridged. It does not include the full content.
+    The stream above is abridged for demonstration purposes. Only a portion of its contents is shown.
 
-A content stream is comprised of operators and operands (where operands are specified first). 
-In this case, it would write "A Simple PDF File" at the position defined by the Td operands and applying the font specified in the Tf operands (``/F1`` is a name in our Resources dictionary. ``/F1`` in the dictionary points to Helvetica so this is the font applied).
+A content stream is comprised of operators and operands (operands being specified first). In this case, the renderer would write "A Simple PDF File" at the position defined by the Td operands and applying the font specified in the Tf operands (``/F1`` is a name in our Resources dictionary which in our case points to Helvetica).

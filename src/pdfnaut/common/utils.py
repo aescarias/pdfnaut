@@ -35,7 +35,7 @@ def get_closest(values: Iterable[int], target: int) -> int:
 
 def generate_file_id(filename: str, content_size: int) -> PdfHexString:
     """Generates a file identifier using ``filename`` and ``content_size`` as
-    described in § 14.4 "File identifiers".
+    described in § 14.4, "File identifiers".
 
     File identifiers are values that uniquely separate a revision of a document
     from another. The file identifier is generated using the same information
@@ -70,7 +70,7 @@ def renumber_references(
         mapping of reference numbers to items that can be written to the object store.
 
     .. warning::
-        Because this function works recursively, ``root`` should not contain cyclic
+        Because this function works recursively, ``root`` shall not contain cyclic
         references, that is, reference paths that may point back to ``root``.
     """
     references = {}
