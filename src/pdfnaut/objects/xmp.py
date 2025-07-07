@@ -373,19 +373,19 @@ class XmpMetadata:
         """A value indicating whether the document includes trapping support."""
 
         if self._pdf_trapped_raw == "True":
-            return TrappedState.Yes
+            return TrappedState.YES
         elif self._pdf_trapped_raw == "False":
-            return TrappedState.No
+            return TrappedState.NO
 
-        return TrappedState.Unknown
+        return TrappedState.UNKNOWN
 
     @pdf_trapped.setter
     def pdf_trapped(self, value: TrappedState) -> None:
-        if value == TrappedState.Yes:
+        if value == TrappedState.YES:
             self._pdf_trapped_raw = "True"
-        elif value == TrappedState.No:
+        elif value == TrappedState.NO:
             self._pdf_trapped_raw = "False"
-        elif value == TrappedState.Unknown:
+        elif value == TrappedState.UNKNOWN:
             try:
                 del self._pdf_trapped_raw
             except ValueError:

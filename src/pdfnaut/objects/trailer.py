@@ -11,11 +11,11 @@ from ..common.fields import DateField, EnumField, PdfDictionary, TextStringField
 class TrappedState(enum.Enum):
     """The document trapping support state."""
 
-    No = 0
+    NO = 0
     """Document has not been trapped."""
-    Yes = 1
+    YES = 1
     """Document has been trapped."""
-    Unknown = 2
+    UNKNOWN = 2
     """Unknown whether document is trapped partly, fully, or at all."""
 
 
@@ -63,8 +63,8 @@ class Info(PdfDictionary):
 
     trapped = EnumField(
         "Trapped",
-        {"True": TrappedState.Yes, "False": TrappedState.No, "Unknown": TrappedState.Unknown},
-        TrappedState.Unknown,
+        {"True": TrappedState.YES, "False": TrappedState.NO, "Unknown": TrappedState.UNKNOWN},
+        TrappedState.UNKNOWN,
     )
     """A value indicating whether the document has been modified to include trapping 
     information (see § 14.11.6, "Trapping support")."""

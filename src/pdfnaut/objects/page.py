@@ -49,46 +49,46 @@ AnnotationKind = Literal[
 class AnnotationFlags(enum.IntFlag):
     """Flags for a particular annotation. See § 12.5.3, "Annotation flags" for details."""
 
-    Null = 0
+    NULL = 0
     """A default value."""
 
-    Invisible = 1 << 0
+    INVISIBLE = 1 << 0
     """For non-standard annotation types, do not render or print the annotation.
     If not set, the annotation shall be rendered according to its appearance stream.
     """
 
-    Hidden = 1 << 1
+    HIDDEN = 1 << 1
     """Do not render the annotation or allow user interaction with it."""
 
-    Print = 1 << 2
+    PRINT = 1 << 2
     """Print the annotation when the page is printed, except where the Hidden flag
     is set. If clear, do not print the annotation.
     """
 
-    NoZoom = 1 << 3
+    NO_ZOOM = 1 << 3
     """Do not scale the annotation's appearance to the page's zoom factor."""
 
-    NoRotate = 1 << 4
+    NO_ROTATE = 1 << 4
     """Do not rotate the annotation to match the page's rotation."""
 
-    NoView = 1 << 5
+    NO_VIEW = 1 << 5
     """Do not render the annotation or allow user interaction with it, but still
     allow printing according to the Print flag.
     """
 
-    ReadOnly = 1 << 6
+    READ_ONLY = 1 << 6
     """Do not allow user interaction with the annotation. This is ignored for Widget
     annotations."""
 
-    Locked = 1 << 7
+    LOCKED = 1 << 7
     """Do not allow the annotation to be removed or its properties to be modified
     but still allow its contents to be modified.
     """
 
-    ToggleNoView = 1 << 8
+    TOGGLE_NO_VIEW = 1 << 8
     """Toggle the NoView flag when selecting or hovering over the annotation."""
 
-    LockedContents = 1 << 9
+    LOCKED_CONTENTS = 1 << 9
     """Do not allow the contents of the annotation to be modified."""
 
 
@@ -114,7 +114,7 @@ class Annotation(PdfDictionary):
     """The date and time the annotation was most recently modified. This value should
     be a PDF date string but processors are expected to accept any text string."""
 
-    flags = FlagField("F", AnnotationFlags, AnnotationFlags.Null)
+    flags = FlagField("F", AnnotationFlags, AnnotationFlags.NULL)
     """A set of flags specifying various characteristics of the annotation."""
 
     color = StandardField["PdfArray[float] | None"]("C", None)
@@ -228,6 +228,7 @@ class Page(PdfDictionary):
 
     @property
     def annotations(self) -> Generator[Annotation, None, None]:
-        """All annotations associated with this page (see § 12.5, "Annotations" and :class:`.Annotation`)."""
+        """All annotations associated with this page (see § 12.5, "Annotations"
+        and :class:`.Annotation`)."""
         for annot in cast(PdfArray[PdfDictionary], self.get("Annots", PdfArray())):
             yield Annotation.from_dict(annot)
