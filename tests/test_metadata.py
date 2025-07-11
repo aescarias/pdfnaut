@@ -5,6 +5,7 @@ from io import BytesIO
 
 import pdfnaut
 from pdfnaut import PdfDocument
+from pdfnaut.objects.catalog import ViewerPreferences
 from pdfnaut.objects.xmp import XmpMetadata
 
 
@@ -117,3 +118,27 @@ def test_xmp_remove() -> None:
 
     edited_pdf = PdfDocument(fp.read())
     assert edited_pdf.xmp_info is None
+
+
+def test_viewer_preferences() -> None:
+    original_pdf = PdfDocument.from_filename(r"tests\docs\wikipedia-xmp.pdf")
+
+    assert original_pdf.viewer_preferences is not None
+
+    # boolean set in document
+    assert original_pdf.viewer_preferences.display_doc_title
+    # default value being string for name accessor
+    assert original_pdf.viewer_preferences.direction == "L2R"
+    # default value being None for name accessor
+    assert original_pdf.viewer_preferences.duplex is None
+
+
+def test_viewer_preferences_save() -> None:
+    original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+    original_pdf.viewer_preferences = ViewerPreferences()
+    original_pdf.save(fp := BytesIO())
+    fp.seek(0)
+
+    edited_pdf = PdfDocument(fp.read())
+    assert edited_pdf.viewer_preferences
+    assert not edited_pdf.viewer_preferences.display_doc_title

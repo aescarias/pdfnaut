@@ -66,11 +66,18 @@ class NameAccessor:
     def __init__(self, field: Field) -> None:
         self.field = field
 
-    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> str:
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> str | None:
         if self.field.default is MISSING:
             return cast(PdfName, obj[self.field.key]).value.decode()
 
-        return cast(PdfName, obj.get(self.field.key, self.field.default)).value.decode()
+        if self.field.default is None:
+            default = None
+        else:
+            default = PdfName(self.field.default.encode())
+
+        name = obj.get(self.field.key, default)
+        if isinstance(name, PdfName):
+            return name.value.decode()
 
     def __set__(self, obj: PdfDictionary, value: str | None) -> None:
         if value is None:
@@ -114,6 +121,7 @@ class DateAccessor:
 
         if text is not None:
             return parse_iso8824(text)
+        return self.field.default
 
     def __set__(self, obj: PdfDictionary, value: datetime.datetime | None) -> None:
         if value is None:

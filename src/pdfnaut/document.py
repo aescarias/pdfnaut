@@ -10,11 +10,11 @@ from .cos.objects import (
     PdfReference,
     PdfStream,
 )
-from .cos.objects.base import parse_text_string
+from .cos.objects.base import encode_text_string, parse_text_string
 from .cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
-from .cos.parser import FreeObject, PdfParser, PermsAcquired
+from .cos.parser import PdfParser, PermsAcquired
 from .cos.serializer import PdfSerializer
-from .objects.catalog import PageLayout, PageMode, UserAccessPermissions
+from .objects.catalog import PageLayout, PageMode, UserAccessPermissions, ViewerPreferences
 from .objects.page import Page
 from .objects.trailer import Info
 from .objects.xmp import XmpMetadata
@@ -124,20 +124,7 @@ class PdfDocument(PdfParser):
 
     @doc_info.setter
     def doc_info(self, value: Info | None) -> None:
-        info_ref = cast("PdfReference | None", self.trailer.data.get("Info"))
-
-        # A new docinfo object will be created
-        if info_ref is None and value is not None:
-            new_object = max(self.objects) + 1
-            self.objects[new_object] = PdfDictionary(**value.data)
-            self.trailer.data["Info"] = PdfReference(new_object, 0).with_resolver(self.get_object)
-        # A docinfo object will be set
-        elif info_ref and isinstance(value, Info):
-            self.objects[info_ref.object_number] = PdfDictionary(**value.data)
-        # A docinfo object will be removed
-        elif info_ref:
-            self.objects[info_ref.object_number] = FreeObject()
-            self.trailer.data.pop("Info", None)
+        self._set_dict_attribute(self.trailer, "Info", value)
 
     @property
     def pdf_version(self) -> str:
@@ -227,6 +214,10 @@ class PdfDocument(PdfParser):
 
         return cast(PageLayout, cast(PdfName, self.catalog["PageLayout"]).value.decode())
 
+    @page_layout.setter
+    def page_layout(self, layout: PageLayout) -> None:
+        self.catalog["PageLayout"] = PdfName(layout.encode())
+
     @property
     def page_mode(self) -> PageMode:
         """Value specifying how the document shall be displayed when opened:
@@ -244,6 +235,10 @@ class PdfDocument(PdfParser):
 
         return cast(PageMode, cast(PdfName, self.catalog["PageMode"]).value.decode())
 
+    @page_mode.setter
+    def page_mode(self, mode: PageMode) -> None:
+        self.catalog["PageMode"] = PdfName(mode.encode())
+
     @property
     def language(self) -> str | None:
         """A language identifier that shall specify the natural language for all text in
@@ -258,11 +253,15 @@ class PdfDocument(PdfParser):
 
         return parse_text_string(cast("PdfHexString | bytes", self.catalog["Lang"]))
 
+    @language.setter
+    def language(self, text: str) -> None:
+        self.catalog["Lang"] = encode_text_string(text)
+
     @property
     def access_permissions(self) -> UserAccessPermissions | None:
         """User access permissions relating to the document if any.
 
-        See "Table 22: User Access Permissions" and :class:`.UserAccessPermissions`.
+        See :class:`.UserAccessPermissions` for details.
         """
         if not self.has_encryption:
             return
@@ -285,3 +284,45 @@ class PdfDocument(PdfParser):
             )
 
         return self._page_list
+
+    @property
+    def viewer_preferences(self) -> ViewerPreferences | None:
+        """Settings controlling how a PDF reader shall display a document
+        on the screen. If this value is absent, the PDF reader should choose
+        its own default preferences.
+
+        See :class:`.ViewerPreferences` for details.
+        """
+        if "ViewerPreferences" not in self.catalog:
+            return
+
+        return ViewerPreferences.from_dict(cast(PdfDictionary, self.catalog["ViewerPreferences"]))
+
+    @viewer_preferences.setter
+    def viewer_preferences(self, value: ViewerPreferences | None) -> None:
+        self._set_dict_attribute(self.catalog, "ViewerPreferences", value)
+
+    def _set_dict_attribute(
+        self, dest: PdfDictionary, key: str, value: PdfDictionary | None
+    ) -> None:
+        current_value = dest.data.get(key)
+        if value is None:
+            # The object will be removed.
+            if isinstance(current_value, PdfReference):
+                self.objects.free(current_value.object_number)
+
+            dest.data.pop(key, None)
+            return
+
+        new_value = PdfDictionary(**value.data)
+
+        if current_value is None:
+            # A new object will be created.
+            reference = self.objects.add(new_value)
+            dest.data[key] = reference
+        elif isinstance(current_value, PdfReference):
+            # A new object will be set as a reference.
+            self.objects[current_value.object_number] = new_value
+        else:
+            # A new object will be set as is.
+            dest.data[key] = new_value
