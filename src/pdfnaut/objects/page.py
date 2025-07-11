@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Generator, Literal, cast
+from typing import Generator, Literal, Union, cast
 
 from typing_extensions import Self
 
-from ..common.fields import FlagField, NameField, StandardField, TextStringField
+from ..common.dictmodels import defaultize, dictmodel, field
 from ..cos.objects.base import PdfName, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
+from ..cos.objects.stream import PdfStream
 from ..cos.tokenizer import ContentStreamTokenizer
-
-if TYPE_CHECKING:
-    from ..cos.objects.stream import PdfStream
-
 
 AnnotationKind = Literal[
     "Text",
@@ -92,57 +89,59 @@ class AnnotationFlags(enum.IntFlag):
     """Do not allow the contents of the annotation to be modified."""
 
 
+@dictmodel()
 class Annotation(PdfDictionary):
     """An annotation associates an object such as a note, link or rich media element
     with a location on a page of a PDF document (see § 12.5, "Annotations")."""
 
-    kind = NameField[AnnotationKind]("Subtype")
+    kind: AnnotationKind = field("Subtype")
     """The type of annotation. See "Table 171: Annotation types" for details."""
 
-    rect = StandardField[PdfArray["int | float"]]("Rect")
+    rect: PdfArray[float]
     """A rectangle specifying the location of the annotation in the page."""
 
-    contents = TextStringField("Contents")
+    contents: str
     """The text contents that shall be displayed when the annotation is open, or if this
     annotation kind does not display text, an alternate description of the annotation's 
     contents."""
 
-    name = TextStringField("NM")
+    name: str = field("NM")
     """An annotation name uniquely identifying it among other annotations in its page."""
 
-    last_modified = TextStringField("M")
+    last_modified: Union[str, None] = field("M", default=None)
     """The date and time the annotation was most recently modified. This value should
     be a PDF date string but processors are expected to accept any text string."""
 
-    flags = FlagField("F", AnnotationFlags, AnnotationFlags.NULL)
-    """A set of flags specifying various characteristics of the annotation."""
-
-    color = StandardField["PdfArray[float] | None"]("C", None)
-    """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
-    for the following purposes: 
-        
-    - The background of the annotation's icon when closed
-    - The title bar of the annotation's popup window
-    - The border of a link annotation.
-    
-    The number of array elements determines the color space in which the color shall
-    be defined: 0 is no color, transparent; 1 is DeviceGray (grayscale); 3 is DeviceRGB;
-    and 4 is DeviceCMYK 
-    """
-
-    language = TextStringField("Lang")
+    language: Union[str, None] = field("Lang", default=None)
     """(PDF 2.0) A language identifier that shall specify the natural language for all 
     text in the annotation except where overridden by other explicit language 
     specifications (see § 14.9.2, "Natural language specification")."""
 
+    flags: AnnotationFlags = field("F", default=AnnotationFlags.NULL.value)
+    """A set of flags specifying various characteristics of the annotation."""
+
+    color: Union[float, None] = field("C", default=None)
+    """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
+    for the following purposes:
+
+    - The background of the annotation's icon when closed
+    - The title bar of the annotation's popup window
+    - The border of a link annotation.
+
+    The number of array elements determines the color space in which the color shall
+    be defined: 0 is no color, transparent; 1 is DeviceGray (grayscale); 3 is DeviceRGB;
+    and 4 is DeviceCMYK
+    """
+
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
-        dictionary = cls()
+        dictionary = defaultize(cls)
         dictionary.data = mapping.data
 
         return dictionary
 
 
+@dictmodel(init=False)
 class Page(PdfDictionary):
     """A page in the document (see § 7.7.3.3, "Page Objects").
 
@@ -156,39 +155,39 @@ class Page(PdfDictionary):
             In typical usage, this parameter should be none.
     """
 
-    resources = StandardField["PdfDictionary | None"]("Resources", None)
+    mediabox: PdfArray[float] = field("MediaBox")
+    """A rectangle defining the boundaries of the physical medium in which the page
+    should be printed or displayed."""
+
+    cropbox: Union[PdfArray[float], None] = field("CropBox", default=None)
+    """A rectangle defining the visible region of the page."""
+
+    bleedbox: Union[PdfArray[float], None] = field("BleedBox", default=None)
+    """A rectangle defining the region to which the contents of the page shall be 
+    clipped when output in a production environment."""
+
+    trimbox: Union[PdfArray[float], None] = field("TrimBox", default=None)
+    """A rectangle defining the intended dimensions of the finished page after trimming."""
+
+    artbox: Union[PdfArray[float], None] = field("ArtBox", default=None)
+    """A rectangle defining the extent of the page's meaningful content as intended 
+    by the page's creator."""
+
+    resources: Union[PdfDictionary, None] = None
     """Resources required by the page contents.
 
     If the page requires no resources, this returns an empty resource dictionary.
     If the page inherits its resources from an ancestor, this returns None.
     """
 
-    mediabox = StandardField[PdfArray["int | float"]]("MediaBox")
-    """A rectangle defining the boundaries of the physical medium in which the page
-    should be printed or displayed."""
-
-    cropbox = StandardField["PdfArray[int | float] | None"]("CropBox", None)
-    """A rectangle defining the visible region of the page."""
-
-    bleedbox = StandardField["PdfArray[int | float] | None"]("BleedBox", None)
-    """A rectangle defining the region to which the contents of the page shall be 
-    clipped when output in a production environment."""
-
-    trimbox = StandardField["PdfArray[int | float] | None"]("TrimBox", None)
-    """A rectangle defining the intended dimensions of the finished page after trimming."""
-
-    artbox = StandardField["PdfArray[int | float] | None"]("ArtBox", None)
-    """A rectangle defining the extent of the page's meaningful content as intended 
-    by the page's creator."""
-
-    user_unit = StandardField["int | float"]("UserUnit", 1)
+    user_unit: float = 1
     """The size of a user space unit, in multiples of 1/72 of an inch."""
 
-    rotation = StandardField[int]("Rotate", 0)
+    rotation: int = field("Rotate", default=0)
     """The number of degrees by which the page shall be visually rotated clockwise.
     The value is a multiple of 90 (by default, 0)."""
 
-    metadata = StandardField["PdfStream | None"]("Metadata", None)
+    metadata: Union[PdfStream, None] = None
     """A metadata stream, generally written in XMP, containing information about this page."""
 
     @classmethod

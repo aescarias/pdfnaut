@@ -10,7 +10,7 @@ pdfnaut does not include implementations for these providers. You must provide t
 - `pyca/cryptography <https://cryptography.io/en/latest/>`_ 
 - `PyCryptodome <https://pycryptodome.readthedocs.io/en/stable/>`_ 
 
-When selecting a crypt provider, pdfnaut first checks for the presence of `cryptography` falling back to `PyCryptodome` if the former isn't available. If neither is available, no encryption functionalities will be provided.
+When selecting a crypt provider, pdfnaut first checks for the presence of `cryptography` falling back on `PyCryptodome` if the former isn't available. If neither is available, no encryption functionalities will be provided.
 
 To add your own crypt providers, modify one of the values in the `CRYPT_PROVIDERS` dictionary of :mod:`pdfnaut.security.providers`. The keys available are `ARC4`, `AESV2`, and `Identity`. `Identity` is already implemented.
 

@@ -1,24 +1,17 @@
 from __future__ import annotations
 
 import datetime
-import enum
+from typing import Literal, Union
 
 from typing_extensions import Self
 
-from ..common.fields import DateField, EnumField, PdfDictionary, TextStringField
+from ..common.dictmodels import dictmodel, field
+from ..cos.objects.containers import PdfDictionary
+
+TrappedState = Literal["True", "False", "Unknown"]
 
 
-class TrappedState(enum.Enum):
-    """The document trapping support state."""
-
-    NO = 0
-    """Document has not been trapped."""
-    YES = 1
-    """Document has been trapped."""
-    UNKNOWN = 2
-    """Unknown whether document is trapped partly, fully, or at all."""
-
-
+@dictmodel()
 class Info(PdfDictionary):
     """Document-level metadata representing the structure described in § 14.3.3,
     "Document information dictionary".
@@ -28,91 +21,49 @@ class Info(PdfDictionary):
     CreationDate and ModDate keys.
     """
 
-    title = TextStringField("Title")
+    # typing Unions until 3.9 goes EOL
+    # Supporting  'T | None' syntax on 3.9 would require eval magic.
+
+    title: Union[str, None] = None
     """The document's title."""
 
-    author = TextStringField("Author")
+    author: Union[str, None] = None
     """The name of the person who created the document."""
 
-    subject = TextStringField("Subject")
+    subject: Union[str, None] = None
     """The subject or topic of the document."""
 
-    keywords = TextStringField("Keywords")
+    keywords: Union[str, None] = None
     """Keywords associated with the document."""
 
-    creator = TextStringField("Creator")
+    creator: Union[str, None] = None
     """If the document was converted to PDF from another format (ex. DOCX), the name of 
     the PDF processor that created the original document from which it was converted 
     (ex. Microsoft Word)."""
 
-    producer = TextStringField("Producer")
+    producer: Union[str, None] = None
     """If the document was converted to PDF from another format (ex. PostScript), the name of 
     the PDF processor that converted it to PDF (ex. Adobe Distiller)."""
 
-    creation_date_raw = TextStringField("CreationDate")
+    creation_date_raw: Union[str, None] = field("CreationDate", init=False, default=None)
     """The date and time the document was created, as a text string."""
 
-    modify_date_raw = TextStringField("ModDate")
+    modify_date_raw: Union[str, None] = field("ModDate", init=False, default=None)
     """The date and time the document was most recently modified, as a text string."""
 
-    creation_date = DateField("CreationDate")
+    creation_date: Union[datetime.datetime, None] = field(default=None)
     """The date and time the document was created, in human-readable form."""
 
-    modify_date = DateField("ModDate")
+    modify_date: Union[datetime.datetime, None] = field("ModDate", default=None)
     """The date and time the document was most recently modified, in human-readable form."""
 
-    trapped = EnumField(
-        "Trapped",
-        {"True": TrappedState.YES, "False": TrappedState.NO, "Unknown": TrappedState.UNKNOWN},
-        TrappedState.UNKNOWN,
-    )
+    trapped: Union[TrappedState, None] = None
     """A value indicating whether the document has been modified to include trapping 
     information (see § 14.11.6, "Trapping support")."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
         dictionary = cls()
-        dictionary.update()
         dictionary.data = mapping.data
 
         return dictionary
-
-    def __init__(
-        self,
-        title: str | None = None,
-        author: str | None = None,
-        subject: str | None = None,
-        keywords: str | None = None,
-        creator: str | None = None,
-        producer: str | None = None,
-        creation_date: datetime.datetime | None = None,
-        modify_date: datetime.datetime | None = None,
-        trapped: TrappedState | None = None,
-    ) -> None:
-        super().__init__()
-
-        # TODO: I'll rework this to be dataclassy some day.
-        self._attrs = {
-            "title": title,
-            "author": author,
-            "subject": subject,
-            "keywords": keywords,
-            "creator": creator,
-            "producer": producer,
-            "creation_date": creation_date,
-            "modify_date": modify_date,
-            "trapped": trapped,
-        }
-
-        for name, value in self._attrs.items():
-            if value is not None:
-                setattr(self, name, value)
-
-    def __repr__(self) -> str:
-        attributes = ", ".join(
-            f"{attr}={value!r}"
-            for attr in self._attrs
-            if (value := getattr(self, attr, None)) is not None
-        )
-
-        return f"{self.__class__.__name__}({attributes})"

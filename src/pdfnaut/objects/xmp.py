@@ -10,7 +10,6 @@ import pdfnaut
 from pdfnaut.common.dates import encode_iso8601, parse_iso8601
 from pdfnaut.cos.objects import PdfDictionary, PdfName, PdfStream
 from pdfnaut.exceptions import PdfParseError
-from pdfnaut.objects.trailer import TrappedState
 
 namespaces = {
     "pdf": "http://ns.adobe.com/pdf/1.3/",
@@ -366,34 +365,7 @@ class XmpMetadata:
     pdf_pdfversion = XMPTextProperty(namespaces["pdf"], "PDFVersion")
     """The PDF file version. For example, '1.0' or '1.3'."""
 
-    _pdf_trapped_raw = XMPTextProperty(namespaces["pdf"], "Trapped")
-
-    @property
-    def pdf_trapped(self) -> TrappedState:
-        """A value indicating whether the document includes trapping support."""
-
-        if self._pdf_trapped_raw == "True":
-            return TrappedState.YES
-        elif self._pdf_trapped_raw == "False":
-            return TrappedState.NO
-
-        return TrappedState.UNKNOWN
-
-    @pdf_trapped.setter
-    def pdf_trapped(self, value: TrappedState) -> None:
-        if value == TrappedState.YES:
-            self._pdf_trapped_raw = "True"
-        elif value == TrappedState.NO:
-            self._pdf_trapped_raw = "False"
-        elif value == TrappedState.UNKNOWN:
-            try:
-                del self._pdf_trapped_raw
-            except ValueError:
-                pass
-
-    @pdf_trapped.deleter
-    def pdf_trapped(self) -> None:
-        del self._pdf_trapped_raw
+    pdf_trapped = XMPTextProperty(namespaces["pdf"], "Trapped")
 
     # * XMP namespace properties
     # * https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/
