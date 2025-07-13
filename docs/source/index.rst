@@ -79,13 +79,19 @@ Reading document information from a PDF is also simple:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Guides
+   :caption: User Guides
    :hidden:
 
    Reading and inspecting a PDF <guides/reading-pdf>
    Building a PDF from scratch <guides/building-pdf>
    Modifying PDF metadata <guides/modifying-pdf-metadata>
    Working with pages <guides/working-with-pages>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Developer Guides
+
+   Dictionary Models and Accessors <guides/dev-dictmodels>
 
 Indices and tables
 ==================

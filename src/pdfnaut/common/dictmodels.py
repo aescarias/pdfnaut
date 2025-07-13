@@ -44,6 +44,29 @@ def field(
     repr_: bool | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Any:
+    """Defines a field in a dictmodel.
+
+    Arguments:
+        key (str, optional):
+            The name of the key that will be accessed by this field. If not specified,
+            the key will be the title-cased version of the field name.
+
+        default (Any, optional):
+            The default value of the field if it is not specified. If no default is
+            specified, the field is assumed to be required.
+
+        init (bool | None, optional):
+            Whether this field will appear as part of the class constructor. If not specified,
+            it defaults to the value of the ``init`` argument in the dictmodel.
+
+        repr_ (bool | None, optional):
+            Whether this field will appear as part of the class representation.
+            If not specified, it defaults to the value of the ``repr_`` argument
+            in the dictmodel.
+
+        metadata (dict[str, Any], optional):
+            Additional metadata for this field which may be used by the accessor.
+    """
     return Field(key, default, init, repr_, metadata)
 
 

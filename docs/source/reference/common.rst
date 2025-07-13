@@ -8,12 +8,14 @@ Dictionary Models
 
 .. automodule:: pdfnaut.common.dictmodels
     :members:
+    :undoc-members:
 
 Accessors
 ---------
 
 .. automodule:: pdfnaut.common.accessors
     :members:
+    :undoc-members:
 
 Dates
 -----
