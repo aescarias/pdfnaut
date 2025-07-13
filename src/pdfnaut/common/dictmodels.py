@@ -5,11 +5,9 @@ from typing import Any, TypeVar, cast
 from typing_extensions import dataclass_transform, get_type_hints
 
 from ..cos.objects.containers import PdfDictionary
-from .accessors import Accessor, lookup_accessor
+from .accessors import MISSING, Accessor, lookup_accessor
 
 _T = TypeVar("_T")
-
-MISSING = object()
 
 
 class Field:
@@ -53,7 +51,7 @@ T = TypeVar("T")
 
 
 def defaultize(cls: type[T]) -> T:
-    """Returns an instance of a class ``cls`` initialized with default values."""
+    """Returns an instance of a dictmodel ``cls`` initialized with default values."""
     accessors = getattr(cls, "__accessors__", MISSING)
     if accessors is MISSING:
         raise TypeError(f"type {cls!r} is not a dictmodel")
@@ -100,7 +98,7 @@ def build_repr(cls: type[T], repr_accessors: list[Accessor]):
 def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True) -> list[Accessor]:
     accessors = []
 
-    for attr, type_ in get_type_hints(cls).items():
+    for attr, type_ in get_type_hints(cls, include_extras=True).items():
         default = getattr(cls, attr, MISSING)
 
         if isinstance(default, Field):

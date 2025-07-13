@@ -95,7 +95,7 @@ class Annotation(PdfDictionary):
     with a location on a page of a PDF document (see § 12.5, "Annotations")."""
 
     kind: AnnotationKind = field("Subtype")
-    """The type of annotation. See "Table 171: Annotation types" for details."""
+    """The kind of annotation. See "Table 171: Annotation types" for details."""
 
     rect: PdfArray[float]
     """A rectangle specifying the location of the annotation in the page."""
@@ -176,8 +176,9 @@ class Page(PdfDictionary):
     resources: Union[PdfDictionary, None] = None
     """Resources required by the page contents.
 
-    If the page requires no resources, this returns an empty resource dictionary.
-    If the page inherits its resources from an ancestor, this returns None.
+    If the page requires no resources, this should return an empty resource
+    dictionary. If the page inherits its resources from an ancestor,
+    this should return None.
     """
 
     user_unit: float = 1

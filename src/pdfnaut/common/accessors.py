@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import datetime
 import enum
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, Union, cast, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Generic,
+    Literal,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    get_origin,
+)
 
 from typing_extensions import get_args
 
@@ -20,8 +31,7 @@ if TYPE_CHECKING:
     from .dictmodels import Field
 
 
-MISSING = object()
-"""Sentinel to mark a field as missing."""
+MISSING = type("MISSING", (), {})()
 
 
 class Accessor(Protocol):
@@ -164,6 +174,17 @@ def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
         return TextStringAccessor, {}
     elif value_type is datetime.datetime:
         return DateAccessor, {}
+    elif get_origin(value_type) is Annotated:
+        type_, subtype, *_ = get_args(value_type)
+        if type_ is str:
+            if subtype.lower() == "text":
+                return TextStringAccessor, {}
+            elif subtype.lower() == "name":
+                return NameAccessor, {}
+            else:
+                raise TypeError(f"{subtype!r} not a valid subtype for a string accessor")
+
+        raise NotImplementedError(f"accessor from annotated form {value_type!r} not implemented")
     elif get_origin(value_type) is Union:
         args = get_args(value_type)
         assert len(args) >= 1

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import enum
-from typing import Literal, Union, cast
+from typing import Annotated, Literal, Union, cast
 
 from typing_extensions import Self
 
-from ..common.dictmodels import dictmodel, field
+from ..common.dictmodels import defaultize, dictmodel, field
 from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
 
@@ -189,3 +189,55 @@ class ViewerPreferences(PdfDictionary):
         enforced = cast(PdfArray[PdfName], self["Enforce"])
 
         return [cast(Enforceable, it.value.decode()) for it in enforced]
+
+
+@dictmodel()
+class DeveloperExtension(PdfDictionary):
+    base_version: Annotated[str, "name"]
+    """The name of the PDF version to which this extension applies.
+
+    The name shall be consistent with the syntax used for the Version entry
+    of the catalog dictionary (see § 7.7.2, "Document catalog dictionary").
+    """
+
+    level: int = field("ExtensionLevel")
+    """An developer-defined integer denoting the extension being used.
+
+    If the developer introduces more than one extension to a given base version,
+    the extension level assigned by the developer should increase over time.
+    """
+
+    url: Union[str, None] = field("URL", default=None)
+    """(PDF 2.0) A URL referring to the documentation for this extension."""
+
+    revision: Union[str, None] = field("ExtensionRevision", default=None)
+    """(PDF 2.0) Additional revision information on the extension level being used."""
+
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        dictionary = defaultize(cls)
+        dictionary.data = mapping.data
+
+        return dictionary
+
+
+class ExtensionMap(PdfDictionary):
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        dictionary = cls()
+        dictionary.data = mapping.data
+
+        return dictionary
+
+    def query(self, key: str) -> DeveloperExtension | list[DeveloperExtension]:
+        """Returns a developer-defined extension (or a sequence of them) for
+        a base prefix ``key``."""
+
+        if key == "Type":
+            raise ValueError("not a valid extension name")
+
+        extension = self[key]
+        if isinstance(extension, PdfArray):
+            return [DeveloperExtension.from_dict(cast(PdfDictionary, ext)) for ext in extension]
+
+        return DeveloperExtension.from_dict(cast(PdfDictionary, extension))

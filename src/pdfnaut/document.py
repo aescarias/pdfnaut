@@ -14,7 +14,13 @@ from .cos.objects.base import encode_text_string, parse_text_string
 from .cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
 from .cos.parser import PdfParser, PermsAcquired
 from .cos.serializer import PdfSerializer
-from .objects.catalog import PageLayout, PageMode, UserAccessPermissions, ViewerPreferences
+from .objects.catalog import (
+    ExtensionMap,
+    PageLayout,
+    PageMode,
+    UserAccessPermissions,
+    ViewerPreferences,
+)
 from .objects.page import Page
 from .objects.trailer import Info
 from .objects.xmp import XmpMetadata
@@ -301,6 +307,15 @@ class PdfDocument(PdfParser):
     @viewer_preferences.setter
     def viewer_preferences(self, value: ViewerPreferences | None) -> None:
         self._set_dict_attribute(self.catalog, "ViewerPreferences", value)
+
+    @property
+    def extensions(self) -> ExtensionMap | None:
+        """Developer-defined extensions to this document. Introduced in
+        ISO 32000-1 (PDF 1.7). See :class:`.ExtensionMap` for details."""
+        if "Extensions" not in self.catalog:
+            return
+
+        return ExtensionMap.from_dict(cast(PdfDictionary, self.catalog["Extensions"]))
 
     def _set_dict_attribute(
         self, dest: PdfDictionary, key: str, value: PdfDictionary | None
