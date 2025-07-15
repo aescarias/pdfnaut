@@ -83,7 +83,7 @@ def test_xmp_write() -> None:
     original_pdf.xmp_info.pdf_producer = f"pdfnaut {pdfnaut.__version__}"
 
     # Date property
-    dt = datetime.datetime.now(datetime.timezone.utc)
+    dt = datetime.datetime(2025, 7, 14, 0, 0, 47, 125681, tzinfo=datetime.timezone.utc)
 
     original_pdf.xmp_info.xmp_create_date = dt
     original_pdf.xmp_info.xmp_modify_date = dt

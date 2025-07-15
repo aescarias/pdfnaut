@@ -27,9 +27,6 @@ from ..security.standard_handler import StandardSecurityHandler
 from .serializer import PdfSerializer, serialize
 from .tokenizer import PdfTokenizer
 
-PDF_HEADER_REGEX = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
-INDIRECT_OBJ_HEADER_REGEX = re.compile(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj")
-
 
 class PermsAcquired(IntEnum):
     """Permissions acquired after opening or decrypting a document."""
@@ -316,12 +313,6 @@ class PdfParser:
         This is here as a measure to prevent circular reference loops.
         """
 
-    def _tok_matches_object_header(self) -> re.Match[bytes] | None:
-        if not self._tokenizer.peek().isdigit():
-            return
-
-        return re.match(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.peek_line())
-
     def parse(self, start_xref: int | None = None) -> None:
         """Parses the entire document.
 
@@ -376,7 +367,8 @@ class PdfParser:
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
         header = self._tokenizer.parse_comment()
-        pattern = re.compile(PDF_HEADER_REGEX)
+
+        pattern = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
         if mat := pattern.match(header.value):
             return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
@@ -480,13 +472,16 @@ class PdfParser:
         PDFs may include a typical uncompressed XRef table (and hence separate XRefs and
         trailers) or an XRef stream that combines both.
         """
+        start_offset = self._tokenizer.position
+
         if self._tokenizer.matches(b"xref"):
             xref = self.parse_simple_xref()
             self._tokenizer.skip_whitespace()
             trailer = self.parse_simple_trailer()
 
             return PdfXRefSection(xref, trailer)
-        elif self._tok_matches_object_header():
+        elif self._tokenizer.try_parse_indirect(header=True) is not None:
+            self._tokenizer.position = start_offset
             return self.parse_compressed_xref()
         elif not self.strict:
             # let's attempt to locate a nearby xref table
@@ -515,7 +510,7 @@ class PdfParser:
             table_offsets.append(mat.start())
 
         # looks for indirect objects, then checks if they are xref streams
-        for mat in re.finditer(INDIRECT_OBJ_HEADER_REGEX, self._tokenizer.data):
+        for mat in re.finditer(rb"(?P<num>\d+)\s+(?P<gen>\d+)\s+obj", self._tokenizer.data):
             self._tokenizer.position = mat.start()
             self._tokenizer.skip(mat.end() - mat.start())
             self._tokenizer.skip_whitespace()
@@ -567,7 +562,7 @@ class PdfParser:
             entries: list[PdfXRefEntry] = []
             for idx in range(int(subsection.group("count"))):
                 entry = re.match(
-                    rb"(?P<offset>\d{10}) (?P<gen>\d{5}) (?P<status>f|n)",
+                    rb"(?P<offset>\d{10}) (?P<gen>\d{5}) (?P<status>[fn])",
                     self._tokenizer.peek(20),
                 )
                 if entry is None:
@@ -649,11 +644,10 @@ class PdfParser:
         self._tokenizer.position = xref_entry.offset
         self._tokenizer.skip_whitespace()
 
-        mat = self._tok_matches_object_header()
-        if not mat:
-            raise PdfParseError("XRef entry does not point to indirect object.")
+        obj_header = self._tokenizer.try_parse_indirect(header=True)
+        if obj_header is None:
+            raise PdfParseError("XRef entry does not point to a valid indirect object.")
 
-        self._tokenizer.skip(mat.end())
         self._tokenizer.skip_whitespace()
 
         contents = self._tokenizer.get_next_token()
@@ -947,6 +941,7 @@ class PdfParser:
 
         for obj_num in self.objects:
             ref_tup = self.objects.initial_reference_map.get(obj_num)
+
             # Object is new
             if ref_tup is None:
                 resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])

@@ -173,7 +173,6 @@ def dictmodel(*, init: bool = True, repr_: bool = True):
             if not accessor.field.init:
                 continue
 
-            # init_arg_string = f"{accessor.field.name}: {accessor.field.type_.__qualname__}"
             init_arg_string = accessor.field.name
             if accessor.field.default is not MISSING:
                 init_arg_string += f" = {accessor.field.default!r}"

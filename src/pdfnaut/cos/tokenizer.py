@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from typing import cast
 
@@ -125,7 +124,7 @@ class ContentStreamTokenizer:
             self.tokenizer.skip_if_comment()
 
         # TODO: handle PDF 2.0's /L & /Length for inline images
-        image_data = self.tokenizer.consume_while(lambda _: not self.tokenizer.peek(2) == b"EI")
+        image_data = self.tokenizer.consume_while(lambda _: self.tokenizer.peek(2) != b"EI")
 
         return PdfOperator(self.tokenizer.consume(2), [PdfInlineImage(mapping, image_data)])
 
@@ -192,13 +191,42 @@ class PdfTokenizer:
         """Checks whether ``keyword`` starts at the current position."""
         return self.peek(len(keyword)) == keyword
 
-    def _get_reference_if_matched(self) -> re.Match[bytes] | None:
-        """Returns the Regex match if an indirect reference is at the current position
-        otherwise None."""
+    def try_parse_indirect(self, *, header: bool = False) -> PdfReference | None:
+        """
+        Attempts to parse an indirect reference in the form ``[obj] [gen] R``
+        or an indirect object header in the form ``[obj] [gen] obj`` in case
+        the ``header`` argument is true.
+
+        Returns the reference if one is found or None otherwise.
+        """
+
         if not self.peek().isdigit():
             return
 
-        return re.match(rb"^(?P<num>\d+)\s+(?P<gen>\d+)\s+R", self.peek_line())
+        start_offset = self.position
+
+        maybe_obj_num = self.get_next_token(parse_references=False)
+        if not isinstance(maybe_obj_num, int):
+            self.position = start_offset
+            return
+
+        self.skip_whitespace()
+
+        maybe_gen_num = self.get_next_token(parse_references=False)
+        if not isinstance(maybe_gen_num, int):
+            self.position = start_offset
+            return
+
+        self.skip_whitespace()
+
+        if not self.skip_if_matches(b"obj" if header else b"R"):
+            self.position = start_offset
+            return
+
+        reference = PdfReference(maybe_obj_num, maybe_gen_num)
+        if self.resolver:
+            return reference.with_resolver(self.resolver)
+        return reference
 
     def _is_octal(self, byte: bytes) -> bool:
         """Returns whether ``byte`` is a valid octal number (0-7)."""
@@ -272,8 +300,8 @@ class PdfTokenizer:
             return False
         elif self.skip_if_matches(b"null"):
             return PdfNull()
-        elif parse_references and (mat := self._get_reference_if_matched()):
-            return self.parse_indirect_reference(mat)
+        elif parse_references and (ref := self.try_parse_indirect()):
+            return ref
         elif self.peek().isdigit() or self.peek() in b".+-":
             return self.parse_numeric()
         elif self.matches(b"["):
@@ -389,17 +417,6 @@ class PdfTokenizer:
         self.skip()  # past the ]
 
         return items
-
-    def parse_indirect_reference(self, mat: re.Match[bytes]) -> PdfReference:
-        """Parses an indirect reference. Indirect references allow locating an object in a PDF."""
-        self.skip(mat.end())  # consume the reference
-        self.skip_whitespace()
-
-        reference = PdfReference(int(mat.group("num")), int(mat.group("gen")))
-        if self.resolver:
-            reference._resolver = self.resolver
-
-        return reference
 
     def parse_literal_string(self) -> bytes:
         """Parses a literal string.

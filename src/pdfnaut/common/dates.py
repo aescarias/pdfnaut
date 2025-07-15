@@ -138,7 +138,7 @@ def parse_iso8601(date_string: str) -> datetime.datetime:
         hour=int(mat.group("hour") or 0),
         minute=int(mat.group("minute") or 0),
         second=int(mat.group("second") or 0),
-        microsecond=int(fraction_micro),
+        microsecond=round(fraction_micro),
         tzinfo=datetime.timezone(tz_offset),
     )
 
