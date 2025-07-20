@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 from typing import Generator, cast
 
 from .cos.objects import (
@@ -16,6 +17,7 @@ from .cos.parser import PdfParser, PermsAcquired
 from .cos.serializer import PdfSerializer
 from .objects.catalog import (
     ExtensionMap,
+    MarkInfo,
     PageLayout,
     PageMode,
     UserAccessPermissions,
@@ -35,7 +37,7 @@ class PdfDocument(PdfParser):
     """
 
     @classmethod
-    def from_filename(cls, path: str, *, strict: bool = False) -> PdfDocument:
+    def from_filename(cls, path: str | pathlib.Path, *, strict: bool = False) -> PdfDocument:
         """Loads a PDF document from a file ``path``."""
         with open(path, "rb") as fp:
             return PdfDocument(fp.read(), strict=strict)
@@ -316,6 +318,17 @@ class PdfDocument(PdfParser):
             return
 
         return ExtensionMap.from_dict(cast(PdfDictionary, self.catalog["Extensions"]))
+
+    @property
+    def mark_info(self) -> MarkInfo | None:
+        """Information pertaining to the document's conformance to tagged PDF conventions.
+
+        See :class:`.MarkInfo` for details.
+        """
+        if "MarkInfo" not in self.catalog:
+            return
+
+        return MarkInfo.from_dict(cast(PdfDictionary, self.catalog["MarkInfo"]))
 
     def _set_dict_attribute(
         self, dest: PdfDictionary, key: str, value: PdfDictionary | None

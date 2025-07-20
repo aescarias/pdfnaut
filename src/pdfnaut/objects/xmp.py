@@ -320,35 +320,6 @@ class XmpMetadata:
         PdfParseError: If ``stream`` does not contain a valid XMP packet.
     """
 
-    def __init__(self, stream: PdfStream | None = None) -> None:
-        self.stream: PdfStream
-        """The XMP packet as a string."""
-
-        if stream is None:
-            self.stream = PdfStream.create(
-                dedent(f"""\
-                    <?xml version="1.0" ?>
-                    <?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
-                    <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="pdfnaut {pdfnaut.__version__}">
-                        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-                        </rdf:RDF>
-                    </x:xmpmeta>
-                    <?xpacket end="w"?>
-                """).encode(),
-                PdfDictionary(Type=PdfName(b"Metadata"), Subtype=PdfName(b"XML")),
-            )
-        else:
-            self.stream = stream
-
-        try:
-            self.packet = minidom.parseString(self.stream.decode())
-            """The XMP packet as an XML document."""
-        except expat.ExpatError as exc:
-            raise PdfParseError("Metadata value is not a valid XMP packet.") from exc
-
-        self.rdf_root = self.packet.getElementsByTagNameNS(namespaces["rdf"], "RDF")[0]
-        """The RDF root of the packet being parsed."""
-
     # * PDF namespace properties
     # * https://developer.adobe.com/xmp/docs/XMPNamespaces/pdf/
     # Note: I have also seen other properties for the PDF namespace,
@@ -404,3 +375,41 @@ class XmpMetadata:
 
     dc_format = XMPTextProperty(namespaces["dc"], "format")
     """The MIME type of this resource."""
+
+    def __init__(self, stream: PdfStream | None = None) -> None:
+        self.stream: PdfStream
+        """The XMP packet as a string."""
+
+        if stream is None:
+            self.stream = PdfStream.create(
+                dedent(f"""\
+                    <?xml version="1.0" ?>
+                    <?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+                    <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="pdfnaut {pdfnaut.__version__}">
+                        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+                        </rdf:RDF>
+                    </x:xmpmeta>
+                    <?xpacket end="w"?>
+                """).encode(),
+                PdfDictionary(Type=PdfName(b"Metadata"), Subtype=PdfName(b"XML")),
+            )
+        else:
+            self.stream = stream
+
+        try:
+            self.packet = minidom.parseString(self.stream.decode())
+            """The XMP packet as an XML document."""
+        except expat.ExpatError as exc:
+            raise PdfParseError("Metadata value is not a valid XMP packet.") from exc
+
+        self.rdf_root = self.packet.getElementsByTagNameNS(namespaces["rdf"], "RDF")[0]
+        """The RDF root of the packet being parsed."""
+
+    def __repr__(self) -> str:
+        args = [
+            f"{key}={value!r}"
+            for key, prop in self.__class__.__dict__.items()
+            if isinstance(prop, XMPProperty) and (value := getattr(self, key)) is not None
+        ]
+
+        return f"<{self.__class__.__name__}{' ' if args else ''}{' '.join(args)}>"

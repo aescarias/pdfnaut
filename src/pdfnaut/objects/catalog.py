@@ -193,6 +193,8 @@ class ViewerPreferences(PdfDictionary):
 
 @dictmodel()
 class DeveloperExtension(PdfDictionary):
+    """An entry in an extension dictionary (see § 7.12.3, "Developer extensions dictionary")."""
+
     base_version: Annotated[str, "name"]
     """The name of the PDF version to which this extension applies.
 
@@ -222,6 +224,8 @@ class DeveloperExtension(PdfDictionary):
 
 
 class ExtensionMap(PdfDictionary):
+    """A map defining developer extensions in a document (see § 7.12, "Extensions dictionary")."""
+
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
         dictionary = cls()
@@ -241,3 +245,34 @@ class ExtensionMap(PdfDictionary):
             return [DeveloperExtension.from_dict(cast(PdfDictionary, ext)) for ext in extension]
 
         return DeveloperExtension.from_dict(cast(PdfDictionary, extension))
+
+
+@dictmodel()
+class MarkInfo(PdfDictionary):
+    """Information relevant to specialized uses of structured PDF documents.
+
+    See § 14.7, "Logical structure" for details.
+    """
+
+    marked: bool = False
+    """Whether the document claims to conform to tagged PDF conventions."""
+
+    suspects: bool = False
+    """(PDF 1.6; deprecated in PDF 2.0) Whether the document includes tag suspects.
+    
+    In such case, the document may not fully conform to tagged PDF conventions.
+    """
+
+    user_properties: bool = False
+    """(PDF 1.6) Whether structure elements including user properties are present 
+    in the document.
+    
+    See § 14.7.6.4, "User properties" for details.
+    """
+
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        dictionary = cls()
+        dictionary.data = mapping.data
+
+        return dictionary
