@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from inspect import getattr_static
 from typing import Any, TypeVar, cast
 
 from typing_extensions import dataclass_transform, get_type_hints
@@ -122,10 +123,13 @@ def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True)
     accessors = []
 
     for attr, type_ in get_type_hints(cls, include_extras=True).items():
-        default = getattr(cls, attr, MISSING)
+        default = getattr_static(cls, attr, MISSING)
 
         if isinstance(default, Field):
             model_field = default
+        elif hasattr(default, "field"):
+            # inherited field from an accessor
+            model_field = default.field
         else:
             model_field = Field(default=default)
 
@@ -179,9 +183,19 @@ def dictmodel(*, init: bool = True, repr_: bool = True):
 
             init_args.append(init_arg_string)
 
+        required_subcls_args = []
+        for acc in getattr(cls, "__accessors__", []):
+            if not acc.field.init:
+                continue
+
+            if acc.field.default is not MISSING:
+                required_subcls_args.append(f"{acc.field.name}={acc.field.name}")
+            else:
+                required_subcls_args.append(acc.field.name)
+
         init_fn_body = [
             f"def __init__({', '.join(init_args)}):",
-            f"  super({cls.__name__}, self).__init__()",
+            f"  super({cls.__name__}, self).__init__({', '.join(required_subcls_args)})",
         ]
 
         for acc in accessors:

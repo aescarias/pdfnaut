@@ -1,7 +1,7 @@
 Working with Pages
 ==================
 
-Pages are the contents that make up a PDF document. In PDFs, pages are stored in a tree structure known as a page tree. For simpler documents, it is usually a flat tree, but for larger documents, it may be comprised of multiple branches or leaf nodes for optimization purposes.
+Pages are the contents that make up a PDF document. In PDFs, pages are stored in a tree structure known as the page tree. For simpler documents, it is usually a flat tree, but for larger documents, it may be comprised of multiple branches or leaf nodes for optimization purposes.
 
 The *page object* (represented as :class:`.Page`) contains information about the page's contents, resources, and appearance. 
 

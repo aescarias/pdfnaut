@@ -86,6 +86,7 @@ Reading document information from a PDF is also simple:
    Building a PDF from scratch <guides/building-pdf>
    Modifying PDF metadata <guides/modifying-pdf-metadata>
    Working with pages <guides/working-with-pages>
+   Viewer preferences <guides/viewer-preferences>
 
 .. toctree::
    :maxdepth: 2
