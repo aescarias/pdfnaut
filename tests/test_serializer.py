@@ -49,8 +49,8 @@ def test_literal_string() -> None:
     assert serialize(b"The quick brown fox") == b"(The quick brown fox)"
 
     # Nested parenthesis
-    assert serialize(b"(Hello world)") == b"((Hello world))"
-    assert serialize(b"(Hello again))") == b"((Hello again)\\))"
+    assert serialize(b"(Hello world)") == b"(\\(Hello world\\))"
+    assert serialize(b"(Hello again))") == b"(\\(Hello again\\)\\))"
 
     # Escape characters
     assert (

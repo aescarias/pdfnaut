@@ -34,32 +34,18 @@ def serialize_literal_string(byte_str: bytes, *, keep_ascii: bool = False) -> by
     output = bytearray()
     escape = {v: k for k, v in STRING_ESCAPE.items()}
 
-    # this is for handling unbalanced parentheses which must be escaped
-    paren_stack = []
-    unbalanced = []
-
-    for pos, char in enumerate(byte_str):
+    for char in byte_str:
         char = char.to_bytes(1, "big")
-        if (esc := escape.get(char)) is not None and char not in b"()":
+
+        if (esc := escape.get(char)) is not None:
+            # character needs to be escaped
             output += esc
         elif keep_ascii and not char.isascii():
-            # \ddd notation
+            # octal \ddd notation
             output += rf"\{ord(char):0>3o}".encode()
         else:
+            # character does not need escaping
             output += char
-
-        # Balanced parentheses require no special treatment
-        if char == b"(":
-            paren_stack.append(pos)
-        elif char == b")":
-            if paren_stack:
-                paren_stack.pop()
-            else:
-                unbalanced.append(pos)
-
-    unbalanced.extend(paren_stack)
-    for pos in unbalanced:
-        output.insert(pos, ord("\\"))
 
     return b"(" + output + b")"
 

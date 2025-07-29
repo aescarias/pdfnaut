@@ -200,7 +200,7 @@ class PdfTokenizer:
         Returns the reference if one is found or None otherwise.
         """
 
-        if not self.peek().isdigit():
+        if not self._is_ascii_digit(self.peek()):
             return
 
         start_offset = self.position
@@ -227,6 +227,10 @@ class PdfTokenizer:
         if self.resolver:
             return reference.with_resolver(self.resolver)
         return reference
+
+    def _is_ascii_digit(self, byte: bytes) -> bool:
+        """Returns whether ``byte`` is an ASCII digit (0-9)."""
+        return b"0" <= byte <= b"9"
 
     def _is_octal(self, byte: bytes) -> bool:
         """Returns whether ``byte`` is a valid octal number (0-7)."""
@@ -302,7 +306,7 @@ class PdfTokenizer:
             return PdfNull()
         elif parse_references and (ref := self.try_parse_indirect()):
             return ref
-        elif self.peek().isdigit() or self.peek() in b".+-":
+        elif self._is_ascii_digit(self.peek()) or self.peek() in self.peek() in b".+-":
             return self.parse_numeric()
         elif self.matches(b"["):
             return self.parse_array()
@@ -324,7 +328,9 @@ class PdfTokenizer:
         and precision of these numbers may depend on the machine used to process the PDF.
         """
         prefix_or_digit = self.consume()  # either a digit, a dot, or a sign prefix
-        number = prefix_or_digit + self.consume_while(lambda ch: ch.isdigit() or ch == b".")
+        number = prefix_or_digit + self.consume_while(
+            lambda ch: self._is_ascii_digit(ch) or ch == b"."
+        )
 
         # is this a float (a real number)?
         if b"." in number:
