@@ -3,11 +3,17 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterable
 from datetime import time
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from ..cos.objects.base import ObjectGetter, PdfHexString, PdfObject, PdfReference
+from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
+
+if TYPE_CHECKING:
+    from pdfnaut.cos.parser import PdfParser
+
+
+Placeholder = type("Placeholder", (), {})
 
 
 def get_value_from_bytes(contents: PdfHexString | bytes) -> bytes:
@@ -50,52 +56,100 @@ def generate_file_id(filename: str, content_size: int) -> PdfHexString:
     return PdfHexString(id_digest.hexdigest().encode())
 
 
-def renumber_references(
-    root: PdfObject, resolver: ObjectGetter, start: int = 1
-) -> tuple[PdfObject, dict[int, PdfObject]]:
-    """Renumbers all references in ``root`` (including its nested objects) based on ``start``.
+def is_page_or_page_tree(obj: PdfObject | PdfStream) -> bool:
+    """Reports whether an object ``obj`` is a page object or a page tree node."""
 
-    Arguments:
-        root (PdfDictionary, PdfArray, or PdfStream):
-            The root object to renumber references in.
+    if not isinstance(obj, PdfDictionary) or "Type" not in obj:
+        return False
 
-        resolver (ObjectGetter):
-            The resolver attached to each new reference.
+    if not isinstance(tp := obj["Type"], PdfName) or tp.value not in [b"Page", b"Pages"]:
+        return False
 
-        start (int, optional):
-            An integer from which to start numbering new references (by default, 1).
+    return True
 
-    Returns:
-        A tuple of two items including the root object with the renumbered references and a
-        mapping of reference numbers to items that can be written to the object store.
 
-    .. warning::
-        Because this function works recursively, ``root`` shall not contain cyclic
-        references, that is, reference paths that may point back to ``root``.
+def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObject | PdfStream:
+    """Clones an object ``root`` and its contents into document ``dest``. Returns
+    the cloned object.
+
+    Cloning of an object is performed by deep-copying each element contained in it.
+    When a reference is found, it is determined whether it is suitable for cloning
+    into the document.
+
+    A reference is determined suitable for cloning if it does not refer back to the
+    ``root`` object. If it is unsuitable, a placeholder is added if the reference is
+    ``root`` itself. If the reference may point back to the object (such as the
+    reference being for a page tree), it is nulled.
+
+    If the reference is suitable, its contents are added into the document and the new
+    references replaces the old reference in the object.
     """
-    references = {}
 
-    def inner(obj: PdfObject) -> PdfObject:
-        nonlocal start
+    cloned_map = {}
+    references = set()
 
-        if isinstance(obj, PdfDictionary):
+    def inner(obj: PdfObject | PdfStream) -> type[Placeholder] | PdfObject | PdfStream:
+        if obj in cloned_map:
+            # object is already cloned
+            return cloned_map[obj]
+
+        if isinstance(obj, PdfReference):
+            referred = obj.get()
+
+            if referred is root:
+                # object refers to our origin object. in which case, simply set
+                # a placeholder for later processing
+                return Placeholder
+
+            if is_page_or_page_tree(referred):
+                # avoid going to pages or anything that might lead us to the page tree
+                # TODO: warn once we setup logging
+                return PdfNull()
+
+            cloned_direct = inner(referred)
+            cloned_map[obj] = dest.objects.add(cloned_direct)
+            references.add(cloned_map[obj])
+            return cloned_map[obj]
+        elif isinstance(obj, PdfDictionary):
+            kv = PdfDictionary()
+            cloned_map[obj] = kv
             for key, value in obj.data.items():
-                obj.data[key] = inner(value)
+                kv.data[key] = inner(value)
+            return kv
         elif isinstance(obj, PdfStream):
-            for key, value in obj.details.data.items():
-                obj.details.data[key] = inner(value)
+            extent = inner(obj.details)
+            crypt_params = inner(PdfDictionary(obj._crypt_params))
+            stm = PdfStream(extent, obj.raw, crypt_params)
+            cloned_map[obj] = stm
+            return stm
         elif isinstance(obj, PdfArray):
-            for idx, value in enumerate(obj.data):
-                obj.data[idx] = inner(value)
-        elif isinstance(obj, PdfReference):
-            referred = inner(obj.get())
-
-            val = PdfReference(start, 0).with_resolver(resolver)
-            start += 1
-
-            references[val.object_number] = referred
-            return val
+            arr = PdfArray()
+            cloned_map[obj] = arr
+            for value in obj.data:
+                arr.data.append(inner(value))
+            return arr
 
         return obj
 
-    return inner(root), references
+    cloned = inner(root)
+
+    def replace_placeholders(obj: PdfObject | type[Placeholder]) -> PdfObject:
+        if obj is Placeholder:
+            return dest.objects.add(cloned)
+        elif isinstance(obj, PdfArray):
+            return PdfArray(replace_placeholders(it) for it in obj.data)
+        elif isinstance(obj, PdfDictionary):
+            return PdfDictionary({key: replace_placeholders(val) for key, val in obj.data.items()})
+        elif isinstance(obj, PdfStream):
+            obj.details = replace_placeholders(obj.details)
+            obj._crypt_params = dict(replace_placeholders(PdfDictionary(obj._crypt_params)))
+            return obj
+
+        return obj
+
+    final = replace_placeholders(cloned)
+    for ref in references:
+        direct = dest.objects[ref.object_number]
+        dest.objects[ref.object_number] = replace_placeholders(direct)
+
+    return final

@@ -30,10 +30,10 @@ from .page_list import PageList, flatten_pages
 
 
 class PdfDocument(PdfParser):
-    """A high-level interface over :class:`~.PdfParser`.
+    """A PDF document that can be read and written to.
 
-    PDF authors who want to work with a document in a high-level way should
-    use this interface over ``PdfParser``.
+    In essence, it is a high-level wrapper around :class:`~.PdfParser` intended for
+    PDF users who want to work with a document via high-level interfaces.
     """
 
     @classmethod
@@ -80,9 +80,9 @@ class PdfDocument(PdfParser):
         self.parse()
 
         self.access_level = PermsAcquired.OWNER
-        """The current access level of the document, specified as a value from the
-        :class:`.PermsAcquired` enum.
-
+        """The current access level of the document. It may be either of the values in
+        :class:`.PermsAcquired`:
+         
         - Owner (2): Full access to the document. If the document is not encrypted, \
         this is the default value.
         - User (1): Access to the document under restrictions.

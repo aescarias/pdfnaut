@@ -6,7 +6,8 @@ from typing import Any, Iterator, cast, overload
 
 from typing_extensions import Self
 
-from .common.utils import renumber_references
+# from pdfnaut.common.clone import PDFCloner
+from .common.utils import clone_into_document
 from .cos.objects import PdfArray, PdfDictionary, PdfName, PdfReference
 from .cos.parser import PdfParser
 from .objects.page import Page
@@ -260,22 +261,10 @@ class PageList(MutableSequence[Page]):
         return len(self) - abs(index)
 
     def _add_page_to_obj_store(self, page: Page) -> Page:
-        # Ensure that the page has no parent. Having one will cause a
-        # reference loop and the page will be re-parented anyways.
-        if "Parent" in page:
-            page.pop("Parent")
-
         if page.indirect_ref is not None:
             # page has an indirect ref, assume page comes from different
             # document and create copy.
-            added_page, refs = renumber_references(
-                PdfDictionary(deepcopy(page.data)),
-                self._pdf.get_object,
-                start=self._pdf.objects.get_next_ref().object_number,
-            )
-
-            for num, ref in refs.items():
-                self._pdf.objects[num] = ref
+            added_page = clone_into_document(self._pdf, page)
         else:
             # no indirect reference, assume new page and create copy.
             added_page = PdfDictionary(deepcopy(page.data))

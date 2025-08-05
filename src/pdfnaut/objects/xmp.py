@@ -337,6 +337,8 @@ class XmpMetadata:
     """The PDF file version. For example, '1.0' or '1.3'."""
 
     pdf_trapped = XMPTextProperty(namespaces["pdf"], "Trapped")
+    """Whether the document has been modified to include trapping information 
+    (see § 14.11.6, "Trapping support")."""
 
     # * XMP namespace properties
     # * https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/

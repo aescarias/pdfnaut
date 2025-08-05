@@ -192,8 +192,7 @@ class PdfTokenizer:
         return self.peek(len(keyword)) == keyword
 
     def try_parse_indirect(self, *, header: bool = False) -> PdfReference | None:
-        """
-        Attempts to parse an indirect reference in the form ``[obj] [gen] R``
+        """Attempts to parse an indirect reference in the form ``[obj] [gen] R``
         or an indirect object header in the form ``[obj] [gen] obj`` in case
         the ``header`` argument is true.
 

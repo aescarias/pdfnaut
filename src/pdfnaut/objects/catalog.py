@@ -258,7 +258,9 @@ class MarkInfo(PdfDictionary):
     """Whether the document claims to conform to tagged PDF conventions."""
 
     suspects: bool = False
-    """(PDF 1.6; deprecated in PDF 2.0) Whether the document includes tag suspects.
+    """(PDF 1.6; deprecated in PDF 2.0) Whether the document includes tag suspects
+    which are applied for marked content elements whose page content order could not
+    be determined.
     
     In such case, the document may not fully conform to tagged PDF conventions.
     """
