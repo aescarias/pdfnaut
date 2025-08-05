@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Generator, Iterable, MutableSequence
-from copy import deepcopy
 from typing import Any, Iterator, cast, overload
 
 from typing_extensions import Self
 
-# from pdfnaut.common.clone import PDFCloner
-from .common.utils import clone_into_document
+from pdfnaut.exceptions import PdfParseError
+
+from .common.utils import clone_into_document, copy_object
 from .cos.objects import PdfArray, PdfDictionary, PdfName, PdfReference
 from .cos.parser import PdfParser
 from .objects.page import Page
@@ -32,7 +32,7 @@ class PageList(MutableSequence[Page]):
     """A mutable sequence of the pages in a document.
 
     This class isn't designed to be constructed by a user. To access the page
-    list of a PDF, use :class:`PdfDocument.pages`.
+    list of a PDF, use :attr:`.PdfDocument.pages`.
     """
 
     def __init__(
@@ -150,8 +150,20 @@ class PageList(MutableSequence[Page]):
 
         When inserting, the page object is copied into the page list.
 
-        Note: The identity of the output shall match the identity of the input page.
+        The object identity of the output shall match the identity of the input page.
         The input page shall receive the indirect reference of the inserted page.
+
+        .. note::
+            When adding a page belonging to a different document, the page will likely
+            refer to resources that are part of the document such as fonts, images,
+            and annotations.
+
+            Some of these resources cannot be reliably copied and so it is possible
+            that they're not added to the document, in which case, the references of
+            such resources are simply marked null.
+
+            Annotations that point to destinations not within the page will be preserved
+            but not in working order. Form objects will not be copied at all.
         """
         if index < -len(self):
             index = 0
@@ -178,7 +190,11 @@ class PageList(MutableSequence[Page]):
         self._indexed_page_cache.insert(index, value)
 
     def append(self, value: Page) -> None:
-        """Appends a page ``value`` to the page list."""
+        """Appends a page ``value`` to the page list.
+
+        If appending a page from a different document, please refer to the note in
+        :meth:`PageList.insert` for additional considerations.
+        """
         self.insert(len(self._get_indexed_pages()), value)
 
     def clear(self) -> None:
@@ -193,20 +209,17 @@ class PageList(MutableSequence[Page]):
         When extending, all pages will be copied and inserted into the last page
         tree within the page list.
 
-        Notes:
-            - Resources not part of the page object, such as bookmarks or form
-              objects, will not be preserved. You must add those yourself.
-            - The indirect reference for each of the pages will only be changed if
-              the pages have no references applied to them.
+        If any of the pages belong to a different document, please refer to the note in
+        :meth:`PageList.insert` for additional considerations.
         """
         self._append_pages_to_tree(values)
 
     def pop(self, index: int = -1) -> Page:
         """Removes the page at ``index``.
 
-        Only the page object is removed from the document. Additionally, its
-        reference is also invalidated. The resources used by the page are left
-        intact as they may be used later on in other pages.
+        Only the page object is removed from the document and its reference is
+        invalidated. The resources used by the page are not removed as they may
+        be used later on in other pages.
 
         Raises:
             IndexError: The page list is empty or the index does not exist.
@@ -264,10 +277,13 @@ class PageList(MutableSequence[Page]):
         if page.indirect_ref is not None:
             # page has an indirect ref, assume page comes from different
             # document and create copy.
-            added_page = clone_into_document(self._pdf, page)
+            added_page = clone_into_document(self._pdf, page, ignore_keys=["Parent"])
         else:
             # no indirect reference, assume new page and create copy.
-            added_page = PdfDictionary(deepcopy(page.data))
+            added_page = copy_object(page)
+
+        added_page = cast(PdfDictionary, added_page)
+        added_page.pop("Parent", None)
 
         page_ref = self._pdf.objects.add(added_page)
         added_page = Page.from_dict(added_page, indirect_ref=page_ref)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections import UserDict
 from enum import IntEnum
@@ -26,6 +27,8 @@ from ..exceptions import PdfParseError
 from ..security.standard_handler import StandardSecurityHandler
 from .serializer import PdfSerializer, serialize
 from .tokenizer import PdfTokenizer
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PermsAcquired(IntEnum):
@@ -372,10 +375,11 @@ class PdfParser:
         if mat := pattern.match(header.value):
             return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
-        # Although not recommended, it is possible that some documents may start with
+        # Although not recommended, it is possible for documents to start with
         # characters different than those of %PDF-n.m. Offsets should be calculated
         # based on the start of this token rather than the start of the document.
         if not self.strict:
+            LOGGER.warning("pdf header not at start of document")
             if mat := pattern.search(self._tokenizer.data):
                 if self._tokenizer.data[mat.start() - 1] == 37:  # %
                     self._tokenizer.data = self._tokenizer.data[mat.start() - 1 :]
@@ -484,6 +488,8 @@ class PdfParser:
             self._tokenizer.position = start_offset
             return self.parse_compressed_xref()
         elif not self.strict:
+            LOGGER.warning("did not find xref table at offset %d", self._tokenizer.position)
+
             # let's attempt to locate a nearby xref table
             target = self._tokenizer.position
             table_offsets = self._find_xref_offsets()
@@ -620,7 +626,6 @@ class PdfParser:
                 second = int.from_bytes(contents.read(xref_widths[1]), "big")
                 third = int.from_bytes(contents.read(xref_widths[2]), "big")
 
-                # TODO: Warn of unknown field types once we have a logging facility
                 if field_type == 0:
                     subsection.entries.append(
                         FreeXRefEntry(next_free_object=second, gen_if_used_again=third)
@@ -631,6 +636,8 @@ class PdfParser:
                     subsection.entries.append(
                         CompressedXRefEntry(objstm_number=second, index_within=third)
                     )
+                else:
+                    LOGGER.warning("ignoring unknown field type %s in xref table", field_type)
 
             subsections.append(subsection)
 
@@ -701,11 +708,11 @@ class PdfParser:
                 for name in filters:
                     if name.value == b"Crypt":
                         use_stmf = False
-                        pdf_object._crypt_params = {
-                            "Handler": self.security_handler,
-                            "EncryptionKey": self._encryption_key,
-                            "Reference": reference,
-                        }
+                        pdf_object._crypt_params = PdfDictionary(
+                            Handler=self.security_handler,
+                            EncryptionKey=self._encryption_key,
+                            Reference=reference,
+                        )
                         break
 
             if use_stmf:

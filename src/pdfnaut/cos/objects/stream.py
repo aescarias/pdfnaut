@@ -23,7 +23,7 @@ class PdfStream:
     raw: bytes = field(repr=False)
     """The raw data in the stream."""
 
-    _crypt_params: dict[str, Any] = field(default_factory=dict, repr=False)
+    _crypt_params: PdfDictionary[str, Any] = field(default_factory=PdfDictionary, repr=False)
     """Parameters specific to the Crypt filter."""
 
     def decode(self) -> bytes:
@@ -52,7 +52,7 @@ class PdfStream:
                 raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
 
             if isinstance(params, PdfNull) or params is None:
-                params = PdfDictionary[str, PdfObject]()
+                params = PdfDictionary()
 
             if filt.value == b"Crypt" and self._crypt_params.get("Handler"):
                 params.update(self._crypt_params)
@@ -108,7 +108,7 @@ class PdfStream:
             raw = SUPPORTED_FILTERS[filt.value]().encode(raw, params=params)
 
         details["Length"] = len(raw)
-        return cls(details, raw, cast(dict[str, Any], crypt_params.data))
+        return cls(details, raw, crypt_params)
 
     def modify(self, raw: bytes) -> None:
         """Modifies this stream in place by encoding the ``raw`` data according to
@@ -145,9 +145,4 @@ class PdfStream:
         self.details["Length"] = len(self.raw)
 
     def __hash__(self) -> int:
-        if self._crypt_params is not None:
-            params = PdfDictionary(self._crypt_params)
-        else:
-            params = None
-
-        return hash((self.__class__, hash(self.details), self.raw, params))
+        return hash((self.__class__, hash(self.details), self.raw, self._crypt_params))

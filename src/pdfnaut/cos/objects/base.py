@@ -108,6 +108,9 @@ class PdfReference(Generic[T]):
     def __hash__(self) -> int:
         return hash((self.__class__, self.object_number, self.generation))
 
+    def __str__(self) -> str:
+        return f"{self.object_number} {self.generation} R"
+
 
 @dataclass
 class PdfOperator:

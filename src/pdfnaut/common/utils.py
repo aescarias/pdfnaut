@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Iterable
 from datetime import time
 from typing import TYPE_CHECKING, TypeVar
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
     from pdfnaut.cos.parser import PdfParser
 
 
+LOGGER = logging.getLogger(__name__)
 Placeholder = type("Placeholder", (), {})
 
 
@@ -68,9 +70,47 @@ def is_page_or_page_tree(obj: PdfObject | PdfStream) -> bool:
     return True
 
 
-def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObject | PdfStream:
+def copy_object(obj: PdfObject | PdfStream) -> PdfObject | PdfStream:
+    """Performs a deep copy of a PDF object ``obj``. Returns the copied object.
+
+    Deep copying works by creating a new object for the container then adding a copy
+    of each element it contains into the new object.
+
+    Numbers, literal strings, booleans, and the null object are not copied and are
+    returned as is. Unlike :meth:`.clone_in_document`, when a reference is found,
+    it is simply copied into the object without modifying the referred object.
+    """
+
+    if isinstance(obj, PdfDictionary):
+        kv = PdfDictionary()
+        for key, value in obj.data.items():
+            kv.data[key] = copy_object(value)
+        return kv
+    elif isinstance(obj, PdfStream):
+        return PdfStream(copy_object(obj.details), obj.raw, copy_object(obj._crypt_params))
+    elif isinstance(obj, PdfArray):
+        arr = PdfArray()
+        for value in obj.data:
+            arr.data.append(copy_object(value))
+        return arr
+    elif isinstance(obj, PdfName):
+        return PdfName(obj.value)
+    elif isinstance(obj, PdfHexString):
+        return PdfHexString(obj.raw)
+    elif isinstance(obj, PdfReference):
+        return PdfReference(obj.object_number, obj.generation)
+
+    return obj
+
+
+def clone_into_document(
+    dest: PdfParser, root: PdfObject | PdfStream, *, ignore_keys: list[str] | None = None
+) -> PdfObject | PdfStream:
     """Clones an object ``root`` and its contents into document ``dest``. Returns
     the cloned object.
+
+    If the root object is a dictionary and the ``ignore_keys`` argument is provided,
+    those keys will be ignored when cloning the root object.
 
     Cloning of an object is performed by deep-copying each element contained in it.
     When a reference is found, it is determined whether it is suitable for cloning
@@ -84,6 +124,9 @@ def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObje
     If the reference is suitable, its contents are added into the document and the new
     references replaces the old reference in the object.
     """
+
+    if ignore_keys is None:
+        ignore_keys = []
 
     cloned_map = {}
     references = set()
@@ -103,7 +146,7 @@ def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObje
 
             if is_page_or_page_tree(referred):
                 # avoid going to pages or anything that might lead us to the page tree
-                # TODO: warn once we setup logging
+                LOGGER.warning("object %s cannot be reliably copied and has been set to null.", obj)
                 return PdfNull()
 
             cloned_direct = inner(referred)
@@ -114,12 +157,13 @@ def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObje
             kv = PdfDictionary()
             cloned_map[obj] = kv
             for key, value in obj.data.items():
+                if obj is root and key in ignore_keys:
+                    continue
+
                 kv.data[key] = inner(value)
             return kv
         elif isinstance(obj, PdfStream):
-            extent = inner(obj.details)
-            crypt_params = inner(PdfDictionary(obj._crypt_params))
-            stm = PdfStream(extent, obj.raw, crypt_params)
+            stm = PdfStream(inner(obj.details), obj.raw, inner(obj._crypt_params))
             cloned_map[obj] = stm
             return stm
         elif isinstance(obj, PdfArray):
@@ -128,6 +172,10 @@ def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObje
             for value in obj.data:
                 arr.data.append(inner(value))
             return arr
+        elif isinstance(obj, PdfName):
+            return PdfName(obj.value)
+        elif isinstance(obj, PdfHexString):
+            return PdfHexString(obj.raw)
 
         return obj
 
@@ -142,7 +190,7 @@ def clone_into_document(dest: PdfParser, root: PdfObject | PdfStream) -> PdfObje
             return PdfDictionary({key: replace_placeholders(val) for key, val in obj.data.items()})
         elif isinstance(obj, PdfStream):
             obj.details = replace_placeholders(obj.details)
-            obj._crypt_params = dict(replace_placeholders(PdfDictionary(obj._crypt_params)))
+            obj._crypt_params = replace_placeholders(obj._crypt_params)
             return obj
 
         return obj
