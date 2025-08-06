@@ -23,6 +23,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
     "sphinx_design",
     "sphinx_copybutton",
 ]
@@ -37,7 +38,12 @@ exclude_patterns = []
 html_theme = "furo"
 html_static_path = ["_static"]
 html_logo = "_static/pdfnaut-logo.svg"
-html_theme_options = {"sidebar_hide_name": True}
+html_theme_options = {
+    "sidebar_hide_name": True,
+    "source_repository": "https://github.com/aescarias/pdfnaut/",
+    "source_branch": "main",
+    "source_directory": "docs/source/",
+}
 
 copybutton_prompt_text = r">>> |\.\.\. "
 copybutton_prompt_is_regexp = True
@@ -45,6 +51,7 @@ copybutton_prompt_is_regexp = True
 autoclass_content = "both"
 autodoc_class_signature = "separated"
 autodoc_default_options = {"show-inheritance": True}
+autodoc_preserve_defaults = True
 autodoc_type_aliases = {
     "PdfObject": "~pdfnaut.cos.objects.base.PdfObject",
     "PdfXRefEntry": "~pdfnaut.cos.objects.xref.PdfXRefEntry",

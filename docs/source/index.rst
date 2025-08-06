@@ -62,7 +62,15 @@ Reading document information from a PDF is also simple:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Reference
+   :caption: Links
+   :hidden:
+
+   Github <https://github.com/aescarias/pdfnaut>
+   PyPI <https://pypi.org/project/pdfnaut>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
    :hidden:
 
    PDF Tokenizer <reference/cos/tokenizer>
