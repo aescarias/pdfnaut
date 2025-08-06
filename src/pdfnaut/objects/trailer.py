@@ -17,12 +17,12 @@ class Info(PdfDictionary):
     "Document information dictionary".
 
     Since PDF 2.0, most of its keys have been deprecated in favor of their equivalents
-    in the document-level Metadata stream. The only keys not deprecated are the
+    in the document-level metadata stream. The only keys not deprecated are the
     CreationDate and ModDate keys.
     """
 
     # typing Unions until 3.9 goes EOL
-    # Supporting  'T | None' syntax on 3.9 would require eval magic.
+    # Supporting 'T | None' syntax on 3.9 would require eval magic.
 
     title: Union[str, None] = None
     """The document's title."""
@@ -58,7 +58,7 @@ class Info(PdfDictionary):
     """The date and time the document was most recently modified, in human-readable form."""
 
     trapped: Union[TrappedState, None] = None
-    """A value indicating whether the document has been modified to include trapping 
+    """A value reporting whether the document has been modified to include trapping 
     information (see § 14.11.6, "Trapping support")."""
 
     @classmethod

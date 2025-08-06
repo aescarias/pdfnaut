@@ -91,6 +91,7 @@ Reading document information from a PDF is also simple:
 .. toctree::
    :maxdepth: 2
    :caption: Developer Guides
+   :hidden:
 
    Dictionary Models and Accessors <guides/dev-dictmodels>
 

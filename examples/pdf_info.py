@@ -144,7 +144,7 @@ def print_doc_info(pdf: PdfDocument) -> None:
     if pdf.doc_info.modify_date is not None:
         print(f"Modified:        {pdf.doc_info.modify_date}")
 
-    print(f"Trapping:        {pdf.doc_info.trapped.name}")
+    print(f"Trapping:        {pdf.doc_info.trapped}")
 
 
 print_doc_info(document)

@@ -34,9 +34,9 @@ def get_full_text(element: minidom.Element) -> str:
 
 
 def lookup_prefix_for_ns(node: minidom.Node, namespace: str) -> tuple[str, minidom.Node] | None:
-    """Locates a namespace prefix matching the ``namespace`` URI. Returns either
-    a tuple of two items containing, in order, the prefix of the namespace URI and the
-    node where it was found, or None, if no prefix is registered for the namespace URI.
+    """Locates a namespace prefix matching the ``namespace`` URI in ``node``. Returns either
+    a tuple of two items containing, in order, the prefix of the namespace URI and the node
+    where it was found, or None, if no prefix is registered for the namespace URI.
 
     This is an implementation of https://dom.spec.whatwg.org/#locate-a-namespace-prefix.
     """
@@ -306,8 +306,8 @@ class XMPDateProperty(XMPProperty):
 
 
 class XmpMetadata:
-    """An object representing Extensible Metadata Platform (XMP) metadata, either pertaining
-    to an entire document or to a particular resource.
+    """An object representing Extensible Metadata Platform (XMP) metadata,
+    either pertaining to an entire document or to a particular resource.
 
     For information about XMP, see https://developer.adobe.com/xmp/docs/.
 

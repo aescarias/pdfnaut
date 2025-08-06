@@ -1,7 +1,7 @@
 Objects Reference
 =================
 
-Alongside the basic object types (documented in the :ref:`cos objects reference`), pdfnaut implements high-level objects mainly for use with :class:`~pdfnaut.document.PdfDocument`.
+Alongside the basic object types documented in the :ref:`cos objects reference`, pdfnaut implements high-level objects mainly for use with :class:`~pdfnaut.document.PdfDocument`.
 
 Catalog Objects
 ---------------

@@ -36,7 +36,7 @@ Each key in a dictionary is represented in a dictmodel by an **accessor**. An ac
 The accessor used for each member of the dictmodel will depend on the type specified:
 
 - The types :class:`int`, :class:`float`, and :class:`bool` use the standard accessor. :class:`.PdfDictionary` and :class:`.PdfArray` also currently use this accessor although they will receive their own special accessors in the future.
-- The :class:`str` type is automatically mapped to a text string accessor. However, it is also possible to map it to a name accessor by specifying the :class:`Annotated[str, "name"]` form.
+- The :class:`str` type is automatically mapped to a text string accessor. It is also possible to map a string to a name accessor by specifying the :class:`Annotated[str, "name"]` form.
 - Literal types defined using :class:`typing.Literal` are mapped to name accessors.
 - :class:`datetime.datetime` objects are mapped to date accessors.
 

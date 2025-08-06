@@ -25,10 +25,10 @@ The spec also defines general-purpose data structures built from the basic objec
   * ASCII strings.
   * Byte strings: hex strings or literal strings containing binary data.
   * PDFDocEncoded strings
-  * Text strings: encoded in either PDFDocEncoding, UTF-16BE or (PDF 2.0) UTF-8. The latter was introduced in PDF 2.0
+  * Text strings: encoded in either PDFDocEncoding, UTF-16BE or UTF-8. The latter was introduced in PDF 2.0
 
 * Dates: implemented via :func:`~pdfnaut.common.dates.encode_iso8824` and :func:`~pdfnaut.common.dates.parse_iso8824`.
-* The following data structures are currently not implemented explicitly:
+* The following data structures do not currently have a dedicated type:
 
   * File specifications
   * Functions

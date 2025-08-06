@@ -5,8 +5,6 @@ from typing import Any, Iterator, cast, overload
 
 from typing_extensions import Self
 
-from pdfnaut.exceptions import PdfParseError
-
 from .common.utils import clone_into_document, copy_object
 from .cos.objects import PdfArray, PdfDictionary, PdfName, PdfReference
 from .cos.parser import PdfParser
@@ -29,10 +27,11 @@ def flatten_pages(root: PdfDictionary) -> Generator[Page, None, None]:
 
 
 class PageList(MutableSequence[Page]):
-    """A mutable sequence of the pages in a document.
+    """A mutable sequence representing the the pages in a document.
 
-    This class isn't designed to be constructed by a user. To access the page
-    list of a PDF, use :attr:`.PdfDocument.pages`.
+    .. warning::
+        This class isn't designed to be constructed by a user. To access the page list
+        of a PDF, use :attr:`.PdfDocument.pages`.
     """
 
     def __init__(
