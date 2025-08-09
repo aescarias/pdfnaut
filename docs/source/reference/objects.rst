@@ -1,3 +1,5 @@
+.. TODO: Split this into separate files.
+
 Objects Reference
 =================
 
@@ -19,6 +21,12 @@ Page Objects
 ------------
 
 .. automodule:: pdfnaut.objects.page
+    :members:
+
+Annotation Objects
+------------------
+
+.. automodule:: pdfnaut.objects.annotations
     :members:
 
 XMP Objects

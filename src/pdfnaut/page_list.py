@@ -11,7 +11,9 @@ from .cos.parser import PdfParser
 from .objects.page import Page
 
 
-def flatten_pages(root: PdfDictionary) -> Generator[Page, None, None]:
+def flatten_pages(
+    root: PdfDictionary, *, pdf: PdfParser | None = None
+) -> Generator[Page, None, None]:
     """Yields all :class:`.Page` objects within ``root`` and its descendants."""
 
     kids = cast(PdfArray, root["Kids"])
@@ -21,9 +23,9 @@ def flatten_pages(root: PdfDictionary) -> Generator[Page, None, None]:
 
         type_ = cast(PdfName, page["Type"])
         if type_.value == b"Pages":
-            yield from flatten_pages(page)
+            yield from flatten_pages(page, pdf=pdf)
         elif type_.value == b"Page":
-            yield Page.from_dict(page, indirect_ref=page_ref)
+            yield Page.from_dict(page, pdf=pdf, indirect_ref=page_ref)
 
 
 class PageList(MutableSequence[Page]):
@@ -43,7 +45,7 @@ class PageList(MutableSequence[Page]):
         self._pdf = pdf
         self._root_tree = root_tree
         self._root_tree_ref = root_tree_ref
-        self._indexed_page_cache = list(flatten_pages(self._root_tree))
+        self._indexed_page_cache = list(flatten_pages(self._root_tree, pdf=self._pdf))
         self._last_hash = hash(self._root_tree)
 
     def _update_on_hash(self) -> None:
@@ -55,7 +57,7 @@ class PageList(MutableSequence[Page]):
 
         page_list: list[Page] = []
 
-        for idx, page in enumerate(flatten_pages(self._root_tree)):
+        for idx, page in enumerate(flatten_pages(self._root_tree, pdf=self._pdf)):
             if 0 <= idx < len(self._indexed_page_cache):
                 # page in list, check if it is different.
                 prev_page = self._indexed_page_cache[idx]
@@ -285,7 +287,7 @@ class PageList(MutableSequence[Page]):
         added_page.pop("Parent", None)
 
         page_ref = self._pdf.objects.add(added_page)
-        added_page = Page.from_dict(added_page, indirect_ref=page_ref)
+        added_page = Page.from_dict(added_page, pdf=self._pdf, indirect_ref=page_ref)
 
         # only set the reference if the page has none.
         if page.indirect_ref is None:

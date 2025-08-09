@@ -198,7 +198,7 @@ def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
         return lookup_accessor(args[0])
     elif get_origin(value_type) is Literal:
         return NameAccessor, {}
-    elif isinstance(value_type, enum.IntFlag):
+    elif issubclass(value_type, enum.IntFlag):
         return BitFlagAccessor[value_type], {"enum_cls": value_type}
 
     return StandardAccessor, {}

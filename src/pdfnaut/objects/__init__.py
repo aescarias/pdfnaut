@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from .annotations import Annotation, AnnotationFlags
 from .catalog import (
     PageLayout,
     PageMode,
     UserAccessPermissions,
     ViewerPreferences,
 )
-from .page import Annotation, AnnotationFlags, Page
+from .page import Page
 from .trailer import Info
 from .xmp import XmpMetadata
 

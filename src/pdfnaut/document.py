@@ -199,7 +199,7 @@ class PdfDocument(PdfParser):
     @property
     def flattened_pages(self) -> Generator[Page, None, None]:
         """A generator suitable for iterating over the pages of a PDF."""
-        return flatten_pages(self.page_tree)
+        return flatten_pages(self.page_tree, pdf=self)
 
     @property
     def page_layout(self) -> PageLayout:
