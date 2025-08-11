@@ -5,9 +5,12 @@ from typing import Literal, Union
 
 from pdfnaut.exceptions import MissingCryptProviderError
 
-from ..common.utils import get_value_from_bytes
+from ..common.utils import ensure_bytes
 from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
 from .providers import CRYPT_PROVIDERS, CryptProvider
+
+CryptMethod = Literal["Identity", "ARC4", "AESV2"]
+Encryptable = Union[PdfStream, PdfHexString, bytes]
 
 PASSWORD_PADDING = b"(\xbfN^Nu\x8aAd\x00NV\xff\xfa\x01\x08..\x00\xb6\xd0h>\x80/\x0c\xa9\xfedSiz"
 
@@ -49,131 +52,172 @@ class StandardSecurityHandler:
         return self.encryption.get("Length", 40) // 8
 
     def compute_encryption_key(self, password: bytes) -> bytes:
-        """Computes an encryption key from ``password`` according to Algorithm 2 in
-        § 7.6.4.3.1, "File encryption key algorithm"."""
-        # a)
-        padded_password = pad_password(password)  # a)
+        """Computes an encryption key from ``password`` according to § 7.6.4.3.2,
+        "Algorithm 2: Computing a file encryption key in order to encrypt a document
+        (revision 4 and earlier)"."""
 
-        # b)
+        # a) Pad or truncate the password string to exactly 32 bytes.
+        padded_password = pad_password(password)
+
+        # b) Initialize the MD5 hash function with the padded string.
         psw_hash = md5(padded_password)
-        # c)
-        psw_hash.update(get_value_from_bytes(self.encryption["O"]))
-        # d)
-        psw_hash.update(self.encryption["P"].to_bytes(4, "little", signed=True))
-        # e)
-        psw_hash.update(get_value_from_bytes(self.ids[0]))
 
-        # f)
-        if self.encryption.get("V", 0) >= 4 and not self.encryption.get("EncryptMetadata", True):
+        # c) Pass the value of the O entry in the Encrypt dictionary.
+        psw_hash.update(ensure_bytes(self.encryption["O"]))
+
+        # d) Pass the value of the P entry as a 32-bit unsigned integer.
+        #    P may be negative, so it's wrapped into unsigned beforehand.
+        perms = (self.encryption["P"] + 2**32) % 2**32
+        psw_hash.update(perms.to_bytes(4, "little"))
+
+        # e) Pass the first element of the file identifier array.
+        psw_hash.update(ensure_bytes(self.ids[0]))
+
+        # f) If the handler is revision 4 or greater, and the metadata is not being
+        #    encrypted, pass 4 bytes to the hash function.
+        if self.encryption["R"] >= 4 and not self.encryption.get("EncryptMetadata", True):
             psw_hash.update(b"\xff\xff\xff\xff")
 
-        # g) and h)
+        # g) Finish the hash.
+        # h) If the handler is revision 3 or greater, for 50 times, take the output from
+        #    the previous MD5 hash and pass the first "key length" bytes of the output
+        #    as input to a new MD5 hash.
         if self.encryption["R"] >= 3:
             for _ in range(50):
                 psw_hash = md5(psw_hash.digest()[: self.key_length])
 
-        # i)
+        # i) Truncate the final hash to "key length" bytes and return.
         return psw_hash.digest()[: self.key_length]
 
     def compute_owner_password(self, owner_password: bytes, user_password: bytes) -> bytes:
         """Computes the O (``owner_password``) value in the Encrypt dictionary according
-        to Algorithm 3 in § 7.6.4.4, "Password algorithms".
+        to § 7.6.4.4.2, "Algorithm 3: Computing the encryption dictionary's O-entry value
+        (revision 4 and earlier)".
 
-        As a fallback if there is no owner password, ``user_password`` is also specified.
+        As a fallback in case there is no owner password, a ``user_password`` must also
+        be specified.
         """
-        # a)
+
+        # a) Pad or truncate the password string to exactly 32 bytes. The password string
+        #    is the owner password, or in case there is none, the user password.
         padded = pad_password(owner_password or user_password)
-        # b)
+
+        # b) Initialize the MD5 hash function with the result as input.
         owner_digest = md5(padded).digest()
-        # c)
+
+        # c) If the handler is revision 3 or greater, for 50 times, pass the result
+        #    of the output digest as the input of a new MD5 hash.
         if self.encryption["R"] >= 3:
             for _ in range(50):
                 owner_digest = md5(owner_digest).digest()
 
-        # d)
+        # d) Create the RC4 file encryption key by truncating the result to "key length".
         owner_cipher = owner_digest[: self.key_length]
 
-        # e)
+        # e) Pad or truncate the user password string.
         padded_user_psw = pad_password(user_password)
-        # f)
+
+        # f) Encrypt the result of (e) using ARC4 with the key generated in (d)
         arc4 = self._get_provider("ARC4")
         owner_crypt = arc4(owner_cipher).encrypt(padded_user_psw)
 
-        # g)
+        # g) If the handler is revision 3 or greater, for 19 times, take the output from
+        #    the previous invocation of the ARC4 function and pass it as input to a new
+        #    invocation; use a file encryption key generated by taking each byte of the
+        #    encryption key obtained in step (d) and performing an XOR operation between
+        #    that byte and the single-byte value of the iteration counter.
         if self.encryption["R"] >= 3:
             for i in range(1, 20):
                 owner_crypt = arc4(bytearray(b ^ i for b in owner_cipher)).encrypt(owner_crypt)
 
-        # h)
+        # h) Return the resulting owner password.
         return owner_crypt
 
     def compute_user_password(self, password: bytes) -> bytes:
         """Computes the U (user password) value in the Encrypt dictionary according to
-        Algorithm 4 (rev. 2) and Algorithm 5 (rev. 3 and 4) in § 7.6.4.4, "Password algorithms".
+        the algorithms for revision 2 (Algorithm 4 in § 7.6.4.4.3) and revisions 3 and 4
+        (Algorithm 5 in § 7.6.4.4.4).
         """
-        # 4 & 5. a)
-        encr_key = self.compute_encryption_key(password)
 
         arc4 = self._get_provider("ARC4")
 
+        # a) Create a file encryption key based on the user password.
+        #    This applies for both algorithms.
+        encr_key = self.compute_encryption_key(password)
+
         if self.encryption["R"] == 2:
-            # 4. b) and c)
+            # b) Encrypt the 32 byte padding string with RC4 using the key from step (a)
             padding_crypt = arc4(encr_key).encrypt(PASSWORD_PADDING)
+
+            # c) We are done!
             return padding_crypt
         else:
-            # 5. b) and c)
-            padded_id_hash = md5(PASSWORD_PADDING + get_value_from_bytes(self.ids[0]))
-            # 5. d)
+            # b) Initialize the MD5 hash function with the 32-byte padding string.
+            # c) Pass the first element of the file identifier array and finish.
+            padded_id_hash = md5(PASSWORD_PADDING + ensure_bytes(self.ids[0]))
+
+            # d) Encrypt the digest from (c) using ARC4 with the key from (a)
             user_cipher = arc4(encr_key).encrypt(padded_id_hash.digest())
 
-            # 5. e)
+            # e) Same process as step (g) from 7.6.4.4.2, but with the user password instead.
             for i in range(1, 20):
                 user_cipher = arc4(bytearray(b ^ i for b in encr_key)).encrypt(user_cipher)
 
-            # 5. f)
+            # f) Pad the string and return.
             return pad_password(user_cipher)
 
     def authenticate_user_password(self, password: bytes) -> tuple[bytes, bool]:
-        """Authenticates the provided user ``password`` according to Algorithms 6
-        (based on Algos. 4 and 5) in § 7.6.4.4, "Password Algorithms".
+        """Authenticates the provided user ``password`` according to § 7.6.4.4.5,
+        "Algorithm 6: Authenticating the user password (Security handlers of revision
+        4 and earlier)".
 
         Returns a tuple of two values: the encryption key that should decrypt the
         document and whether authentication was successful.
         """
-        # first step from Algorithms 4 and 5
-        encryption_key = self.compute_encryption_key(password)
-        stored_password = get_value_from_bytes(self.encryption["U"])
 
         arc4 = self._get_provider("ARC4")
 
+        # a) Perform everything but the last step from Algorithms 4 and 5.
+        # Algorithms 4 and 5, step (a)
+        encryption_key = self.compute_encryption_key(password)
+        stored_password = ensure_bytes(self.encryption["U"])
+
         if self.encryption["R"] == 2:
-            # Algorithm 4: b) and c)
+            # Algorithm 4, step (b)
             user_cipher = arc4(encryption_key).encrypt(PASSWORD_PADDING)
-            # last step in Algorithm 6
+
+            # b) If the result of step (a) is equal to the value of the encryption
+            #    dictionary's U entry, the password supplied is the correct user
+            #    password and the file encryption key from (a) shall be used to
+            #    decrypt the document.
+
             return (encryption_key, True) if stored_password == user_cipher else (b"", False)
         else:
-            # Algorithm 5: b) and c)
-            padded_id_hash = md5(PASSWORD_PADDING + get_value_from_bytes(self.ids[0]))
-            # Algorithm 5: d)
+            # Algorithm 5, steps (b) and (c)
+            padded_id_hash = md5(PASSWORD_PADDING + ensure_bytes(self.ids[0]))
+            # Algorithm 5, step (d)
             user_cipher = arc4(encryption_key).encrypt(padded_id_hash.digest())
 
-            # Algorithm 5: e)
+            # Algorithm 5, step (e)
             for i in range(1, 20):
                 user_cipher = arc4(bytearray(b ^ i for b in encryption_key)).encrypt(user_cipher)
 
-            # last step in Algorithm 6 for revisions 3 or greater
+            # b) For the comparison, both values -- the stored password and the
+            #    computed one -- shall be truncated to 16 bytes.
             return (
                 (encryption_key, True) if stored_password[:16] == user_cipher[:16] else (b"", False)
             )
 
     def authenticate_owner_password(self, password: bytes) -> tuple[bytes, bool]:
         """Authenticates the provided owner ``password`` (or user ``password`` if none)
-        according to Algorithm 7 (based on Algo. 3) in § 7.6.4.4, "Password Algorithms".
+        according to § 7.6.4.4.6, "Algorithm 7: Authenticating the owner password
+        (Security handlers of revision 4 and earlier)".
 
         Returns a tuple of two values: the encryption key that should decrypt the
         document and whether authentication was successful.
         """
-        # (a) to (d) in Algorithm 3
+        # a) Perform steps (a) to (d) from Algorithm 3 to compute a file encryption key
+        #    from the supplied password string.
         padded_password = pad_password(password)
         digest = md5(padded_password).digest()
         if self.encryption["R"] >= 3:
@@ -181,69 +225,86 @@ class StandardSecurityHandler:
                 digest = md5(digest).digest()
 
         cipher_key = digest[: self.key_length]
-        user_cipher = get_value_from_bytes(self.encryption["O"])
 
+        user_cipher = ensure_bytes(self.encryption["O"])
         arc4 = self._get_provider("ARC4")
-        # Algorithm 7
+
         if self.encryption["R"] == 2:
-            user_cipher = arc4(user_cipher).decrypt(user_cipher)
+            # b) If the handler is revision 2, decrypt the O value from the encryption
+            #    dictionary using the computed encryption key as the key.
+            user_cipher = arc4(cipher_key).decrypt(user_cipher)
         else:
+            # b) If the handler is revision 3 or greater, for 20 times, decrypt the
+            #    encryption dictionary's O entry (first iteration) or the output from the
+            #    previous iteration (subsequent iterations), using an ARC4 function with a
+            #    key generated by taking the original key from step (a) and performing an
+            #    XOR between each byte of the key and the single byte value of the
+            #    iteration counter (from 19 to 0).
             for i in range(19, -1, -1):
                 user_cipher = arc4(bytearray(b ^ i for b in cipher_key)).encrypt(user_cipher)
 
+        # c) The result of step (b) is presumably the user password. If authentication of
+        #    the user password succeeds, the supplied password is the owner password.
         return self.authenticate_user_password(user_cipher)
-
-    _Encryptable = Union[PdfStream, PdfHexString, bytes]
 
     def compute_object_crypt(
         self,
         encryption_key: bytes,
-        contents: _Encryptable,
+        contents: Encryptable,
         reference: PdfReference,
         *,
         crypt_filter: PdfDictionary | None = None,
     ) -> tuple[CryptMethod, bytes, bytes]:
-        """Computes all needed parameters to encrypt or decrypt ``contents`` according to
-        § 7.6.3.1, "Algorithm 1: Encryption of data using the RC4 and AES algorithms".
+        """Computes all parameters needed to encrypt or decrypt ``contents`` according to
+        § 7.6.3.2, "Algorithm 1: Encryption of data using the RC4 and AES algorithms".
 
         This algorithm is only applicable for Encrypt versions 1 through 4 (deprecated in
-        PDF 2.0). Version 5 uses a simpler algorithm described in § 7.6.3.2, "Algorithm 1.A".
+        PDF 2.0). Version 5 uses a simpler algorithm described in § 7.6.3.2.
 
         Arguments:
             encryption_key (bytes):
-                An encryption key generated by :meth:`.compute_encryption_key`
+                An encryption key generated by the algorithm implemented in
+                :meth:`.compute_encryption_key`.
 
-            contents (:class:`.PdfStream` | :class:`.PdfHexString` | bytes):
+            contents (PdfStream | PdfHexString | bytes):
                 The contents to encrypt/decrypt. The type of object will determine what
                 crypt filter will be used for decryption (StmF for streams, StrF for
                 hex and literal strings).
 
-            reference (:class:`.PdfReference`):
+            reference (PdfReference):
                 The reference of either the object itself (in the case of a stream) or
                 the object containing it (in the case of a string).
 
-            crypt_filter (:class:`.PdfDictionary`, optional):
+            crypt_filter (PdfDictionary, optional, keyword only):
                 The specific crypt filter to be referenced when decrypting the document.
                 If not specified, the default for this type of ``contents`` will be used.
 
-        Returns a tuple of 3 values: the crypt method to apply (AES-CBC or ARC4),
-        the key to use with this method, and the data to encrypt/decrypt.
+        Returns a tuple of 3 values specifying, in order, the crypt method to apply
+        (AES-CBC or ARC4), the key to use with this method, and the data to encrypt or
+        decrypt.
         """
-        # NOTE: step a) is satisfied by the "reference" parameter
-
-        # b)
+        # a) Obtain the object number and generation number from the object identifier of
+        #    the contents to encrypt. This is satisfied by the "reference" argument.
+        # b) For all strings and streams without crypt filter specifier; treating
+        #    treating the object number and generation number as binary integers,
+        #    extend the original "key length" file encryption key by 5 bytes by
+        #    appending the low-order 3 bytes of the object number and the low-order 2
+        #    bytes of the generation number, in that order, low-order byte first.
         generation = reference.generation.to_bytes(4, "little")
         object_number = reference.object_number.to_bytes(4, "little")
-
         extended_key = encryption_key + object_number[:3] + generation[:2]
 
+        # b) If using the AES algorithm, extend the file encryption key an additional
+        # 4 bytes by adding the value "sAlT".
         method = (
             self._get_cfm_method(crypt_filter) if crypt_filter else self._get_crypt_method(contents)
         )
         if method == "AESV2":
             extended_key += bytes([0x73, 0x41, 0x6C, 0x54])
 
-        # c)
+        # c) Initialise the MD5 hash function with the result of step (b) as input.
+        # d) Use the first "key length" + 5 bytes, up to a maximum of 16 bytes,
+        #    as the key of the encryption algorithm.
         crypt_key = md5(extended_key).digest()[: self.key_length + 5][:16]
 
         if isinstance(contents, PdfStream):
@@ -260,16 +321,13 @@ class StandardSecurityHandler:
     def encrypt_object(
         self,
         encryption_key: bytes,
-        contents: _Encryptable,
+        contents: Encryptable,
         reference: PdfReference,
         *,
         crypt_filter: PdfDictionary | None = None,
     ) -> bytes:
-        """Encrypts the specified ``contents`` according to Algorithm 1 in
-        § 7.6.3, "General Encryption Algorithm".
-
-        For details on arguments, please see :meth:`.compute_object_crypt`.
-        """
+        """Encrypts the specified ``contents`` according to § 7.6.3.2. For details on
+        parameters, see :meth:`.compute_object_crypt`."""
 
         crypt_method, key, decrypted = self.compute_object_crypt(
             encryption_key, contents, reference, crypt_filter=crypt_filter
@@ -280,16 +338,13 @@ class StandardSecurityHandler:
     def decrypt_object(
         self,
         encryption_key: bytes,
-        contents: _Encryptable,
+        contents: Encryptable,
         reference: PdfReference,
         *,
         crypt_filter: PdfDictionary | None = None,
     ) -> bytes:
-        """Decrypts the specified ``contents`` according to Algorithm 1 in
-        § 7.6.3, "General Encryption Algorithm".
-
-        For details on arguments, please see :meth:`.compute_object_crypt`.
-        """
+        """Decrypts the specified ``contents`` according to § 7.6.3.2. For details on
+        parameters, see :meth:`.compute_object_crypt`."""
 
         crypt_method, key, encrypted = self.compute_object_crypt(
             encryption_key, contents, reference, crypt_filter=crypt_filter
@@ -307,9 +362,7 @@ class StandardSecurityHandler:
 
         return provider
 
-    CryptMethod = Literal["Identity", "ARC4", "AESV2"]
-
-    def _get_crypt_method(self, contents: _Encryptable) -> CryptMethod:
+    def _get_crypt_method(self, contents: Encryptable) -> CryptMethod:
         if self.encryption.get("V", 0) != 4:
             # ARC4 is assumed given that can only be specified if V = 4. It is definitely
             # not Identity because the document wouldn't be encrypted in that case.
@@ -332,6 +385,7 @@ class StandardSecurityHandler:
 
     def _get_cfm_method(self, crypt_filter: PdfDictionary) -> CryptMethod:
         cf_name = crypt_filter.get("CFM", PdfName(b"Identity"))
+
         if cf_name.value == b"Identity":
             return "Identity"
         elif cf_name.value == b"AESV2":

@@ -671,7 +671,7 @@ class PdfParser:
             self._tokenizer.position = _current
 
             if not isinstance(length, int):
-                raise PdfParseError("\\Length entry of stream extent not an integer")
+                raise PdfParseError("Length entry of stream extent not an integer")
 
             item = PdfStream(extent, self.parse_stream(xref_entry, length))
         else:
@@ -903,6 +903,9 @@ class PdfParser:
         password. The owner password would allow full access to the PDF and the user password
         should allow access according to the permissions specified in the document.
 
+        When the document is decrypted successfully, the object cache is cleared to make way
+        for the new objects in decrypted form.
+
         Returns:
             PermsAcquired: A value specifying the permissions acquired by ``password``.
 
@@ -918,6 +921,7 @@ class PdfParser:
         )
         if is_owner_pass:
             self._encryption_key = encryption_key
+            self.objects.fill()
             return PermsAcquired.OWNER
 
         # Is this the user password?
@@ -926,6 +930,7 @@ class PdfParser:
         )
         if is_user_pass:
             self._encryption_key = encryption_key
+            self.objects.fill()
             return PermsAcquired.USER
 
         return PermsAcquired.NONE

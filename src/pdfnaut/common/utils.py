@@ -18,9 +18,9 @@ LOGGER = logging.getLogger(__name__)
 Placeholder = type("Placeholder", (), {})
 
 
-def get_value_from_bytes(contents: PdfHexString | bytes) -> bytes:
+def ensure_bytes(contents: PdfHexString | bytes) -> bytes:
     """Returns the decoded value of ``contents`` if it is an instance of
-    :class:`.PdfHexString`, otherwise returns ``contents``."""
+    :class:`.PdfHexString`, otherwise returns ``contents`` as is."""
     return contents.value if isinstance(contents, PdfHexString) else contents
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from pdfnaut.common.utils import get_value_from_bytes
+from pdfnaut.common.utils import ensure_bytes
 from pdfnaut.cos.objects.base import PdfHexString, PdfReference
 from pdfnaut.cos.objects.containers import PdfDictionary
 from pdfnaut.cos.parser import PdfParser, PermsAcquired
@@ -45,7 +45,7 @@ def test_rc4_aes_decryption():
         info = cast(PdfDictionary, parser.trailer["Info"])
         producer = cast("PdfHexString | bytes", info["Producer"])
 
-        assert get_value_from_bytes(producer) == b"pypdf"
+        assert ensure_bytes(producer) == b"pypdf"
 
     with open("tests/docs/encrypted-aes128.pdf", "rb") as fp:
         parser = PdfParser(fp.read())
@@ -56,7 +56,7 @@ def test_rc4_aes_decryption():
         info = cast(PdfDictionary, parser.trailer["Info"])
         producer = cast("PdfHexString | bytes", info["Producer"])
 
-        assert get_value_from_bytes(producer) == b"pypdf"
+        assert ensure_bytes(producer) == b"pypdf"
 
 
 def test_rc4_aes_password_values():

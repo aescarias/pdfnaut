@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Generator, cast
+from collections.abc import Generator
+from typing import cast
 
 from .cos.objects import (
     PdfArray,
@@ -107,6 +108,7 @@ class PdfDocument(PdfParser):
 
         For details on the contents of the catalog, see § 7.7.2, "Document Catalog".
         """
+
         return cast(PdfDictionary, self.trailer["Root"])
 
     @catalog.setter
@@ -116,7 +118,7 @@ class PdfDocument(PdfParser):
 
     @property
     def doc_info(self) -> Info | None:
-        """The ``/Info`` entry in the catalog which includes document-level information
+        """The ``Info`` entry in the catalog which includes document-level information
         described in § 14.3.3, "Document information dictionary".
 
         Some documents may specify a metadata stream rather than a DocInfo dictionary.
@@ -284,7 +286,7 @@ class PdfDocument(PdfParser):
         """The page list in the document."""
 
         if not self.access_level:
-            raise PermissionError("Cannot read pages of encrypted document.")
+            raise PermissionError("cannot read pages of encrypted document.")
 
         if self._page_list is None:
             self._page_list = PageList(
