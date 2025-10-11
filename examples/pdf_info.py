@@ -69,13 +69,17 @@ def print_permissions(flags: UserAccessPermissions) -> None:
         print(f"{perm_titles[flag]:>{maxlen}}: {status}")
 
 
-def humanize_access_level(level: PermsAcquired):
+def humanize_access_level(level: PermsAcquired) -> str:
     if level == PermsAcquired.OWNER:
         return "Owner (full access)"
     elif level == PermsAcquired.USER:
         return "User (under permissions)"
 
     return "No access"  # this one shouldn't happen though
+
+
+def get_metadata_status(pdf: PdfDocument) -> str:
+    return "Yes" if "Metadata" in pdf.catalog else "No"
 
 
 def get_acroform_status(pdf: PdfDocument) -> str:
@@ -121,47 +125,48 @@ def print_doc_info(pdf: PdfDocument) -> None:
         return
 
     if pdf.doc_info.title is not None:
-        print(f"Title:           {pdf.doc_info.title}")
+        print(f"Title:            {pdf.doc_info.title}")
 
     if pdf.doc_info.subject is not None:
-        print(f"Subject:         {pdf.doc_info.subject}")
+        print(f"Subject:          {pdf.doc_info.subject}")
 
     if pdf.doc_info.author is not None:
-        print(f"Author:          {pdf.doc_info.author}")
+        print(f"Author:           {pdf.doc_info.author}")
 
     if pdf.doc_info.keywords is not None:
-        print(f"Keywords:        {pdf.doc_info.keywords}")
+        print(f"Keywords:         {pdf.doc_info.keywords}")
 
     if pdf.doc_info.creator is not None:
-        print(f"Creator:         {pdf.doc_info.creator}")
+        print(f"Creator:          {pdf.doc_info.creator}")
 
     if pdf.doc_info.producer is not None:
-        print(f"Producer:        {pdf.doc_info.producer}")
+        print(f"Producer:         {pdf.doc_info.producer}")
 
     if pdf.doc_info.creation_date is not None:
-        print(f"Created:         {pdf.doc_info.creation_date}")
+        print(f"Created:          {pdf.doc_info.creation_date}")
 
     if pdf.doc_info.modify_date is not None:
-        print(f"Modified:        {pdf.doc_info.modify_date}")
+        print(f"Modified:         {pdf.doc_info.modify_date}")
 
-    print(f"Trapping:        {pdf.doc_info.trapped}")
+    print(f"Trapping:         {pdf.doc_info.trapped}")
 
 
 print_doc_info(document)
 
 if document.language is not None:
-    print(f"Language:        {document.language}")
+    print(f"Language:         {document.language}")
 
-print(f"Page Layout:     {humanize_page_layout(document.page_layout)}")
-print(f"Page Mode:       {humanize_page_mode(document.page_mode)}")
-print(f"Page Count:      {document.page_tree['Count']}")
+print(f"Page Layout:      {humanize_page_layout(document.page_layout)}")
+print(f"Page Mode:        {humanize_page_mode(document.page_mode)}")
+print(f"Page Count:       {len(document.pages)}")
 
-print(f"PDF Version:     {document.pdf_version}")
-print(f"Tagged:          {'StructTreeRoot' in document.catalog}")
-print(f"Access Level:    {humanize_access_level(document.access_level)}")
-print(f"Has Forms:       {get_acroform_status(document)}")
-print(f"Has Javascript:  {get_javascript_status(document)}")
-print(f"Has Attachments: {get_embfile_status(document)}")
+print(f"PDF Version:      {document.pdf_version}")
+print(f"Tagged:           {'StructTreeRoot' in document.catalog}")
+print(f"Access Level:     {humanize_access_level(document.access_level)}")
+print(f"Has Forms:        {get_acroform_status(document)}")
+print(f"Has Javascript:   {get_javascript_status(document)}")
+print(f"Has Attachments:  {get_embfile_status(document)}")
+print(f"Has XMP Metadata: {get_metadata_status(document)}")
 
 
 if (perms := document.access_permissions) is not None:

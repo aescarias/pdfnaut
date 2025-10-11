@@ -1,19 +1,7 @@
 from __future__ import annotations
 
 import datetime
-import enum
-from typing import (
-    TYPE_CHECKING,
-    Annotated,
-    Any,
-    Generic,
-    Literal,
-    Protocol,
-    TypeVar,
-    Union,
-    cast,
-    get_origin,
-)
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, Union, cast, get_origin
 
 from typing_extensions import get_args
 
@@ -143,32 +131,6 @@ class DateAccessor:
         obj.pop(self.field.key, None)
 
 
-E = TypeVar("E", bound=enum.IntFlag)
-
-
-class BitFlagAccessor(Generic[E]):
-    """An accessor defining a key whose value is part of a set of bit flags."""
-
-    def __init__(self, field: Field) -> None:
-        self.field = field
-
-    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> E | None:
-        assert self.field.metadata and "enum_cls" in self.field.metadata
-
-        value = obj.get(self.field.key, self.field.default)
-        if value is not None:
-            return self.field.metadata["enum_cls"](value)
-
-    def __set__(self, obj: PdfDictionary, value: E | None) -> None:
-        if value is None:
-            return self.__delete__(obj)
-
-        obj[self.field.key] = int(value)
-
-    def __delete__(self, obj: PdfDictionary) -> None:
-        obj.pop(self.field.key, None)
-
-
 def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
     if value_type is str:
         return TextStringAccessor, {}
@@ -198,7 +160,5 @@ def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
         return lookup_accessor(args[0])
     elif get_origin(value_type) is Literal:
         return NameAccessor, {}
-    elif issubclass(value_type, enum.IntFlag):
-        return BitFlagAccessor[value_type], {"enum_cls": value_type}
 
     return StandardAccessor, {}

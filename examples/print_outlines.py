@@ -28,13 +28,16 @@ def print_outline_tree(
 ) -> None:
     outline = cast(PdfDictionary, tree["First"])
 
-    while "Next" in outline:
+    while True:
         title = parse_text_string(cast("bytes | PdfHexString", outline["Title"]))
 
         print(f"{indent * level}{indicator}{title}")
 
         if "First" in outline:
             print_outline_tree(outline, level=level + 1, indent=indent, indicator=indicator)
+
+        if "Next" not in outline:
+            break
 
         outline = cast(PdfDictionary, outline["Next"])
 
