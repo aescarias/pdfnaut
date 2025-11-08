@@ -4,24 +4,24 @@ description = "Explore PDFs with ease"
 authors = [{ name = "Ángel Carias", email = "lotta.dev@outlook.com" }]
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Topic :: File Formats",
     "Topic :: Office/Business :: Office Suites",
     "Topic :: Software Development :: Libraries",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = ["version"]
 dependencies = ["typing-extensions >= 4.11.0"]
 
 [tool.pyright]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 
 [project.urls]
 homepage = "https://github.com/aescarias/pdfnaut"
@@ -31,7 +31,7 @@ dev = ["isort", "pytest", "pytest-cov", "ruff", "tox"]
 docs = ["Sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 100
 extend-exclude = ["./private/**"]
 

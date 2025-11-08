@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Iterable, MutableSequence
-from typing import Literal, Union, cast, overload
+from typing import Literal, cast, overload
 
 from typing_extensions import Self
 
@@ -111,12 +111,12 @@ class Annotation(PdfDictionary):
     name: str = field("NM")
     """An annotation name uniquely identifying the annotation among others in its page."""
 
-    last_modified: Union[str, None] = field("M", default=None)
+    last_modified: str | None = field("M", default=None)
     """The date and time the annotation was most recently modified. This value should
     be a PDF date string but PDF processors are expected to accept and display a string
     in any format."""
 
-    language: Union[str, None] = field("Lang", default=None)
+    language: str | None = field("Lang", default=None)
     """(PDF 2.0) A language identifier specifying the natural language for all 
     text in the annotation except where overridden by other explicit language 
     specifications (see § 14.9.2, "Natural language specification")."""
@@ -124,7 +124,7 @@ class Annotation(PdfDictionary):
     flags: AnnotationFlags = field("F", default=AnnotationFlags.NULL.value)
     """Flags specifying various characteristics of the annotation."""
 
-    color: Union[PdfArray[float], None] = field("C", default=None)
+    color: PdfArray[float] | None = field("C", default=None)
     """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
     for the following purposes:
 

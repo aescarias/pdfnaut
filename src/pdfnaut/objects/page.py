@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Union, cast
+from typing import Literal, cast
 
 from typing_extensions import Self
 
@@ -42,33 +42,33 @@ class Page(PdfDictionary):
     """A rectangle defining the boundaries of the physical medium in which the page
     should be printed or displayed."""
 
-    cropbox: Union[PdfArray[float], None] = field("CropBox", default=None)
+    cropbox: PdfArray[float] | None = field("CropBox", default=None)
     """A rectangle defining the visible region of the page.
     
     If none, the cropbox is the same as the mediabox.
     """
 
-    bleedbox: Union[PdfArray[float], None] = field("BleedBox", default=None)
+    bleedbox: PdfArray[float] | None = field("BleedBox", default=None)
     """A rectangle defining the region to which the contents of the page shall be 
     clipped when output in a production environment.
     
     If none, the bleedbox is the same as the cropbox.
     """
 
-    trimbox: Union[PdfArray[float], None] = field("TrimBox", default=None)
+    trimbox: PdfArray[float] | None = field("TrimBox", default=None)
     """A rectangle defining the intended dimensions of the finished page after trimming.
 
     If none, the trimbox is the same as the cropbox.
     """
 
-    artbox: Union[PdfArray[float], None] = field("ArtBox", default=None)
+    artbox: PdfArray[float] | None = field("ArtBox", default=None)
     """A rectangle defining the extent of the page's meaningful content as intended 
     by the page's creator.
     
     If none, the artbox is the same as the cropbox.
     """
 
-    resources: Union[PdfDictionary, None] = None
+    resources: PdfDictionary | None = None
     """Resources required by the page contents.
 
     If the page requires no resources, this should return an empty resource
@@ -76,7 +76,7 @@ class Page(PdfDictionary):
     this should return None.
     """
 
-    tab_order: Union[TabOrder, None] = field("Tabs", default=None)
+    tab_order: TabOrder | None = field("Tabs", default=None)
     """(optional; PDF 1.5) The tab order to be used for annotations on the page.
     If present, it shall be one of the following values:
 
@@ -94,7 +94,7 @@ class Page(PdfDictionary):
     """The number of degrees by which the page shall be visually rotated clockwise.
     The value is a multiple of 90 (by default, 0)."""
 
-    metadata: Union[PdfStream, None] = None
+    metadata: PdfStream | None = None
     """A metadata stream, generally written in XMP, containing information about this page."""
 
     @classmethod

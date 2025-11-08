@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, Union, cast, get_origin
+from types import UnionType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, cast, get_origin
 
 from typing_extensions import get_args
 
@@ -147,7 +148,7 @@ def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
                 raise TypeError(f"{subtype!r} not a valid subtype for a string accessor")
 
         raise NotImplementedError(f"accessor from annotated form {value_type!r} not implemented")
-    elif get_origin(value_type) is Union:
+    elif get_origin(value_type) is UnionType:
         args = get_args(value_type)
         assert len(args) >= 1
 

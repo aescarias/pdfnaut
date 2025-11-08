@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import Annotated, Literal, Union, cast
+from typing import Annotated, Literal, cast
 
 from typing_extensions import Self
 
@@ -145,7 +145,7 @@ class ViewerPreferences(PdfDictionary):
     Accepted values are 'None' meaning no page scaling or 'AppDefault' (default) indicating
     that the interactive PDF processor should select its default print scaling value."""
 
-    duplex: Union[PaperHandlingOption, None] = field(default=None)
+    duplex: PaperHandlingOption | None = field(default=None)
     """The paper handling option to use when printing the document. Should be either of:
 
     - Simplex: Print single-sided
@@ -155,7 +155,7 @@ class ViewerPreferences(PdfDictionary):
     If this value is none, the document producer may choose their own default setting.
     """
 
-    pick_tray_by_pdf_size: Union[bool, None] = field(default=None)
+    pick_tray_by_pdf_size: bool | None = field(default=None)
     """Whether the PDF page size shall be used to select the input paper tray. This setting
     influences only the preset values used to populate the print dialog. This setting
     has no effect on systems that do not provide the ability to pick the input tray by size.
@@ -163,7 +163,7 @@ class ViewerPreferences(PdfDictionary):
     If this value is none, the document producer may choose their own default setting.
     """
 
-    print_page_range: Union[PdfArray[int], None] = field(default=None)
+    print_page_range: PdfArray[int] | None = field(default=None)
     """The page numbers used to initialize the print dialog box. The array should
     contain an even number of values interpreted as pairs, with each pair specifying
     the first and last pages in a sub-range of pages to be printed (the first page being
@@ -172,7 +172,7 @@ class ViewerPreferences(PdfDictionary):
     If this value is none, the document producer may choose their own default setting.
     """
 
-    num_copies: Union[int, None] = field(default=None)
+    num_copies: int | None = field(default=None)
     """The number of copies that shall be printed when the print dialog is opened for this file.
 
     If this value is none, the document producer may choose their own default setting,
@@ -217,10 +217,10 @@ class DeveloperExtension(PdfDictionary):
     the extension level assigned by the developer should increase over time.
     """
 
-    url: Union[str, None] = field("URL", default=None)
+    url: str | None = field("URL", default=None)
     """(PDF 2.0) A URL referring to the documentation for this extension."""
 
-    revision: Union[str, None] = field("ExtensionRevision", default=None)
+    revision: str | None = field("ExtensionRevision", default=None)
     """(PDF 2.0) Additional revision information on the extension level being used."""
 
     @classmethod

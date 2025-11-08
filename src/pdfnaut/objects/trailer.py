@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Literal, Union
+from typing import Literal
 
 from typing_extensions import Self
 
@@ -21,43 +21,40 @@ class Info(PdfDictionary):
     CreationDate and ModDate keys.
     """
 
-    # typing Unions until 3.9 goes EOL
-    # Supporting 'T | None' syntax on 3.9 would require eval magic.
-
-    title: Union[str, None] = None
+    title: str | None = None
     """The document's title."""
 
-    author: Union[str, None] = None
+    author: str | None = None
     """The name of the person who created the document."""
 
-    subject: Union[str, None] = None
+    subject: str | None = None
     """The subject or topic of the document."""
 
-    keywords: Union[str, None] = None
+    keywords: str | None = None
     """Keywords associated with the document."""
 
-    creator: Union[str, None] = None
+    creator: str | None = None
     """If the document was converted to PDF from another format (ex. DOCX), the name of 
     the PDF processor that created the original document from which it was converted 
     (ex. Microsoft Word)."""
 
-    producer: Union[str, None] = None
+    producer: str | None = None
     """If the document was converted to PDF from another format (ex. PostScript), the name of 
     the PDF processor that converted it to PDF (ex. Adobe Distiller)."""
 
-    creation_date_raw: Union[str, None] = field("CreationDate", init=False, default=None)
+    creation_date_raw: str | None = field("CreationDate", init=False, default=None)
     """The date and time the document was created, as a text string."""
 
-    modify_date_raw: Union[str, None] = field("ModDate", init=False, default=None)
+    modify_date_raw: str | None = field("ModDate", init=False, default=None)
     """The date and time the document was most recently modified, as a text string."""
 
-    creation_date: Union[datetime.datetime, None] = field(default=None)
+    creation_date: datetime.datetime | None = field(default=None)
     """The date and time the document was created, in human-readable form."""
 
-    modify_date: Union[datetime.datetime, None] = field("ModDate", default=None)
+    modify_date: datetime.datetime | None = field("ModDate", default=None)
     """The date and time the document was most recently modified, in human-readable form."""
 
-    trapped: Union[TrappedState, None] = None
+    trapped: TrappedState | None = None
     """A value reporting whether the document has been modified to include trapping 
     information (see § 14.11.6, "Trapping support")."""
 
