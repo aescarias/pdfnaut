@@ -4,6 +4,8 @@ import pathlib
 from collections.abc import Generator
 from typing import cast
 
+from pdfnaut.objects.outlines import OutlineTree
+
 from .cos.objects import (
     PdfArray,
     PdfDictionary,
@@ -190,9 +192,19 @@ class PdfDocument(PdfParser):
     @property
     def outline_tree(self) -> PdfDictionary | None:
         """The document's outline tree including what is commonly referred to as
-        bookmarks. See § 12.3.3, "Document Outline" for details.
-        """
+        bookmarks. See § 12.3.3 "Document outline" for details."""
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
+
+    @property
+    def outline(self) -> OutlineTree | None:
+        """The document outline tree including outline items or bookmarks for
+        navigating a document. See § 12.3.3 "Document outline" for details."""
+        if "Outlines" not in self.catalog:
+            return
+
+        outline = cast(PdfDictionary, self.catalog["Outlines"])
+        outline_ref = cast(PdfReference, self.catalog.data["Outlines"])
+        return OutlineTree(self, outline, outline_ref)
 
     def decrypt(self, password: str) -> PermsAcquired:
         self.access_level = super().decrypt(password)

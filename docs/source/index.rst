@@ -90,11 +90,12 @@ Reading document information from a PDF is also simple:
    :caption: User Guides
    :hidden:
 
-   Reading and inspecting a PDF <guides/reading-pdf>
    Building a PDF from scratch <guides/building-pdf>
    Modifying PDF metadata <guides/modifying-pdf-metadata>
-   Working with pages <guides/working-with-pages>
+   Reading and inspecting a PDF <guides/reading-pdf>
    Viewer preferences <guides/viewer-preferences>
+   Working with outlines <guides/working-with-outlines>
+   Working with pages <guides/working-with-pages>
 
 .. toctree::
    :maxdepth: 2

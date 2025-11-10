@@ -21,6 +21,14 @@ def test_get_object() -> None:
     assert pdf.get_object((1, 0), cache=False) is not pdf.objects[1]
 
 
+def test_read_outlines() -> None:
+    pdf = PdfDocument.from_filename(r"tests\docs\usenix-example-paper.pdf")
+    assert pdf.outline is not None
+
+    assert len(pdf.outline.children)
+    assert pdf.outline.children[0].text == "USENIX Example Paper"
+
+
 def test_insert_pages_to_new_doc() -> None:
     pdf = PdfDocument.new()
 

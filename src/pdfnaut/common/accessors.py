@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from types import UnionType
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, cast, get_origin
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, TypeVar, cast, get_origin
 
 from typing_extensions import get_args
 
@@ -132,6 +132,18 @@ class DateAccessor:
         obj.pop(self.field.key, None)
 
 
+def _is_string_type(value: Any) -> bool:
+    # string handling
+    if isinstance(value, type) and issubclass(value, str):
+        return True
+
+    # literal handling
+    if get_origin(value) is not Literal:
+        return False
+
+    return all(isinstance(lit, str) for lit in get_args(value))
+
+
 def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
     if value_type is str:
         return TextStringAccessor, {}
@@ -139,7 +151,15 @@ def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
         return DateAccessor, {}
     elif get_origin(value_type) is Annotated:
         type_, subtype, *_ = get_args(value_type)
-        if type_ is str:
+
+        if isinstance(type_, TypeVar):
+            bound = type_.__bound__
+            if bound is None:
+                raise TypeError(f"typevar {type_!r} requires a bound")
+
+            type_ = bound
+
+        if _is_string_type(type_):
             if subtype.lower() == "text":
                 return TextStringAccessor, {}
             elif subtype.lower() == "name":
