@@ -130,3 +130,11 @@ def test_replace_page_from_doc_to_doc() -> None:
     source_page = replacing_pdf.pages[0]
 
     assert replaced_page.indirect_ref != source_page.indirect_ref
+
+
+def test_index_page() -> None:
+    origin_pdf = PdfDocument.from_filename(r"tests\docs\usenix-example-paper.pdf")
+
+    page = origin_pdf.pages[2]
+    assert origin_pdf.pages.index(page) == 2
+    assert origin_pdf.pages.count(page) == 1  # page is present

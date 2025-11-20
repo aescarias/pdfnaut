@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Generator, Iterable, MutableSequence
 from typing import Any, Iterator, cast, overload
 
@@ -136,13 +137,18 @@ class PageList(MutableSequence[Page]):
         self.extend(values)
         return self
 
-    def index(self, value: Any, start: int = 0, stop: int = ...) -> int:
+    def index(self, value: Any, start: int = 0, stop: int = sys.maxsize) -> int:
         """Returns the index at which page ``value`` was first found in the
         range of ``start`` included to ``stop`` excluded."""
         return self._get_indexed_pages().index(value, start, stop)
 
     def count(self, value: Any) -> int:
-        """Returns the amount of times page ``value`` appears in the page list."""
+        """Returns the amount of times page ``value`` appears in the page list.
+
+        This method should in practice always return either 0 (the page is not present)
+        or 1 (the page is present). This method is merely provided for compatibility
+        with functions expecting mutable sequences.
+        """
         return self._get_indexed_pages().count(value)
 
     def insert(self, index: int, value: Page) -> None:
