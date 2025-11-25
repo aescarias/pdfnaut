@@ -13,12 +13,16 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 ### Changes
 
 - Move annotations to separate `pdfnaut.objects.annotations` module.
+- Rewrite `PdfSerializer` to use BytesIO object rather than a list of bytes. This should considerably decrease the time taken to save a document.
+- The `PdfSerializer.content` attribute now contains a BytesIO object of the content to be written.
 - Move to 3.10 union syntax in dictmodels (`T | None`).
+- Allow the `@dictmodel` decorator to be used without parentheses.
 
 ### Removals
 
 - Drop support for Python 3.9.
 - `BitFlagAccessor` removed as it was causing type errors in Python 3.13 and later and was also unused.
+- `PdfSerializer.objects` attribute removed as it was not directly used by the class. Users are now expected to create the mapping of objects themselves.
 
 ### Fixes
 

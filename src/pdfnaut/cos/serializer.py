@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from io import BytesIO
 from typing import Any, Literal
 
 from ..cos.objects.base import PdfComment, PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
@@ -136,19 +137,15 @@ class PdfSerializer:
 
     Arguments:
         eol (bytes, optional):
-            The end-of-line to be used when serializing (CR, LF, or CRLF). Defaults to CRLF.
+            The end of line sequence to use when serializing. One of CR, LF, or CRLF.
+            Defaults to CRLF.
     """
 
     def __init__(self, *, eol: Literal[b"\r\n", b"\r", b"\n"] = b"\r\n") -> None:
-        self.content_lines: list[bytes] = []
+        self.content = BytesIO()
+        """The buffer containing the serialized content to be written."""
+
         self.eol = eol
-
-        self.objects: dict[tuple[int, int], PdfObject | PdfStream] = {}
-
-    @property
-    def content(self) -> bytes:
-        """The serialized content to be written."""
-        return b"".join(self.content_lines)
 
     def write_header(self, version: str, *, with_binary_marker: bool = True) -> None:
         """Appends the PDF file header to the document (see § 7.5.2, "File Header").
@@ -162,11 +159,11 @@ class PdfSerializer:
         """
 
         comment = PdfComment(f"PDF-{version}".encode())
-        self.content_lines.append(serialize_comment(comment) + self.eol)
+        self.content.write(serialize_comment(comment) + self.eol)
 
         if with_binary_marker:
             marker = PdfComment(b"\xee\xe1\xf5\xf4")
-            self.content_lines.append(serialize_comment(marker) + self.eol)
+            self.content.write(serialize_comment(marker) + self.eol)
 
     def write_object(
         self, reference: PdfReference | tuple[int, int], contents: PdfObject | PdfStream
@@ -186,9 +183,9 @@ class PdfSerializer:
         if isinstance(reference, tuple):
             reference = PdfReference(*reference)
 
-        offset = len(self.content)
+        start_offset = self.content.tell()
 
-        self.content_lines.extend(
+        self.content.writelines(
             [
                 f"{reference.object_number} {reference.generation} obj".encode() + self.eol,
                 serialize(contents, params={"eol": self.eol}) + self.eol,
@@ -196,7 +193,7 @@ class PdfSerializer:
             ]
         )
 
-        return offset
+        return start_offset
 
     def generate_xref_section(
         self, rows: list[tuple[int, PdfXRefEntry]]
@@ -238,29 +235,28 @@ class PdfSerializer:
     def write_standard_xref_section(self, subsections: list[PdfXRefSubsection]) -> int:
         """Appends a standard XRef section (see § 7.5.4, "Cross-Reference Table") to the document.
         Returns the ``startxref`` offset that should be written to the document."""
-        startxref = len(self.content)
-        self.content_lines.append(b"xref" + self.eol)
+
+        startxref = self.content.tell()
+        self.content.write(b"xref" + self.eol)
 
         for subsection in subsections:
-            self.content_lines.append(
+            self.content.write(
                 f"{subsection.first_obj_number} {subsection.count}".encode() + self.eol
             )
 
             for entry in subsection.entries:
                 if isinstance(entry, InUseXRefEntry):
-                    self.content_lines.append(
-                        f"{entry.offset:0>10} {entry.generation:0>5} n".encode()
-                    )
+                    self.content.write(f"{entry.offset:0>10} {entry.generation:0>5} n".encode())
                 elif isinstance(entry, FreeXRefEntry):
-                    self.content_lines.append(
+                    self.content.write(
                         f"{entry.next_free_object:0>10} {entry.gen_if_used_again:0>5} f".encode()
                     )
                 else:
                     raise PdfWriteError(
-                        "Cannot write a compressed XRef entry within a standard XRef section."
+                        "cannot write a compressed xref entry within a standard xref section."
                     )
 
-                self.content_lines.append(self.eol)
+                self.content.write(self.eol)
 
         return startxref
 
@@ -284,10 +280,10 @@ class PdfSerializer:
                 elif isinstance(entry, CompressedXRefEntry):
                     table_rows.append([2, entry.objstm_number, entry.index_within])
 
-        def max_width(col: tuple[int, ...]) -> int:
+        def max_byte_width(col: tuple[int, ...]) -> int:
             return ((max(col).bit_length() + 7) // 8) or 1
 
-        widths = [max_width(column) for column in zip(*table_rows)]
+        widths = [max_byte_width(column) for column in zip(*table_rows)]
         content_per_row = []
         for row in table_rows:
             content_per_row.append(
@@ -313,7 +309,7 @@ class PdfSerializer:
     def write_trailer(
         self, trailer: PdfDictionary | None = None, startxref: int | None = None
     ) -> None:
-        """Appends a standard ``trailer`` to the document (see § 7.5.5, "File Trailer")
+        """Appends a standard ``trailer`` to the document (see § 7.5.5 "File Trailer")
         alongside the ``startxref`` offset.
 
         Both arguments are optional, indicating their presence in the appended output.
@@ -321,13 +317,13 @@ class PdfSerializer:
         already been written and should be ``None``.
         """
         if trailer is not None:
-            self.content_lines.append(b"trailer" + self.eol)
-            self.content_lines.append(serialize_dictionary(trailer) + self.eol)
+            self.content.write(b"trailer" + self.eol)
+            self.content.write(serialize_dictionary(trailer) + self.eol)
 
         if startxref is not None:
-            self.content_lines.append(b"startxref" + self.eol)
-            self.content_lines.append(str(startxref).encode() + self.eol)
+            self.content.write(b"startxref" + self.eol)
+            self.content.write(str(startxref).encode() + self.eol)
 
     def write_eof(self) -> None:
-        """Appends the End-Of-File marker to the document."""
-        self.content_lines.append(b"%%EOF" + self.eol)
+        """Appends the end of file (EOF) marker to the document."""
+        self.content.write(b"%%EOF" + self.eol)

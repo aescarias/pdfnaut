@@ -14,7 +14,7 @@ from .cos.objects import (
     PdfReference,
     PdfStream,
 )
-from .cos.objects.base import encode_text_string, parse_text_string
+from .cos.objects.base import PdfObject, encode_text_string, parse_text_string
 from .cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
 from .cos.parser import PdfParser, PermsAcquired
 from .cos.serializer import PdfSerializer
@@ -52,16 +52,14 @@ class PdfDocument(PdfParser):
         builder = PdfSerializer()
         builder.write_header("2.0")
 
-        builder.objects[(1, 0)] = PdfDictionary(
-            {"Type": PdfName(b"Catalog"), "Pages": PdfReference(2, 0)}
-        )
-        builder.objects[(2, 0)] = PdfDictionary(
-            {"Type": PdfName(b"Pages"), "Kids": PdfArray(), "Count": 0}
-        )
+        objects: dict[tuple[int, int], PdfObject] = {
+            (1, 0): PdfDictionary({"Type": PdfName(b"Catalog"), "Pages": PdfReference(2, 0)}),
+            (2, 0): PdfDictionary({"Type": PdfName(b"Pages"), "Kids": PdfArray(), "Count": 0}),
+        }
 
         section: list[tuple[int, PdfXRefEntry]] = [(0, FreeXRefEntry(0, 65535))]
 
-        for (obj_num, gen_num), item in builder.objects.items():
+        for (obj_num, gen_num), item in objects.items():
             offset = builder.write_object((obj_num, gen_num), item)
             section.append((obj_num, InUseXRefEntry(offset, gen_num)))
 
@@ -75,7 +73,7 @@ class PdfDocument(PdfParser):
 
         builder.write_eof()
 
-        return PdfDocument(builder.content)
+        return PdfDocument(builder.content.getvalue())
 
     def __init__(self, data: bytes, *, strict: bool = False) -> None:
         super().__init__(data, strict=strict)

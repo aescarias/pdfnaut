@@ -20,7 +20,9 @@ Next, we define the objects in the PDF. The first object (1, 0) will include our
 
 .. code-block:: python
 
-    builder.objects[(1, 0)] = PdfDictionary({
+    objects: list[tuple[int, int], PdfObject] = {}
+    
+    objects[(1, 0)] = PdfDictionary({
         "Type": PdfName(b"Catalog"),
         "Pages": PdfReference(2, 0)
     })
@@ -29,7 +31,7 @@ Object (2, 0) will include our page tree. To keep things simple, our document wi
 
 .. code-block:: python
 
-    builder.objects[(2, 0)] = PdfDictionary({
+    objects[(2, 0)] = PdfDictionary({
         "Type": PdfName(b"Pages"),
         "Kids": PdfArray([PdfReference(3, 0)]),
         "Count": 1
@@ -39,7 +41,7 @@ Object (3, 0) is the page itself. In the object, we specify its media box which 
 
 .. code-block:: python
 
-    builder.objects[(3, 0)] = PdfDictionary({
+    objects[(3, 0)] = PdfDictionary({
         "Type": PdfName(b"Page"),
         "Parent": PdfReference(2, 0),
         "MediaBox": PdfArray([0, 0, 500, 500]),
@@ -55,7 +57,7 @@ Object (4, 0) is the font specified in Resources. Again, for simplicity, we will
 
 .. code-block:: python
 
-    builder.objects[(4, 0)] = PdfDictionary({
+    objects[(4, 0)] = PdfDictionary({
         "Type": PdfName(b"Font"),
         "Subtype": PdfName(b"Type1"), # Adobe Type 1 Font Format / PostScript
         "BaseFont": PdfName(b"Helvetica"),
@@ -77,7 +79,7 @@ Object (5, 0) is the content stream defining the page itself.
         (Hello) Tj
     ET""")
 
-    builder.objects[(5, 0)] = PdfStream.create(page_contents.encode())
+    objects[(5, 0)] = PdfStream.create(page_contents.encode())
 
 Generating the XRef section
 ---------------------------
@@ -90,7 +92,7 @@ In the previous section, we defined the objects. This does not write them, thoug
         (0, FreeXRefEntry(0, 65535))
     ]
 
-    for (obj_num, gen_num), item in builder.objects.items():
+    for (obj_num, gen_num), item in objects.items():
         offset = builder.write_object((obj_num, gen_num), item)
         rows.append((obj_num, InUseXRefEntry(offset, gen_num)))
 

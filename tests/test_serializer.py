@@ -111,12 +111,12 @@ def test_stream() -> None:
 def test_serialize_document() -> None:
     serializer = PdfSerializer()
     serializer.write_header("1.7")
-    assert serializer.content.startswith(b"%PDF-1.7\r\n")
-    before_object = len(serializer.content)
+    assert serializer.content.getvalue().startswith(b"%PDF-1.7\r\n")
+    before_object = len(serializer.content.getvalue())
 
     object_start = serializer.write_object((1, 0), PdfDictionary({"A": b"BC", "D": 10.24}))
     assert before_object == object_start
-    assert serializer.content.endswith(b"1 0 obj\r\n<</A (BC) /D 10.24>>\r\nendobj\r\n")
+    assert serializer.content.getvalue().endswith(b"1 0 obj\r\n<</A (BC) /D 10.24>>\r\nendobj\r\n")
 
     subsections = serializer.generate_xref_section(
         [(0, FreeXRefEntry(0, 65535)), (1, InUseXRefEntry(object_start, 0))]
@@ -129,16 +129,16 @@ def test_serialize_document() -> None:
         and isinstance(subsections[0].entries[1], InUseXRefEntry)
     )
 
-    before_xref = len(serializer.content)
+    before_xref = len(serializer.content.getvalue())
     startxref = serializer.write_standard_xref_section(subsections)
     assert before_xref == startxref
 
     serializer.write_trailer(PdfDictionary({"Size": 2}), startxref)
-    assert serializer.content.endswith(
+    assert serializer.content.getvalue().endswith(
         b"trailer\r\n<</Size 2>>\r\n" + b"startxref\r\n" + str(startxref).encode() + b"\r\n"
     )
     serializer.write_eof()
-    assert serializer.content.endswith(b"%%EOF\r\n")
+    assert serializer.content.getvalue().endswith(b"%%EOF\r\n")
 
 
 def test_serialize_compressed_table() -> None:
@@ -151,13 +151,13 @@ def test_serialize_compressed_table() -> None:
         [(0, FreeXRefEntry(0, 65535)), (1, InUseXRefEntry(object_start, 0))]
     )
 
-    before_xref = len(serializer.content)
+    before_xref = len(serializer.content.getvalue())
     startxref = serializer.write_compressed_xref_section(
         PdfXRefSection(subsections, PdfDictionary({"Size": 2}))
     )
     assert before_xref == startxref
 
-    obj = PdfParser(serializer.content[startxref:]).parse_indirect_object(
+    obj = PdfParser(serializer.content.getvalue()[startxref:]).parse_indirect_object(
         InUseXRefEntry(0, 0), None
     )
     assert isinstance(obj, PdfStream)
@@ -173,6 +173,6 @@ def test_serialize_compressed_table() -> None:
     serializer.write_trailer(startxref=startxref)
     serializer.write_eof()
 
-    assert serializer.content.endswith(
+    assert serializer.content.getvalue().endswith(
         b"startxref\r\n" + str(startxref).encode() + b"\r\n%%EOF\r\n"
     )

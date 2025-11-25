@@ -1053,10 +1053,10 @@ class PdfParser:
             ids = cast(PdfArray["PdfHexString | bytes"], self.trailer.data["ID"])
 
             new_trailer.data["ID"] = PdfArray(
-                [ids[0], generate_file_id(filename, len(builder.content))]
+                [ids[0], generate_file_id(filename, builder.content.tell())]
             )
         else:
-            new_id = generate_file_id(filename, len(builder.content))
+            new_id = generate_file_id(filename, builder.content.tell())
             new_trailer.data["ID"] = PdfArray([new_id, new_id])
 
         if use_compressed:
@@ -1071,7 +1071,7 @@ class PdfParser:
         builder.write_eof()
 
         if isinstance(filepath, (BufferedIOBase, BinaryIO)):
-            filepath.write(builder.content)
+            filepath.write(builder.content.getbuffer())
         else:
             with open(filepath, "wb") as output_fp:
-                output_fp.write(builder.content)
+                output_fp.write(builder.content.getbuffer())

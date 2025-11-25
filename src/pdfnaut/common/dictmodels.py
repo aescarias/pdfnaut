@@ -75,8 +75,9 @@ T = TypeVar("T")
 
 
 def defaultize(cls: type[T]) -> T:
-    """Returns an instance of a dictmodel ``cls`` initialized with default values."""
+    """Returns an instance of a dictmodel ``cls`` initialized with default accessor values."""
     accessors = getattr(cls, "__accessors__", MISSING)
+
     if accessors is MISSING:
         raise TypeError(f"type {cls!r} is not a dictmodel")
 
@@ -160,7 +161,7 @@ def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True)
 
 
 @dataclass_transform(field_specifiers=(field,))
-def dictmodel(*, init: bool = True, repr_: bool = True):
+def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = True):
     def wrapper(cls: type[_T]) -> type[_T]:
         if not issubclass(cls, PdfDictionary):
             raise TypeError("cls must be a subclass of PdfDictionary")
@@ -223,4 +224,4 @@ def dictmodel(*, init: bool = True, repr_: bool = True):
 
         return cls
 
-    return wrapper
+    return wrapper(_cls) if callable(_cls) else wrapper
