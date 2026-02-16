@@ -7,7 +7,7 @@ from enum import IntEnum
 from functools import partial
 from io import BufferedIOBase, BytesIO
 from pathlib import Path
-from typing import Any, BinaryIO, TypeVar, cast, overload
+from typing import IO, Any, BinaryIO, TypeVar, cast, overload
 
 from typing_extensions import TypeAlias
 
@@ -935,12 +935,11 @@ class PdfParser:
 
         return PermsAcquired.NONE
 
-    def save(self, filepath: str | Path | BinaryIO | BufferedIOBase) -> None:
+    def save(self, filepath: str | Path | IO[bytes]) -> None:
         """Saves the contents of this parser to ``filepath``.
 
-        ``filepath`` may either be a string containing a path, a :class:`pathlib.Path`
-        instance, a binary stream (i.e. any subclass of :class:`io.BufferedIOBase`), or a
-        file-like object (i.e. any subclass of :class:`typing.BinaryIO`).
+        ``filepath`` may be either a string containing a path, a :class:`pathlib.Path`
+        instance, or a byte stream (that is, any class implementing :class:`IO[bytes]`).
         """
 
         builder = PdfSerializer()
@@ -1070,8 +1069,8 @@ class PdfParser:
 
         builder.write_eof()
 
-        if isinstance(filepath, (BufferedIOBase, BinaryIO)):
-            filepath.write(builder.content.getbuffer())
-        else:
+        if isinstance(filepath, (str, Path)):
             with open(filepath, "wb") as output_fp:
                 output_fp.write(builder.content.getbuffer())
+        else:
+            filepath.write(builder.content.getbuffer())

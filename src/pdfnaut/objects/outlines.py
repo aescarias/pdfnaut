@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+import sys
+from collections.abc import Generator, Iterable, Iterator, MutableSequence
 from enum import IntFlag
+from typing import Any, overload
 
 from typing_extensions import Self
 
@@ -96,7 +98,7 @@ class OutlineItem(PdfDictionary):
         self.destination = destination
         self.action = action
 
-        self._cached_items: list[OutlineItem] = []
+        self._cached_items: OutlineList | None = None
 
     @property
     def first(self) -> OutlineItem | None:
@@ -199,10 +201,10 @@ class OutlineItem(PdfDictionary):
             self["A"] = act
 
     @property
-    def children(self) -> list[OutlineItem]:
-        """The immediate children of the the outline item."""
+    def children(self) -> OutlineList:
+        """The immediate children of the outline item."""
         if not self._cached_items:
-            self._cached_items = list(flatten_outlines(self))
+            self._cached_items = OutlineList(self.pdf, self)
 
         return self._cached_items
 
@@ -212,14 +214,21 @@ class OutlineItem(PdfDictionary):
         if not self.visible_items:
             return
 
-        self["Count"] = len(self.children)
+        self["Count"] = self._get_count()
 
     def close(self) -> None:
         """If the item has children, closes the outline item and hides the immediate children."""
         if not self.visible_items:
             return
 
-        self["Count"] = -len(self.children)
+        self["Count"] = -self._get_count()
+
+    def _get_count(self) -> int:
+        count = len(self.children)
+        for child in self.children:
+            count += child._get_count()
+
+        return count
 
 
 class OutlineTree(PdfDictionary):
@@ -239,16 +248,22 @@ class OutlineTree(PdfDictionary):
         self._tree = tree
         self._tree_ref = tree_ref
 
-        self._cached_items: list[OutlineItem] = []
+        self._cached_items: OutlineList | None = None
 
     @property
-    def first(self) -> OutlineItem:
+    def first(self) -> OutlineItem | None:
         """The first outline item in the tree."""
+        if "First" not in self:
+            return
+
         return OutlineItem.from_dict(self["First"], pdf=self._pdf, indirect_ref=self.data["First"])
 
     @property
-    def last(self) -> OutlineItem:
+    def last(self) -> OutlineItem | None:
         """The last outline item in the tree."""
+        if "Last" not in self:
+            return
+
         return OutlineItem.from_dict(self["Last"], pdf=self._pdf, indirect_ref=self.data["Last"])
 
     @property
@@ -257,9 +272,107 @@ class OutlineTree(PdfDictionary):
         return self.get("Count", 0)
 
     @property
-    def children(self) -> list[OutlineItem]:
+    def children(self) -> OutlineList:
         """The immediate children of the outline tree."""
         if not self._cached_items:
-            self._cached_items = list(flatten_outlines(self))
+            self._cached_items = OutlineList(self._pdf, self)
 
         return self._cached_items
+
+
+class OutlineList(MutableSequence[OutlineItem]):
+    def __init__(
+        self,
+        pdf: PdfParser,
+        parent: OutlineItem | OutlineTree,
+    ) -> None:
+        super().__init__()
+
+        self._pdf = pdf
+        self._parent = parent
+        self._cached_items = list(flatten_outlines(parent))
+
+    def __repr__(self) -> str:
+        return f"<OutlineList {self._cached_items}>"
+
+    def __len__(self) -> int:
+        return len(self._cached_items)
+
+    def __contains__(self, value: object) -> bool:
+        return value in self._cached_items
+
+    def __iter__(self) -> Iterator[OutlineItem]:
+        return iter(self._cached_items)
+
+    def __reversed__(self) -> Iterator[OutlineItem]:
+        return reversed(self._cached_items)
+
+    @overload
+    def __getitem__(self, index: int) -> OutlineItem: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[OutlineItem]: ...
+
+    def __getitem__(self, index: int | slice) -> OutlineItem | list[OutlineItem]:
+        return self._cached_items[index]
+
+    @overload
+    def __setitem__(self, index: int, value: OutlineItem) -> None: ...
+
+    @overload
+    def __setitem__(self, index: slice, value: Iterable[OutlineItem]) -> None: ...
+
+    def __setitem__(self, index: int | slice, value: OutlineItem | Iterable[OutlineItem]) -> None:
+        raise NotImplementedError
+
+    def __delitem__(self, index: int | slice) -> None:
+        raise NotImplementedError
+
+    def __iadd__(self, values: Iterable[OutlineItem]) -> Self:
+        raise NotImplementedError
+
+    def insert(self, index: int, value: OutlineItem) -> None:
+        raise NotImplementedError
+
+    def index(self, value: Any, start: int = 0, stop: int = sys.maxsize) -> int:
+        return self._cached_items.index(value, start, stop)
+
+    def count(self, value: Any) -> int:
+        return self._cached_items.count(value)
+
+    def append(self, value: OutlineItem) -> None:
+        """Appends an outline item ``value`` to the immediate children of this item."""
+        if self._pdf is None:
+            raise ValueError("outline must be in document")
+
+        item_ref = self._pdf.objects.add(it := PdfDictionary(value.data))
+        if value.pdf is None:
+            value.pdf = self._pdf
+            value.indirect_ref = item_ref
+            value.data = it.data
+
+        if self._parent.first is None and self._parent.last is None:
+            # no top-level items
+            self._parent["First"] = item_ref
+            self._parent["Last"] = item_ref
+        else:
+            # link the new item to the previous last item
+            self._parent["Last"].data["Next"] = item_ref
+            value["Prev"] = self._parent.data["Last"]
+            # set the new last item
+            self._parent["Last"] = item_ref
+
+    def clear(self) -> None:
+        raise NotImplementedError
+
+    def reverse(self) -> None:
+        raise NotImplementedError
+
+    def extend(self, values: Iterable[OutlineItem]) -> None:
+        raise NotImplementedError
+
+    def pop(self, index: int = -1) -> OutlineItem:
+        raise NotImplementedError
+
+    def remove(self, value: OutlineItem) -> None:
+        raise NotImplementedError
