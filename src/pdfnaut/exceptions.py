@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 class PdfParseError(Exception):
     """The parser was unable to continue parsing the PDF."""
 

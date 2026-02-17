@@ -1,7 +1,5 @@
 """Utilities for parsing and encoding date formats: ISO 8601 and ISO 8824."""
 
-from __future__ import annotations
-
 import datetime
 import re
 

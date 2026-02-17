@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing_extensions import TypeAlias
 
 from .base import CryptProvider, IdentityProvider

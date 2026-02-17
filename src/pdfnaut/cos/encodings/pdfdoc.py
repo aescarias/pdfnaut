@@ -4,8 +4,6 @@ Implemented as seen in this example:
 https://github.com/python/cpython/blob/main/Lib/encodings/cp1252.py
 """
 
-from __future__ import annotations
-
 import codecs
 
 from typing_extensions import Buffer
@@ -312,7 +310,7 @@ def find_pdfdoc(encoding: str) -> codecs.CodecInfo | None:
         incrementalencoder=IncrementalEncoder,
         incrementaldecoder=IncrementalDecoder,
         streamreader=StreamReader,
-        streamwriter=StreamWriter
+        streamwriter=StreamWriter,
     )
 
 

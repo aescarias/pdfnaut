@@ -1,9 +1,4 @@
-from __future__ import annotations
-
-# There are apparently some issues with how some Python 3.9 releases handle
-# inheriting from a Protocol subclass: https://github.com/python/cpython/issues/89284.
-# The fix was merged in 3.10. This is why this backport is used.
-from typing_extensions import Protocol
+from typing import Protocol
 
 
 class CryptProvider(Protocol):

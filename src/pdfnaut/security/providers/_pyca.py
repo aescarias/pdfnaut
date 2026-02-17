@@ -1,6 +1,4 @@
 # pyca/cryptography
-from __future__ import annotations
-
 import os
 
 from cryptography.hazmat.decrepit.ciphers.algorithms import ARC4

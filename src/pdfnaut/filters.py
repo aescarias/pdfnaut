@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import zlib
 from base64 import a85decode, a85encode, b16decode, b16encode
 from collections.abc import Generator, Iterable

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from inspect import getattr_static
 from typing import Any, TypeVar, cast
 

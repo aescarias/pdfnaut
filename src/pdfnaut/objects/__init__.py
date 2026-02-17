@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .annotations import Annotation, AnnotationFlags
 from .catalog import (
     PageLayout,

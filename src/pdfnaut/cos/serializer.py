@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import defaultdict
 from io import BytesIO
 from typing import Any, Literal

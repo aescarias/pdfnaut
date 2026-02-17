@@ -1,6 +1,4 @@
 # PyCryptodome
-from __future__ import annotations
-
 from Crypto.Cipher import AES, ARC4
 from Crypto.Util import Padding
 
