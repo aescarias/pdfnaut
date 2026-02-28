@@ -204,9 +204,18 @@ class PdfDocument(PdfParser):
         outline_ref = cast(PdfReference, self.catalog.data["Outlines"])
         return OutlineTree(self, outline, outline_ref)
 
+    @outline.deleter
+    def outline(self) -> None:
+        if self.outline is None:
+            return
+
+        self.outline.children.clear()
+        del self.catalog["Outlines"]
+
     def new_outline(self) -> None:
         """Creates an empty outline tree."""
-        outline_ref = self.objects.add(PdfDictionary())
+        outline = PdfDictionary(Type=PdfName(b"Outlines"))
+        outline_ref = self.objects.add(outline)
         self.catalog["Outlines"] = outline_ref
 
     def decrypt(self, password: str) -> PermsAcquired:

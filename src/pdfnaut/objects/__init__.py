@@ -1,3 +1,4 @@
+from .actions import Action, ActionKind
 from .annotations import Annotation, AnnotationFlags
 from .catalog import (
     PageLayout,
@@ -5,11 +6,14 @@ from .catalog import (
     UserAccessPermissions,
     ViewerPreferences,
 )
+from .outlines import OutlineItem, OutlineItemFlags
 from .page import Page
 from .trailer import Info
 from .xmp import XmpMetadata
 
 __all__ = (
+    "Action",
+    "ActionKind",
     "PageLayout",
     "PageMode",
     "Page",
@@ -19,4 +23,6 @@ __all__ = (
     "UserAccessPermissions",
     "ViewerPreferences",
     "XmpMetadata",
+    "OutlineItem",
+    "OutlineItemFlags",
 )

@@ -70,11 +70,15 @@ class PageList(MutableSequence[Page]):
                 # page not in list, simply append.
                 page_list.append(page)
 
+        self._last_hash = hash(self._root_tree)
         self._indexed_page_cache = page_list
 
     def _get_indexed_pages(self) -> list[Page]:
         self._update_on_hash()
         return self._indexed_page_cache
+
+    def __repr__(self) -> str:
+        return repr(self._indexed_page_cache)
 
     # * mutable sequence methods
     def __len__(self) -> int:
@@ -146,7 +150,7 @@ class PageList(MutableSequence[Page]):
         """Returns the amount of times page ``value`` appears in the page list.
 
         This method should in practice always return either 0 (the page is not present)
-        or 1 (the page is present). This method is merely provided for compatibility
+        or 1 (the page is present). This method is provided for compatibility
         with functions expecting mutable sequences.
         """
         return self._get_indexed_pages().count(value)

@@ -1,5 +1,5 @@
 from hashlib import md5
-from typing import Literal, Union
+from typing import Literal
 
 from pdfnaut.exceptions import MissingCryptProviderError
 
@@ -8,7 +8,7 @@ from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, Pd
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
 CryptMethod = Literal["Identity", "ARC4", "AESV2"]
-Encryptable = Union[PdfStream, PdfHexString, bytes]
+Encryptable = PdfStream | PdfHexString | bytes
 
 PASSWORD_PADDING = b"(\xbfN^Nu\x8aAd\x00NV\xff\xfa\x01\x08..\x00\xb6\xd0h>\x80/\x0c\xa9\xfedSiz"
 
@@ -38,7 +38,7 @@ class StandardSecurityHandler:
                 The standard encryption dictionary specified in the document's trailer.
                 (see § 7.6.4, "Standard encryption dictionary")
 
-            ids (PdfArray[PdfHexString | bytes]).
+            ids (PdfArray[PdfHexString | bytes]):
                 The ID array specified in the document's trailer.
         """
         self.encryption = encryption
