@@ -24,10 +24,10 @@ def pad_password(password: bytes) -> bytes:
 
 
 class StandardSecurityHandler:
-    """An implementation of § 7.6.4 "Standard security handler"
+    """An implementation of ISO 32000-2:2020 § 7.6.4 "Standard security handler".
 
     The standard security handler includes access permissions and allows up to 2 passwords:
-    the owner password which has all permissions and the user password which should only
+    the owner password, which has all permissions, and the user password, which should only
     have the permissions specified by the document.
     """
 
@@ -35,8 +35,8 @@ class StandardSecurityHandler:
         """
         Arguments:
             encryption (PdfDictionary):
-                The standard encryption dictionary specified in the document's trailer.
-                (see § 7.6.4, "Standard encryption dictionary")
+                The standard encryption dictionary specified in the document's trailer
+                (see ISO 32000-2:2020 § 7.6.4 "Standard encryption dictionary" for details).
 
             ids (PdfArray[PdfHexString | bytes]):
                 The ID array specified in the document's trailer.
@@ -50,8 +50,8 @@ class StandardSecurityHandler:
         return self.encryption.get("Length", 40) // 8
 
     def compute_encryption_key(self, password: bytes) -> bytes:
-        """Computes an encryption key from ``password`` according to § 7.6.4.3.2,
-        "Algorithm 2: Computing a file encryption key in order to encrypt a document
+        """Computes an encryption key from ``password`` according to ISO 32000-2:2020 §
+        7.6.4.3.2 "Algorithm 2: Computing a file encryption key in order to encrypt a document
         (revision 4 and earlier)"."""
 
         # a) Pad or truncate the password string to exactly 32 bytes.
@@ -89,8 +89,8 @@ class StandardSecurityHandler:
 
     def compute_owner_password(self, owner_password: bytes, user_password: bytes) -> bytes:
         """Computes the O (``owner_password``) value in the Encrypt dictionary according
-        to § 7.6.4.4.2, "Algorithm 3: Computing the encryption dictionary's O-entry value
-        (revision 4 and earlier)".
+        to ISO 32000-2:2020 § 7.6.4.4.2 "Algorithm 3: Computing the encryption dictionary's
+        O-entry value (revision 4 and earlier)".
 
         As a fallback in case there is no owner password, a ``user_password`` must also
         be specified.
@@ -133,8 +133,8 @@ class StandardSecurityHandler:
 
     def compute_user_password(self, password: bytes) -> bytes:
         """Computes the U (user password) value in the Encrypt dictionary according to
-        the algorithms for revision 2 (Algorithm 4 in § 7.6.4.4.3) and revisions 3 and 4
-        (Algorithm 5 in § 7.6.4.4.4).
+        the algorithms for revision 2 (Algorithm 4 in ISO 32000-2:2020 § 7.6.4.4.3) and
+        revisions 3 and 4 (Algorithm 5 in ISO 32000-2:2020 § 7.6.4.4.4).
         """
 
         arc4 = self._get_provider("ARC4")
@@ -165,9 +165,9 @@ class StandardSecurityHandler:
             return pad_password(user_cipher)
 
     def authenticate_user_password(self, password: bytes) -> tuple[bytes, bool]:
-        """Authenticates the provided user ``password`` according to § 7.6.4.4.5,
-        "Algorithm 6: Authenticating the user password (Security handlers of revision
-        4 and earlier)".
+        """Authenticates the provided user ``password`` according to ISO 32000-2:2020
+        § 7.6.4.4.5 "Algorithm 6: Authenticating the user password (Security handlers
+        of revision 4 and earlier)".
 
         Returns a tuple of two values: the encryption key that should decrypt the
         document and whether authentication was successful.
@@ -208,8 +208,8 @@ class StandardSecurityHandler:
 
     def authenticate_owner_password(self, password: bytes) -> tuple[bytes, bool]:
         """Authenticates the provided owner ``password`` (or user ``password`` if none)
-        according to § 7.6.4.4.6, "Algorithm 7: Authenticating the owner password
-        (Security handlers of revision 4 and earlier)".
+        according to ISO 32000-2:2020 § 7.6.4.4.6 "Algorithm 7: Authenticating the owner
+        password (Security handlers of revision 4 and earlier)".
 
         Returns a tuple of two values: the encryption key that should decrypt the
         document and whether authentication was successful.
@@ -254,10 +254,11 @@ class StandardSecurityHandler:
         crypt_filter: PdfDictionary | None = None,
     ) -> tuple[CryptMethod, bytes, bytes]:
         """Computes all parameters needed to encrypt or decrypt ``contents`` according to
-        § 7.6.3.2, "Algorithm 1: Encryption of data using the RC4 and AES algorithms".
+        ISO 32000-2:2020 § 7.6.3.2, "Algorithm 1: Encryption of data using the RC4 and AES
+        algorithms".
 
         This algorithm is only applicable for Encrypt versions 1 through 4 (deprecated in
-        PDF 2.0). Version 5 uses a simpler algorithm described in § 7.6.3.2.
+        PDF 2.0). Version 5 uses a simpler algorithm described in ISO 32000-2:2020 § 7.6.3.2.
 
         Arguments:
             encryption_key (bytes):
@@ -324,8 +325,9 @@ class StandardSecurityHandler:
         *,
         crypt_filter: PdfDictionary | None = None,
     ) -> bytes:
-        """Encrypts the specified ``contents`` according to § 7.6.3.2. For details on
-        parameters, see :meth:`.compute_object_crypt`."""
+        """Encrypts the specified ``contents`` according to ISO 32000-2:2020 § 7.6.3.2.
+
+        For details on parameters, see :meth:`.compute_object_crypt`."""
 
         crypt_method, key, decrypted = self.compute_object_crypt(
             encryption_key, contents, reference, crypt_filter=crypt_filter
@@ -341,8 +343,9 @@ class StandardSecurityHandler:
         *,
         crypt_filter: PdfDictionary | None = None,
     ) -> bytes:
-        """Decrypts the specified ``contents`` according to § 7.6.3.2. For details on
-        parameters, see :meth:`.compute_object_crypt`."""
+        """Decrypts the specified ``contents`` according to ISO 32000-2:2020 § 7.6.3.2.
+
+        For details on parameters, see :meth:`.compute_object_crypt`."""
 
         crypt_method, key, encrypted = self.compute_object_crypt(
             encryption_key, contents, reference, crypt_filter=crypt_filter

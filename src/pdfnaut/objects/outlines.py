@@ -32,6 +32,7 @@ def is_outline_tree(item: PdfDictionary) -> bool:
 
 
 def get_count(item: OutlineTree | OutlineItem) -> int:
+    """Calculates the count of visible items within an outline ``item`` or tree."""
     count = len(item.children)
     for child in item.children:
         if child.visible_items >= 0:
@@ -41,8 +42,8 @@ def get_count(item: OutlineTree | OutlineItem) -> int:
 
 
 def update_ancestor_count(item: OutlineTree | OutlineItem) -> None:
-    """Recalculates the count for this item, reflecting this count in the ancestors."""
-
+    """Recalculates the visible item count for the outline ``item``, reflecting
+    this count in the ancestors."""
     new_count = get_count(item)
 
     if cast(int, item.get("Count", 0)) < 0:
@@ -76,10 +77,12 @@ class OutlineItemFlags(IntFlag):
     """Display the outline item text in bold."""
 
 
-@dictmodel()
+@dictmodel
 class OutlineItem(PdfDictionary):
-    """An outline item within the outline tree. See "Table 151 - Entries in an
-    outline item dictionary" for details."""
+    """An outline item within the outline tree.
+
+    See ISO 32000-2:2020 "Table 151 - Entries in an outline item dictionary"
+    for details."""
 
     text: str = field("Title")
     """The display text for this outline item."""
@@ -159,10 +162,10 @@ class OutlineItem(PdfDictionary):
     @property
     def visible_items(self) -> int:
         """
-        If the outline item is open, the number of visible descendent outline items.
-        If the outline item is closed, a negative number representing the number of
-        descendants that would be visible if the item were opened.
-        If the outline item has no children, zero.
+        - If the outline item is open, the number of visible descendent outline items.
+        - If the outline item is closed, a negative number representing the number of
+          descendants that would be visible if the item were opened.
+        - If the outline item has no children, zero.
         """
         return self.get("Count", 0)
 
@@ -262,11 +265,13 @@ class OutlineItem(PdfDictionary):
 
 class OutlineTree(PdfDictionary):
     """The document outline tree containing a hierarchy of outline items that allow
-    navigating throughout the document. See § 12.3.3 "Document outline" for details.
+    navigating throughout the document.
+
+    See ISO 32000-2:2020 § 12.3.3 "Document outline" for details.
 
     .. warning::
         This class is not designed to be constructed by a user. To add an outline tree
-        to a document, :meth:`PdfDocument.new_outline` should be preferred.
+        to a document, :meth:`PdfDocument.new_outline` should be used.
     """
 
     def __init__(
@@ -328,7 +333,7 @@ class OutlineList(MutableSequence[OutlineItem]):
     """The outline list representing the children of an outline tree or item.
 
     .. warning::
-        This class is not designed to be constructed by a user. Using an outline
+        This class is not designed to be constructed by a user. Using the outline
         list should be done via :class:`OutlineTree` and :class:`OutlineItem`.
     """
 

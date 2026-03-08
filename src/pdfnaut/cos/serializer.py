@@ -231,8 +231,8 @@ class PdfSerializer:
         ]
 
     def write_standard_xref_section(self, subsections: list[PdfXRefSubsection]) -> int:
-        """Appends a standard XRef section (see § 7.5.4, "Cross-Reference Table") to the document.
-        Returns the ``startxref`` offset that should be written to the document."""
+        """Appends a standard XRef section (see ISO 32000-2:2020 § 7.5.4 "Cross-Reference Table")
+        to the document. Returns the ``startxref`` offset that should be written to the document."""
 
         startxref = self.content.tell()
         self.content.write(b"xref" + self.eol)
@@ -259,11 +259,11 @@ class PdfSerializer:
         return startxref
 
     def write_compressed_xref_section(self, section: PdfXRefSection) -> int:
-        """Appends a compressed XRef stream (see § 7.5.8, "Cross-Reference Streams") from
-        ``section`` (to use as part of the extent) to the document.
+        """Appends a compressed XRef stream (see ISO 32000-2:2020 § 7.5.8 "Cross-Reference Streams")
+        from ``section`` (to use as part of the extent) to the document.
 
-        Returns the ``startxref`` offset that should be written to the document."""
-
+        Returns the ``startxref`` offset that should be written to the document.
+        """
         indices: PdfArray[PdfArray[int]] = PdfArray()
         table_rows: list[list[int]] = []
 
@@ -307,8 +307,8 @@ class PdfSerializer:
     def write_trailer(
         self, trailer: PdfDictionary | None = None, startxref: int | None = None
     ) -> None:
-        """Appends a standard ``trailer`` to the document (see § 7.5.5 "File Trailer")
-        alongside the ``startxref`` offset.
+        """Appends a standard ``trailer`` to the document (see ISO 32000-2:2020
+        § 7.5.5 "File Trailer") alongside the ``startxref`` offset.
 
         Both arguments are optional, indicating their presence in the appended output.
         If the XRef section written previously was an XRef stream, the trailer has

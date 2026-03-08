@@ -15,7 +15,7 @@ DictVal = TypeVar("DictVal", default=PdfObject, infer_variance=True)
 class PdfDictionary(UserDict[DictKey, DictVal]):
     """An associative table containing pairs of objects or entries where each entry is
     composed of a key which is a name object and a value which is any PDF object
-    (see § 7.3.7, "Dictionary objects").
+    (see ISO 32000-2:2020 § 7.3.7 "Dictionary objects").
 
     :class:`PdfDictionary` is effectively a Python dictionary. Its keys are strings and
     its values are any PDF object. The main difference from a typical dictionary is that
@@ -45,7 +45,8 @@ ArrVal = TypeVar("ArrVal", default=PdfObject)
 
 
 class PdfArray(UserList[ArrVal]):
-    """A heterogeneous collection of sequentially arranged items (see § 7.3.6, "Array objects").
+    """A heterogeneous collection of sequentially arranged items (see ISO 32000-2:2020
+    § 7.3.6 "Array objects").
 
     :class:`PdfArray` is effectively a Python list. The main difference from a typical list
     is that PdfArray automatically resolves references when indexing.

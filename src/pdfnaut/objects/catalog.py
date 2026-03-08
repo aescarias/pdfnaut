@@ -23,7 +23,7 @@ class UserAccessPermissions(enum.IntFlag):
     """User access permissions as specified in the P entry of the document's standard
     encryption dictionary.
 
-    See "Table 22 - Standard security handler user access permissions" in the PDF spec
+    See ISO 32000-2:2020 "Table 22 - Standard security handler user access permissions"
     for details.
     """
 
@@ -73,7 +73,7 @@ class UserAccessPermissions(enum.IntFlag):
     # bits 12-31 are reserved and must be 1.
 
 
-@dictmodel()
+@dictmodel
 class ViewerPreferences(PdfDictionary):
     """The viewer preferences dictionary specifying the way a PDF viewer shall
     display a document on the screen.
@@ -197,15 +197,16 @@ class ViewerPreferences(PdfDictionary):
         return [cast(Enforceable, it.value.decode()) for it in enforced]
 
 
-@dictmodel()
+@dictmodel
 class DeveloperExtension(PdfDictionary):
-    """An entry in an extension dictionary (see § 7.12.3, "Developer extensions dictionary")."""
+    """An entry in an extension dictionary.
+
+    See ISO 32000-2:2020 § 7.12.3 "Developer extensions dictionary" for details.
+    """
 
     base_version: Annotated[str, "name"]
-    """The name of the PDF version to which this extension applies.
-
-    The name shall be consistent with the syntax used for the Version entry
-    of the catalog dictionary (see § 7.7.2, "Document catalog dictionary").
+    """The PDF version to which this extension applies. This value shall be consistent 
+    with the syntax used for the Version entry of the document catalog dictionary.
     """
 
     level: int = field("ExtensionLevel")
@@ -230,7 +231,10 @@ class DeveloperExtension(PdfDictionary):
 
 
 class ExtensionMap(PdfDictionary):
-    """A map defining developer extensions in a document (see § 7.12, "Extensions dictionary")."""
+    """A map defining developer extensions in a document.
+
+    See ISO 32000-2:2020 § 7.12 "Extensions dictionary" for details.
+    """
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
@@ -253,11 +257,11 @@ class ExtensionMap(PdfDictionary):
         return DeveloperExtension.from_dict(cast(PdfDictionary, extension))
 
 
-@dictmodel()
+@dictmodel
 class MarkInfo(PdfDictionary):
     """Information relevant to specialized uses of structured PDF documents.
 
-    See § 14.7, "Logical structure" for details.
+    See ISO 32000-2:2020 § 14.7 "Logical structure" for details.
     """
 
     marked: bool = False
@@ -275,7 +279,7 @@ class MarkInfo(PdfDictionary):
     """(PDF 1.6) Whether structure elements including user properties are present 
     in the document.
     
-    See § 14.7.6.4, "User properties" for details.
+    See ISO 32000-2:2020 § 14.7.6.4 "User properties" for details.
     """
 
     @classmethod

@@ -52,7 +52,7 @@ MapObject: TypeAlias = "PdfObject | PdfStream | FreeObject"
 
 class ObjectStream:
     """A mapping of object numbers to PDF objects representing an object stream
-    (see § 7.5.7, "Object Streams")."""
+    (see ISO 32000-2:2020 § 7.5.7 "Object Streams")."""
 
     def __init__(self, pdf: PdfParser, stream: PdfStream, stream_objnum: int) -> None:
         """
@@ -280,7 +280,7 @@ class PdfParser:
         self.trailer = PdfDictionary[str, PdfObject]({"Size": 0, "Root": PdfReference(0, 0)})
         """The most recent trailer in the PDF document.
         
-        For details on the contents of the trailer, see § 7.5.5, "File Trailer".
+        For details on the contents of the trailer, see ISO 32000-2:2020 § 7.5.5 "File Trailer".
         """
 
         self.xref: dict[tuple[int, int], PdfXRefEntry] = {}
@@ -543,7 +543,7 @@ class PdfParser:
 
     def parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in
-        § 7.5.4, "Cross-Reference Table".
+        ISO 32000-2:2020 § 7.5.4 "Cross-Reference table".
 
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         should be called instead.
@@ -598,8 +598,8 @@ class PdfParser:
         return subsections
 
     def parse_compressed_xref(self) -> PdfXRefSection:
-        """Parses a compressed cross-reference stream which includes both the XRef table and
-        information from the PDF trailer as described in § 7.5.8, "Cross-Reference Streams".
+        """Parses a compressed cross-reference stream which includes both the XRef table and information
+        from the PDF trailer as described in ISO 32000-2:2020 § 7.5.8 "Cross-reference streams".
         """
         xref_stream = self.parse_indirect_object(InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)

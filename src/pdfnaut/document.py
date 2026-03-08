@@ -103,10 +103,12 @@ class PdfDocument(PdfParser):
 
     @property
     def catalog(self) -> PdfDictionary:
-        """The root of the document's object hierarchy, including references to pages,
-        outlines, destinations, and other core elements of a PDF document.
+        """The document catalog representing the root of the document's object
+        hierarchy, including references to the page tree, outlines, destinations,
+        and other core elements in a PDF document.
 
-        For details on the contents of the catalog, see § 7.7.2, "Document Catalog".
+        For details on the contents of the document catalog, see ISO 32000-2:2020
+        § 7.7.2 "Document catalog dictionary".
         """
 
         return cast(PdfDictionary, self.trailer["Root"])
@@ -118,13 +120,13 @@ class PdfDocument(PdfParser):
 
     @property
     def doc_info(self) -> Info | None:
-        """The ``Info`` entry in the catalog which includes document-level information
-        described in § 14.3.3, "Document information dictionary".
+        """The ``Info`` entry of the document trailer which includes the document-level
+        information described in ISO 32000-2:2020 § 14.3.3 "Document information dictionary".
 
         Some documents may specify a metadata stream rather than a DocInfo dictionary.
         Such metadata can be accessed using :attr:`.PdfDocument.xmp_info`.
 
-        PDF 2.0 deprecates all keys of the DocInfo dictionary except for ``CreationDate``
+        PDF 2.0 deprecated all keys of the DocInfo dictionary except for ``CreationDate``
         and ``ModDate``.
         """
         if "Info" not in self.trailer:
@@ -155,8 +157,8 @@ class PdfDocument(PdfParser):
 
     @property
     def xmp_info(self) -> XmpMetadata | None:
-        """The ``/Metadata`` entry of the catalog which includes document-level
-        metadata stored as XMP."""
+        """The ``/Metadata`` entry of the document catalog which includes
+        document-level metadata stored as XMP."""
         if "Metadata" not in self.catalog:
             return
 
@@ -180,23 +182,22 @@ class PdfDocument(PdfParser):
 
     @property
     def page_tree(self) -> PdfDictionary:
-        """The document's page tree. See § 7.7.3, "Page Tree" for details.
+        """The document's page tree described in ISO 32000-2:2020 § 7.7.3 "Page Tree".
 
-        For iterating over the pages of a PDF, prefer :attr:`PdfDocument.pages`
-        or :attr:`.PdfDocument.flattened_pages`.
+        :attr:`.PdfDocument.pages` should be preferred in typical usage.
         """
         return cast(PdfDictionary, self.catalog["Pages"])
 
     @property
     def outline_tree(self) -> PdfDictionary | None:
         """The document's outline tree including what is commonly referred to as
-        bookmarks. See § 12.3.3 "Document outline" for details."""
+        bookmarks. See ISO 32000-2:2020 § 12.3.3 "Document outline" for details."""
         return cast("PdfDictionary | None", self.catalog.get("Outlines"))
 
     @property
     def outline(self) -> OutlineTree | None:
-        """The document outline tree including outline items or bookmarks for
-        navigating a document. See § 12.3.3 "Document outline" for details."""
+        """The outline tree including a hierarchy of outline items or bookmarks used
+        for document-level navigation."""
         if "Outlines" not in self.catalog:
             return
 
@@ -214,7 +215,7 @@ class PdfDocument(PdfParser):
 
     def new_outline(self) -> None:
         """Creates an empty outline tree."""
-        outline = PdfDictionary({"Type": PdfName(b"Outlines")})
+        outline = PdfDictionary[str, PdfObject]({"Type": PdfName(b"Outlines")})
         outline_ref = self.objects.add(outline)
         self.catalog["Outlines"] = outline_ref
 
@@ -277,9 +278,11 @@ class PdfDocument(PdfParser):
     def language(self) -> str | None:
         """A language identifier that shall specify the natural language for all text in
         the document except where overridden by language specifications for structure
-        elements or marked content (see § 14.9.2, "Natural language specification").
+        elements or marked content.
 
-        If this entry is absent, the language shall be considered unknown.
+        See ISO 32000-2:2020 § 14.9.2 "Natural language specification" for details.
+
+        If this entry is absent or invalid, the language shall be considered unknown.
         """
 
         if "Lang" not in self.catalog:
@@ -338,8 +341,8 @@ class PdfDocument(PdfParser):
 
     @property
     def extensions(self) -> ExtensionMap | None:
-        """Developer-defined extensions to this document. Introduced in
-        ISO 32000-1 (PDF 1.7). See :class:`.ExtensionMap` for details."""
+        """Developer-defined extensions to this document. This feature was introduced
+        in ISO 32000-1 (PDF 1.7). See :class:`.ExtensionMap` for details."""
         if "Extensions" not in self.catalog:
             return
 

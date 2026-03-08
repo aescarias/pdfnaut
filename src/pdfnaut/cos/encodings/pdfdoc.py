@@ -1,4 +1,4 @@
-"""charmap codec based on Annex D.3: PDFDocEncoding character set.
+"""charmap codec based on ISO 32000-2:2020 § Annex D.3: PDFDocEncoding character set.
 
 Implemented as seen in this example:
 https://github.com/python/cpython/blob/main/Lib/encodings/cp1252.py

@@ -46,7 +46,10 @@ AnnotationKind = Literal[
 
 
 class AnnotationFlags(enum.IntFlag):
-    """Flags for a particular annotation. See § 12.5.3, "Annotation flags" for details."""
+    """Flags for a particular annotation.
+
+    See ISO 32000-2:2020 § 12.5.3 "Annotation flags" for details.
+    """
 
     NULL = 0
     """A default value meaning that no flags are set."""
@@ -94,11 +97,13 @@ class AnnotationFlags(enum.IntFlag):
 @dictmodel(init=False)
 class Annotation(PdfDictionary):
     """An annotation associates an object such as a note, link, or multimedia element
-    with a location on a page of a PDF document (see § 12.5, "Annotations")."""
+    with a location on a page of a PDF document.
+
+    See ISO 32000-2:2020 § 12.5 "Annotations" for details.
+    """
 
     kind: AnnotationKind = field("Subtype")
-    """The kind of annotation. See ``"Table 171: Annotation types"`` in the PDF spec for 
-    an overview of their functions."""
+    """The kind of annotation. See ISO 32000-2:2020 "Table 171 — Annotation types" for details."""
 
     rect: PdfArray[float]
     """A rectangle specifying the location of the annotation in the page."""
@@ -119,7 +124,10 @@ class Annotation(PdfDictionary):
     language: str | None = field("Lang", default=None)
     """(PDF 2.0) A language identifier specifying the natural language for all 
     text in the annotation except where overridden by other explicit language 
-    specifications (see § 14.9.2, "Natural language specification")."""
+    specifications 
+    
+    See ISO 32000-2:2020 § 14.9.2 "Natural language specification" for details.
+    """
 
     flags: AnnotationFlags = field("F", default=AnnotationFlags.NULL.value)
     """Flags specifying various characteristics of the annotation."""
@@ -175,7 +183,7 @@ BorderStyle = Literal["S", "D", "B", "I", "U"]
 class AnnotationBorderStyle(PdfDictionary):
     """The border style for the outline that surrounds an annotation.
 
-    See § 12.5.4 "Border styles" for details.
+    See ISO 32000-2:2020 § 12.5.4 "Border styles" for details.
     """
 
     width: float = field("W", default=1)
@@ -188,7 +196,7 @@ class AnnotationBorderStyle(PdfDictionary):
     - D: A dashed rectangle specified by :attr:`.AnnotationBorderStyle.dash_pattern`.
     - B: A simulated embossed (beveled) rectangle.
     - I: A simulated engraved (inset) rectangle.
-    - U: An underline
+    - U: An underline.
     """
 
     dash_pattern: PdfArray[float] | None = field("D", default=None)
@@ -203,6 +211,12 @@ class AnnotationBorderStyle(PdfDictionary):
 
 @dictmodel(init=False)
 class LinkAnnotation(Annotation):
+    """A link annotation represents either a hypertext link to a location within
+    the document or an action to perform.
+
+    See ISO 32000-2:2020 § 12.5.6.5 "Link annotations" for details.
+    """
+
     highlight_mode: LinkHighlightMode = field("H", default="I")
     """The annotation's highlight mode. May be either of the following:
 
@@ -291,7 +305,8 @@ class LinkAnnotation(Annotation):
 
 
 class AnnotationList(MutableSequence[Annotation]):
-    """A list of annotations representing the ``Annots`` key in a page object."""
+    """A mutable sequence representing the list of annotations (the ``Annots`` key)
+    in a page object."""
 
     def __init__(self, array: PdfArray, pdf: PdfParser | None = None) -> None:
         self.pdf = pdf

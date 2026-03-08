@@ -89,7 +89,10 @@ class NameAccessor:
 
 
 class TextStringAccessor:
-    """An accessor defining a key whose value is a text string (``§ 7.9.2.2 Text string type``)."""
+    """An accessor defining a key whose value is a text string.
+
+    See ISO 32000-2:2020 § 7.9.2.2 "Text string type" for details.
+    """
 
     def __init__(self, field: Field) -> None:
         self.field = field
@@ -110,7 +113,7 @@ class TextStringAccessor:
 
 
 class DateAccessor:
-    """An accessor defining a key whose value is a date (see § 7.9.4. "Dates")."""
+    """An accessor defining a key whose value is a date (see ISO 32000-2:2020 § 7.9.4 "Dates")."""
 
     def __init__(self, field: Field) -> None:
         self.field = field

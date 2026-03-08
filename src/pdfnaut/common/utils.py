@@ -43,7 +43,7 @@ def get_closest(values: Iterable[int], target: int) -> int:
 
 def generate_file_id(filename: str, content_size: int) -> PdfHexString:
     """Generates a file identifier using ``filename`` and ``content_size`` as
-    described in § 14.4, "File identifiers".
+    described in ISO 32000-2:2020 § 14.4 "File identifiers".
 
     File identifiers are values that uniquely separate a revision of a document
     from another. The file identifier is generated using the same information
@@ -122,7 +122,7 @@ def clone_into_document(
     reference being for a page tree), it is nulled.
 
     If the reference is suitable, its contents are added into the document and the new
-    references replaces the old reference in the object.
+    reference replaces the old reference in the object.
     """
 
     if ignore_keys is None:

@@ -13,10 +13,10 @@ from .containers import PdfArray, PdfDictionary
 class PdfStream:
     """A sequence of bytes that may be of unlimited length. Objects with a large
     amount of data like images or fonts are usually represented by streams
-    (see § 7.3.8, "Stream objects")."""
+    (see ISO 32000-2:2020 § 7.3.8 "Stream objects")."""
 
     details: PdfDictionary[str, PdfObject]
-    """The stream extent dictionary as described in § 7.3.8.2, "Stream extent"."""
+    """The stream extent dictionary as described in ISO 32000-2:2020 § 7.3.8.2 "Stream extent"."""
 
     raw: bytes = field(repr=False)
     """The raw data in the stream."""

@@ -17,7 +17,7 @@ T = TypeVar("T", default=bytes)
 
 
 class PdfNull:
-    """A PDF object representing a unique state (see § 7.3.9, "Null Object")."""
+    """A PDF object representing a unique state (see ISO 32000-2:2020 § 7.3.9 "Null Object")."""
 
     def __repr__(self) -> str:
         return "PdfNull()"
@@ -30,7 +30,7 @@ class PdfNull:
 class PdfComment:
     """A comment introduced by the presence of the percent sign (``%``) outside a string or
     inside a content stream. Comments have no syntactical meaning and shall be interpreted as
-    whitespace (see § 7.2.4, "Comments")."""
+    whitespace (see ISO 32000-2:2020 § 7.2.4 "Comments")."""
 
     value: bytes
     """The value of this comment."""
@@ -39,7 +39,7 @@ class PdfComment:
 @dataclass(order=True)
 class PdfName(Generic[T]):
     """An atomic symbol uniquely defined by a sequence of 8-bit characters
-    (see, § 7.3.5, "Name Objects")."""
+    (see ISO 32000-2:2020 § 7.3.5 "Name Objects")."""
 
     value: T
     """The value of this name."""
@@ -51,7 +51,7 @@ class PdfName(Generic[T]):
 @dataclass(order=True)
 class PdfHexString:
     """A string of characters encoded in hexadecimal useful for including arbitrary
-    binary data in a PDF (see § 7.3.4.3, "Hexadecimal Strings")."""
+    binary data in a PDF (see ISO 32000-2:2020 § 7.3.4.3 "Hexadecimal Strings")."""
 
     raw: bytes
     """The hex value of the string."""
@@ -81,7 +81,7 @@ T = TypeVar("T")
 
 @dataclass
 class PdfReference(Generic[T]):
-    """A reference to a PDF indirect object (see § 7.3.10, "Indirect objects")."""
+    """A reference to a PDF indirect object (see ISO 32000-2:2020 § 7.3.10 "Indirect objects")."""
 
     object_number: int
     """The object number of the object being referenced."""
@@ -114,7 +114,7 @@ class PdfReference(Generic[T]):
 
 @dataclass
 class PdfOperator:
-    """A PDF operator within a content stream (see § 7.8.2, "Content streams")."""
+    """A PDF operator within a content stream (see ISO 32000-2:2020 § 7.8.2 "Content streams")."""
 
     name: bytes
     """The name of this operator."""
@@ -126,7 +126,7 @@ class PdfOperator:
 # TODO: convert this into a PdfStream-like class
 @dataclass
 class PdfInlineImage:
-    """A PDF inline image within a content stream (see § 8.9.7, "Inline images")."""
+    """A PDF inline image within a content stream (see ISO 32000-2:2020 § 8.9.7 "Inline images")."""
 
     details: PdfDictionary
     """Details about the inline image."""
@@ -136,7 +136,7 @@ class PdfInlineImage:
 
 
 def parse_text_string(encoded: PdfHexString | bytes) -> str:
-    """Parses a text string as described in § 7.9.2.2, "Text string type".
+    """Parses a text string as described in ISO 32000-2:2020 § 7.9.2.2 "Text string type".
 
     Text strings may either be encoded in PDFDocEncoding, UTF-16BE, or (PDF 2.0) UTF-8.
     Each encoding is indicated by a byte-order mark at the beginning (``FE FF`` for

@@ -47,8 +47,9 @@ class PdfFilter(Protocol):
 
 
 class ASCIIHexFilter(PdfFilter):
-    """Filter for hexadecimal strings (see § 7.4.2, "ASCIIHexDecode Filter").
-    EOD is ``>``.
+    """Filter for hexadecimal strings. EOD is '>'.
+
+    See ISO 32000-2:2020 § 7.4.2 "ASCIIHexDecode Filter" for details.
 
     This filter does not take any parameters. ``params`` will be ignored.
     """
@@ -65,8 +66,9 @@ class ASCIIHexFilter(PdfFilter):
 
 
 class ASCII85Filter(PdfFilter):
-    """Filter for Adobe's ASCII85 implementation (see § 7.4.3, "ASCII85Decode Filter").
-    EOD is ``~>``.
+    """Filter for Adobe's ASCII85 implementation. EOD is '~>'.
+
+    See ISO 32000-2:2020 § 7.4.3 "ASCII85Decode Filter" for details.
 
     This filter does not take any parameters. ``params`` will be ignored.
     """
@@ -81,7 +83,7 @@ class ASCII85Filter(PdfFilter):
 
 class RunLengthFilter(PdfFilter):
     """Filter for a form of byte-oriented run-length encoding (RLE) scheme resembling
-    the Apple PackBits format (see § 7.4.5, "RunLengthDecode Filter").
+    the Apple PackBits format (see ISO 32000-2:2020 § 7.4.5 "RunLengthDecode Filter").
     
     In this filter, data is formatted as a sequence of runs. Each run starts with a length 
     byte and is followed by 1 to 128 bytes of data.
@@ -185,7 +187,8 @@ class RunLengthFilter(PdfFilter):
 
 
 class FlateFilter(PdfFilter):
-    """Filter for zlib/deflate compression (see § 7.4.4, "LZWDecode and FlateDecode Filters").
+    """Filter for zlib/deflate compression (see ISO 32000-2:2020 § 7.4.4 "LZWDecode and
+    FlateDecode Filters").
     
     This filter supports predictors which can increase predictability of data and hence
     improve compression. 2 predictor groups are supported by the spec: the PNG filters 
@@ -353,7 +356,7 @@ class FlateFilter(PdfFilter):
 
 # TODO: Please test
 class CryptFetchFilter(PdfFilter):
-    """Filter for encrypted streams (see § 7.4.10, "Crypt Filter").
+    """Filter for encrypted streams (see ISO 32000-2:2020 § 7.4.10 "Crypt Filter").
 
     This filter takes two optional parameters: ``Type``, which defines the decode parameters
     as being for this filter; and ``Name``, which defines what filter should be used to

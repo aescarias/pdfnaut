@@ -9,14 +9,14 @@ from ..cos.objects.containers import PdfDictionary
 TrappedState = Literal["True", "False", "Unknown"]
 
 
-@dictmodel()
+@dictmodel
 class Info(PdfDictionary):
-    """Document-level metadata representing the structure described in § 14.3.3,
-    "Document information dictionary".
+    """Document-level metadata representing the structure described in ISO 32000-2:2020
+    § 14.3.3 "Document information dictionary".
 
-    Since PDF 2.0, most of its keys have been deprecated in favor of their equivalents
-    in the document-level metadata stream. The only keys not deprecated are the
-    CreationDate and ModDate keys.
+    Since PDF 2.0, most of the attributes here have been deprecated in favor of their
+    equivalents in the document-level metadata stream (see :attr:`.PdfDocument.xmp_info`),
+    with exception of :attr:`.Info.creation_date` and :attr:`.Info.modify_date`.
     """
 
     title: str | None = None
@@ -54,7 +54,7 @@ class Info(PdfDictionary):
 
     trapped: TrappedState | None = None
     """A value reporting whether the document has been modified to include trapping 
-    information (see § 14.11.6, "Trapping support")."""
+    information (see ISO 32000-2:2020 § 14.11.6 "Trapping support")."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:

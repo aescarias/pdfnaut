@@ -46,17 +46,20 @@ def action_into(mapping: PdfDictionary) -> Action:
     return Action.from_dict(mapping)
 
 
-@dictmodel()
+@dictmodel
 class Action(PdfDictionary):
     """An action instructs the PDF reader to perform an action such as opening an
     application, going to a page in the document, or playing a sound, when activating
     an annotation or outline item.
 
-    See § 12.6 "Actions" for details.
+    See ISO 32000-2:2020 § 12.6 "Actions" for details.
     """
 
     subtype: Annotated[ActionKind, "name"] = field("S")
-    """The type of action described. See "Table 201 - Action types" for details."""
+    """The type of action.
+    
+    Refer to ISO 32000-2:2020 "Table 201 - Action types" for available types.
+    """
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
@@ -94,10 +97,11 @@ class Action(PdfDictionary):
             self["Next"] = PdfArray([PdfDictionary(act.data) for act in action])
 
 
+@dictmodel
 class GoToAction(Action):
     """A go-to action changes the view to a specified destination.
 
-    See § 12.6.4.2 "Go-To actions" for details.
+    See ISO 32000-2:2020 § 12.6.4.2 "Go-To actions" for details.
     """
 
     @classmethod
@@ -138,11 +142,11 @@ class GoToAction(Action):
 class URIAction(Action):
     """A URI action causes a URI or uniform resource identifier to be resolved.
 
-    See § 12.6.4.8 "URI actions" for details.
+    See ISO 32000-2:2020 § 12.6.4.8 "URI actions" for details.
     """
 
     uri: str = field("URI")
-    """The uniform resource identifier to resolve."""
+    """The uniform resource identifier (URI) to resolve."""
 
     is_map: bool = field(default=False)
     """Whether to track the mouse position when the URI is resolved."""

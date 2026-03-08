@@ -16,7 +16,7 @@ TabOrder = Literal["R", "C", "S", "A", "W"]
 
 @dictmodel(init=False)
 class Page(PdfDictionary):
-    """A page in a PDF document (see § 7.7.3.3, "Page objects").
+    """A page in a PDF document (see ISO 32000-2:2020 § 7.7.3.3 "Page objects").
 
     Arguments:
         size (tuple[float, float]):
@@ -142,11 +142,8 @@ class Page(PdfDictionary):
 
     @property
     def annotations(self) -> AnnotationList | None:
-        """All annotations associated with this page represented as instances of
-        :class:`.Annotation` (see § 12.5, "Annotations" in the PDF spec for details).
-
-        If a page does not specify a list of annotations, this field is none.
-        """
+        """All annotations associated with this page. If a page does not specify
+        a list of annotations, this field is none."""
         if "Annots" not in self:
             return
 
