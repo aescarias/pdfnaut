@@ -214,7 +214,7 @@ class PdfDocument(PdfParser):
 
     def new_outline(self) -> None:
         """Creates an empty outline tree."""
-        outline = PdfDictionary(Type=PdfName(b"Outlines"))
+        outline = PdfDictionary({"Type": PdfName(b"Outlines")})
         outline_ref = self.objects.add(outline)
         self.catalog["Outlines"] = outline_ref
 

@@ -3,6 +3,15 @@
 
 This is the changelog for pdfnaut. Versions follow the scheme specified in the [Contributing Guide](./CONTRIBUTING.md#versioning). Dates are specified in YYYY-MM-DD format.
 
+## [0.11.1] (2026-03-08)
+
+### Fixes
+
+- Fix `Action` creation failure due to wrong dictionary key.
+- Account for `Destination` objects when setting destinations in `GoToAction` and `OutlineItem`.
+- Update type hint in `OutlineItem` to account for named destinations.
+- Update and add docs to `Destination`.
+
 ## [0.11.0] (2026-03-07)
 
 ### Additions
@@ -236,6 +245,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 The first release of pdfnaut. :tada:
 
+[0.11.1]: https://github.com/aescarias/pdfnaut/compare/v0.11...v0.11.1
 [0.11.0]: https://github.com/aescarias/pdfnaut/compare/v0.10...v0.11
 [0.10.0]: https://github.com/aescarias/pdfnaut/compare/v0.9...v0.10
 [0.9.0]: https://github.com/aescarias/pdfnaut/compare/v0.8...v0.9

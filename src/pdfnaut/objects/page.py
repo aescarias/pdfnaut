@@ -22,7 +22,7 @@ class Page(PdfDictionary):
         size (tuple[float, float]):
             The width and height of the physical medium in which the page should
             be printed or displayed. Values shall be provided in multiples of
-            1/72 of an inch.
+            1/72 of an inch (points).
 
         pdf (PdfParser, optional):
             The PDF document that this page belongs to.
@@ -143,7 +143,7 @@ class Page(PdfDictionary):
     @property
     def annotations(self) -> AnnotationList | None:
         """All annotations associated with this page represented as instances of
-        :class:`.Annotation` (see see § 12.5, "Annotations" in the PDF spec for details).
+        :class:`.Annotation` (see § 12.5, "Annotations" in the PDF spec for details).
 
         If a page does not specify a list of annotations, this field is none.
         """

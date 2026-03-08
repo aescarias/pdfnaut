@@ -103,7 +103,7 @@ class OutlineItem(PdfDictionary):
         self,
         text: str,
         flags: OutlineItemFlags = OutlineItemFlags.NULL,
-        destination: Destination | None = None,
+        destination: DestType | None = None,
         action: Action | None = None,
         color: PdfArray[int | float] | None = None,
         *,
@@ -212,6 +212,8 @@ class OutlineItem(PdfDictionary):
     def destination(self, dest: DestType | None = None) -> None:
         if dest is None:
             self.pop("Dest", None)
+        elif isinstance(dest, Destination):
+            self["Dest"] = PdfArray(dest.data)
         else:
             self["Dest"] = dest
 

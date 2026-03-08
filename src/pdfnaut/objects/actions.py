@@ -69,7 +69,7 @@ class Action(PdfDictionary):
     ) -> None:
         super().__init__()
 
-        self["Subtype"] = PdfName(subtype.encode())
+        self.subtype = subtype
         self.next_action = next_action
 
     @property
@@ -126,7 +126,10 @@ class GoToAction(Action):
 
     @destination.setter
     def destination(self, dest: DestType) -> None:
-        self["D"] = dest
+        if isinstance(dest, Destination):
+            self["D"] = PdfArray(dest.data)
+        else:
+            self["D"] = dest
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(destination={self.destination!r})"
@@ -167,8 +170,8 @@ class Destination(PdfArray):
 
     @classmethod
     def fit(cls, page: Page) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the entire
-        page within the window."""
+        """Creates a destination to ``page`` with its contents magnified enough to fit
+        the entire page within the window."""
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
 
@@ -176,9 +179,9 @@ class Destination(PdfArray):
 
     @classmethod
     def fit_horizontal(cls, page: Page, top: int | float | None = None) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the entire
-        page within the window horizontally and the top edge of the window positioned at the
-        vertical coordinate ``top``."""
+        """Creates a destination to ``page`` with its contents magnified enough to fit the
+        entire page within the window horizontally and the top edge of the window positioned
+        at the vertical coordinate ``top``."""
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
 
@@ -186,9 +189,9 @@ class Destination(PdfArray):
 
     @classmethod
     def fit_vertical(cls, page: Page, left: int | float | None = None) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the entire
-        page within the window vertically and the left edge of the window positioned at the
-        horizontal coordinate ``left``."""
+        """Creates a destination to ``page`` with its contents magnified enough to fit the
+        entire page within the window vertically and the left edge of the window positioned
+        at the horizontal coordinate ``left``."""
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
 
@@ -203,8 +206,8 @@ class Destination(PdfArray):
         right: int | float,
         top: int | float,
     ) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the rectangle
-        formed by the coordinates ``left``, ``bottom``, ``right``, and ``top``.
+        """Creates a destination to ``page`` with its contents magnified enough to fit the
+        rectangle formed by the coordinates ``left``, ``bottom``, ``right``, and ``top``.
         """
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
@@ -213,8 +216,8 @@ class Destination(PdfArray):
 
     @classmethod
     def fit_bbox(cls, page: Page) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the page
-        bounding box."""
+        """Creates a destination to ``page`` with its contents magnified enough to fit the
+        page bounding box."""
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
 
@@ -222,9 +225,9 @@ class Destination(PdfArray):
 
     @classmethod
     def fit_bbox_horizontal(cls, page: Page, top: int | float | None = None) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the entire
-        bounding box of the page within the window horizontally and the top edge of the window
-        positioned at the vertical coordinate ``top``."""
+        """Creates a destination to ``page`` with its contents magnified enough to fit the
+        entire bounding box of the page within the window horizontally and the top edge of
+        the window positioned at the vertical coordinate ``top``."""
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
 
@@ -232,9 +235,9 @@ class Destination(PdfArray):
 
     @classmethod
     def fit_bbox_vertical(cls, page: Page, left: int | float | None = None) -> Self:
-        """Creates a destination to ``page`` with its contents magnified to fit the entire
-        bounding box of the page within the window vertically and the left edge of the window
-        positioned at the horizontal coordinate ``left``."""
+        """Creates a destination to ``page`` with its contents magnified enough to fit the
+        entire bounding box of the page within the window vertically and the left edge of
+        the window positioned at the horizontal coordinate ``left``."""
         if page.indirect_ref is None:
             raise ValueError("page must be in document")
 
@@ -242,16 +245,19 @@ class Destination(PdfArray):
 
     @property
     def page(self) -> Page:
+        """The page the destination jumps to."""
         page_ref = cast(PdfReference, self.data[0])
         return Page.from_dict(page_ref.get(), indirect_ref=page_ref)
 
     @property
     def kind(self) -> DestinationKind:
+        """The kind of destination."""
         name = cast(PdfName, self[1]).value.decode()
         return cast(DestinationKind, name)
 
     @property
     def args(self) -> Sequence[PdfObject]:
+        """The arguments provided to the destination, such as coordinates or the zoom factor."""
         return self[2:]
 
 
