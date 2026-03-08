@@ -1,4 +1,4 @@
-from .actions import Action, ActionKind
+from .actions import Action, ActionKind, Destination, DestinationKind, GoToAction
 from .annotations import Annotation, AnnotationFlags
 from .catalog import (
     PageLayout,
@@ -14,6 +14,9 @@ from .xmp import XmpMetadata
 __all__ = (
     "Action",
     "ActionKind",
+    "Destination",
+    "DestinationKind",
+    "GoToAction",
     "PageLayout",
     "PageMode",
     "Page",

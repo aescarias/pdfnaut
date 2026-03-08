@@ -3,7 +3,7 @@
 
 This is the changelog for pdfnaut. Versions follow the scheme specified in the [Contributing Guide](./CONTRIBUTING.md#versioning). Dates are specified in YYYY-MM-DD format.
 
-## [unreleased]
+## [0.11.0] (2026-03-07)
 
 ### Additions
 
@@ -236,7 +236,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 The first release of pdfnaut. :tada:
 
-[unreleased]: https://github.com/aescarias/pdfnaut/compare/v0.10...HEAD
+[0.11.0]: https://github.com/aescarias/pdfnaut/compare/v0.10...v0.11
 [0.10.0]: https://github.com/aescarias/pdfnaut/compare/v0.9...v0.10
 [0.9.0]: https://github.com/aescarias/pdfnaut/compare/v0.8...v0.9
 [0.8.0]: https://github.com/aescarias/pdfnaut/compare/v0.7...v0.8

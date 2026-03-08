@@ -140,6 +140,12 @@ def nullify(*objs: PdfObject | None) -> list[PdfObject]:
 
 
 class Destination(PdfArray):
+    """A explicit destination points to a page within a PDF document with a specified
+    location and zoom factor.
+
+    See § 12.3.2 "Destinations" for details.
+    """
+
     @classmethod
     def xyz(
         cls,
