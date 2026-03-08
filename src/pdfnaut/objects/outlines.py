@@ -9,10 +9,10 @@ from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
 from pdfnaut.cos.objects import PdfDictionary
-from pdfnaut.cos.objects.base import PdfHexString, PdfName, PdfReference
+from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray
 from pdfnaut.cos.parser import PdfParser
-from pdfnaut.objects.actions import Action
+from pdfnaut.objects.actions import Action, Destination, DestType, NamedDestination, action_into
 
 
 def is_outline_tree(item: PdfDictionary) -> bool:
@@ -73,9 +73,6 @@ class OutlineItemFlags(IntFlag):
 
     BOLD = 1 << 1
     """Display the outline item text in bold."""
-
-
-Destination = PdfName | PdfHexString | bytes | PdfArray
 
 
 @dictmodel()
@@ -196,16 +193,23 @@ class OutlineItem(PdfDictionary):
             self["C"] = value
 
     @property
-    def destination(self) -> Destination | None:
-        """The destination that shall be displayed when the item is activated. Either a
-        named destination (a name or byte string) or an explicit destination (an array)."""
+    def destination(self) -> DestType | None:
+        """The destination that shall be displayed when the item is activated, either
+        a named destination (a name or byte string) or an explicit destination
+        (a :class:`Destination` object)."""
+
         if "Dest" not in self:
             return
 
-        return cast(Destination, self["Dest"])
+        dest = self["Dest"]
+
+        if isinstance(dest, PdfArray):
+            return Destination(dest)
+
+        return cast(NamedDestination, self["Dest"])
 
     @destination.setter
-    def destination(self, dest: Destination | None = None) -> None:
+    def destination(self, dest: DestType | None = None) -> None:
         if dest is None:
             self.pop("Dest", None)
         else:
@@ -218,7 +222,7 @@ class OutlineItem(PdfDictionary):
             return
 
         act = cast(PdfDictionary, self["A"])
-        return Action.from_dict(act)
+        return action_into(act)
 
     @action.setter
     def action(self, act: Action | None) -> None:
