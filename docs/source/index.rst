@@ -11,13 +11,14 @@ pdfnaut provides high-level APIs for performing the following actions:
 - Reading compressed & encrypted PDF documents (AES/ARC4, see note below).
 - Inspecting PDF structure.
 - Viewing and editing document metadata.
+- Viewing and editing document outlines.
 - Appending, inserting, and removing pages.
 - Building PDFs from scratch.
 
 Install
 -------
 
-``pdfnaut`` can be installed from PyPI. pdfnaut requires at least Python 3.9 or later.
+``pdfnaut`` can be installed from PyPI. pdfnaut requires at least Python 3.10 or later.
 
 .. tab-set::
 
@@ -34,18 +35,19 @@ Install
          python -m pip install pdfnaut
 
 .. important:: 
-   To use pdfnaut for reading encrypted documents, you must also install a crypt provider as described in :ref:`standard security handler`.
+   To use pdfnaut for reading encrypted or protected documents, you must also install a crypt provider as described in :ref:`standard security handler`.
 
 Examples
 --------
 
-pdfnaut provides its API through :class:`~pdfnaut.document.PdfDocument` which allows performing common actions within a PDF. For example, to access the content stream of the first page in the document, you can do as follows:
+pdfnaut provides its core API via the :class:`~pdfnaut.document.PdfDocument` class which allows performing common actions within a PDF. For example, to access the content stream of the first page in the document, you can do as follows:
 
 .. code-block:: python
    
    from pdfnaut import PdfDocument
 
    pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
+   
    for operator in pdf.pages[0].content_stream:
       print(operator)
 

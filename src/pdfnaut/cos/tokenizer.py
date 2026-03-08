@@ -15,14 +15,14 @@ from .objects import (
     PdfReference,
 )
 
-# as defined in § 7.2.3, "Character Set", Table 1 & 2
+# as defined in ISO 32000-2:2020 § 7.2.3, "Character Set", Table 1 & 2
 DELIMITERS = b"()<>[]{}/%"
 WHITESPACE = b"\x00\t\n\x0c\r "
 EOL_CR = b"\r"
 EOL_LF = b"\n"
 EOL_CRLF = b"\r\n"
 
-# as defined in § 7.3.4.2, "Literal Strings", Table 3
+# as defined in ISO 32000-2:2020 § 7.3.4.2, "Literal Strings", Table 3
 STRING_ESCAPE = {
     b"\\n": b"\n",
     b"\\r": b"\r",
@@ -61,13 +61,13 @@ class ContentStreamTokenizer:
     def get_next_token(self) -> PdfOperator | PdfComment | None:
         """Consumes the next token.
 
-        The return value is either a :class:`.PdfOperator` or a :class:`.PdfComment`
-        in case a token was consumed or `None` if the end of data has been reached.
+        The return value is either a :class:`.PdfOperator` or a :class:`.PdfComment`,
+        in case a token was consumed, or ``None``, if the end of data has been reached.
         """
         if self.tokenizer.done:
             return
 
-        operands = []
+        operands: list[PdfObject] = []
         while not self.tokenizer.done:
             if (tok := self.tokenizer.get_next_token(parse_references=False)) is not None:
                 if isinstance(tok, PdfComment):
@@ -242,7 +242,8 @@ class PdfTokenizer:
         return False
 
     def skip_if_comment(self) -> bool:
-        """Advances through a PDF comment in case one occurs at the current position."""
+        """Advances through a PDF comment in case one occurs at the current position.
+        Returns whether a comment was skipped."""
         if self.matches(b"%"):
             self.parse_comment()
             return True
@@ -378,7 +379,7 @@ class PdfTokenizer:
         that is, an object composed of keys that are name objects and values
         that are any object.
 
-        The 'delimiter' parameter specifies where this dictionary should end.
+        The ``delimiter`` parameter specifies where this dictionary should end.
         The common ending (and default value) is ">>" for dictionary objects.
         However, this also accommodates for inline images which have the ID
         operator that can be used as a delimiter.
@@ -405,7 +406,7 @@ class PdfTokenizer:
         )
 
     def parse_array(self) -> PdfArray:
-        """Parses an array. Arrays are heterogenous in PDF so they are mapped to Python lists."""
+        """Parses a PDF array which represents a sequence of heterogeneous objects."""
         self.skip()  # past the [
 
         items = PdfArray[PdfObject]()
@@ -422,10 +423,9 @@ class PdfTokenizer:
         return items
 
     def parse_literal_string(self) -> bytes:
-        """Parses a literal string.
-
-        Literal strings may be composed entirely of ASCII or may include arbitrary
-        binary data. They may also include escape sequences and octal values (``\\ddd``).
+        """Parses a literal string. Literal strings may be composed entirely of ASCII
+        or may include arbitrary binary data. They may also include escape sequences
+        and octal values (``\\ddd``).
         """
         self.skip()  # past the (
 

@@ -15,22 +15,20 @@ Direct access to the page tree is possible via :attr:`.PdfDocument.page_tree`. H
     from pdfnaut import PdfDocument
 
     pdf = PdfDocument.from_filename(r"tests/docs/usenix-example-paper.pdf")
-    print(pdf.pages)     # <pdfnaut.page_list.PageList object at ...>
+    print(pdf.pages)     # [<Page ...>, <Page ...>, ...]
     print(pdf.pages[0])  # <Page mediabox=[0, 0, 612, 792] rotation=0>
 
-The page list mostly behaves like any other Python sequence and so operations commonly performed on those should work similarly in a page list.
+The page list mostly behaves like any other Python sequence and so operations commonly performed on those should work identically on a page list.
 
 - To access the first page of a PDF, you do ``pdf.pages[0]``.
 - To access the last page, you do ``pdf.pages[-1]``.
 - The length of the page list can be obtained via ``len(pdf.pages)``.
-- The page list also supports accessing items via slicing so something like ``pdf.pages[2:5]`` is allowed.
+- The page list also supports accessing items via slicing, so an operation such as ``pdf.pages[2:5]`` is allowed.
 
 Modifying Pages
 ---------------
 
-As the :class:`.Page` objects inherits from a :class:`.PdfDictionary`, you can modify its contents as you would any other mapping (for details on the entries in a page object, see § 7.7.3.3, "Page objects" in the PDF 2.0 specification).
-
-See the example below:
+As the :class:`.Page` object inherits from a :class:`.PdfDictionary`, you can modify its contents as you would any other mapping.
 
 .. code-block:: python
 
@@ -43,21 +41,21 @@ See the example below:
 
 In this example, the ``CropBox`` property is modified so that a visual crop starting at position (10, 10) and ending at position (200, 200) takes place.
 
-For commonly accessed properties, you may also access and modify them in attribute form:
+For common properties such as the page cropbox, you can use the available attributes in :class:`.Page`.
 
 .. code-block:: python
 
     pdf.pages[0].cropbox = PdfArray([10, 10, 200, 200])
 
-This performs the same action described in the previous example.
+This performs the same action as in the previous example.
 
 
 Inserting Pages
 ---------------
 
-One of the most common operations performed when manipulating PDFs is from a set of actions known as *page assembly*. Page assembly generally refers to the process of inserting and removing pages from a document.
+One of the most common operations performed when manipulating PDFs is from a set of actions known as *page assembly*. Page assembly refers to the process of inserting and removing pages from a document.
 
-To insert pages to a PDF, you can use the :meth:`.PageList.append` and :meth:`.PageList.insert` methods.
+To insert pages into a PDF, you can use the :meth:`.PageList.append` and :meth:`.PageList.insert` methods.
 
 .. code-block:: python
 
@@ -68,7 +66,7 @@ To insert pages to a PDF, you can use the :meth:`.PageList.append` and :meth:`.P
 
     pdf.pages.append(Page(size=(595, 842)))
 
-In the above example, a blank A4-size page is appended to the end of the document.
+In the above example, a blank A4-size page is added to the end of the document.
 
 You may also insert pages from a different document.
 
@@ -83,10 +81,9 @@ You may also insert pages from a different document.
 
 The example above inserts a page from the second PDF into the second position (before the third page). 
 
-Two things should be noted here:
+.. important::
 
-1. Unless the page is newly created, the page contents are always copied into the document. 
-2. Elements such as form widgets or certain types of annotations will not be preserved or are unlikely to work as these are fundamentally dependent on the document itself rather than the page they're being used in.
+    When importing pages from another document, certain elements such as form widgets and certain types of annotations may not be preserved in working order as they either depend on the document itself or are defined at document level rather than at page level.
 
 It is also possible to append multiple pages to a PDF using the :meth:`.PageList.extend` method.
 

@@ -13,9 +13,9 @@ Accessing the viewer preferences can be done by using the :attr:`.PdfDocument.vi
 
 The :class:`.ViewerPreferences` class includes a list of all available viewer preferences. They can be grouped as follows:
 
-- Viewer preferences targeting interactive PDF processors. Examples include ``hide_menubar``, ``display_doc_title``, and ``direction``.
-- Pre-press viewer preferences such as ``view_area`` and ``print_area``. These are deprecated in PDF 2.0
-- Viewer preferences when printing such as ``print_scaling`` or ``num_copies``.
+- Viewer preferences for interactive PDF processors, such as ``hide_menubar``, ``display_doc_title``, and ``direction``.
+- Pre-press viewer preferences, such as ``view_area`` and ``print_area``. These were deprecated in PDF 2.0
+- Viewer preferences when printing, such as ``print_scaling`` or ``num_copies``.
 
 PDF 2.0 conforming documents may also enforce viewer preferences by means of the :attr:`.ViewerPreferences.enforce` attribute. Currently, the only enforceable preference is :attr:`.ViewerPreferences.print_scaling`.
 
@@ -28,7 +28,7 @@ Preferences may be modified via their attribute. Setting them to ``None`` remove
     
     pdf.viewer_preferences.center_window = True
 
-To remove the viewer preferences dictionary entirely, setting :attr:`.PdfDocument.viewer_preferences` to None is enough.
+To remove the viewer preferences dictionary entirely, you can set :attr:`.PdfDocument.viewer_preferences` to None.
 
 Adding viewer preferences to a document can be done by creating an instance of :class:`.ViewerPreferences`.
 

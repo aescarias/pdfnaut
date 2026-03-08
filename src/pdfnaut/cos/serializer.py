@@ -176,7 +176,7 @@ class PdfSerializer:
                 The contents to associate with the reference.
 
         Returns:
-            The offset where the indirect object starts.
+            int: The offset where the indirect object starts.
         """
         if isinstance(reference, tuple):
             reference = PdfReference(*reference)

@@ -1,7 +1,10 @@
 Modifying PDF metadata
 ======================
 
-PDFs may store metadata in two ways: the document information or "DocInfo" dictionary and metadata streams applicable to either an individual object or to the document itself.
+PDFs can store metadata in two ways: 
+
+- the document information or "DocInfo" dictionary 
+- metadata streams applicable to either an individual object or to the document itself.
 
 The document information dictionary is specified in the ``/Info`` key of the PDF trailer. It provides document-level metadata and is easy to work with. PDF 2.0 has however deprecated most of its keys in favor of using metadata streams.
 
@@ -12,7 +15,7 @@ pdfnaut can natively read from and write to both document information dictionari
 Reading document information
 ----------------------------
 
-The DocInfo dictionary can be accessed using the :attr:`.PdfDocument.doc_info` attribute. If you want a list of all fields available, you can look at the :class:`.Info` class.
+The DocInfo dictionary can be accessed using the :attr:`.PdfDocument.doc_info` attribute (see :class:`.Info` for a list of available fields).
 
 Note that the DocInfo dictionary and all of its fields are optional (may be ``None``).
 
@@ -31,7 +34,7 @@ Note that the DocInfo dictionary and all of its fields are optional (may be ``No
 Reading XMP metadata
 --------------------
 
-The XMP metadata stored at the document level can be accessed using the :attr:`.PdfDocument.xmp_info` attribute. For information on available properties, see :class:`.XmpMetadata`.
+Document-level XMP metadata can be accessed using the :attr:`.PdfDocument.xmp_info` attribute. For information on available properties, see :class:`.XmpMetadata`.
 
 .. code-block:: python
     

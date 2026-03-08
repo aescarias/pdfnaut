@@ -14,7 +14,7 @@ pdfnaut provides a high-level interface for reading and writing PDF documents as
 
 ## Installation
 
-pdfnaut requires at least Python 3.9 or later. To install pdfnaut via pip:
+pdfnaut requires at least Python 3.10 or later. To install pdfnaut via pip:
 
 ```plaintext
 python -m pip install pdfnaut
@@ -26,7 +26,7 @@ If you plan to work with encrypted or protected PDF documents, you must install 
 
 Example 1: Accessing the content stream of a page
 
-```py
+```python
 from pdfnaut import PdfDocument
 
 pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
@@ -52,4 +52,4 @@ Contributions to pdfnaut should be done according to the [Contributing Guideline
 
 ## License
 
-pdfnaut is provided under the terms of the [Apache License 2.0](https://github.com/aescarias/pdfnaut/blob/main/LICENSE)
+pdfnaut is provided under the terms of the [Apache License 2.0](https://github.com/aescarias/pdfnaut/blob/main/LICENSE).
