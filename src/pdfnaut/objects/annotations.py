@@ -7,6 +7,8 @@ from typing_extensions import Self
 from pdfnaut.cos.objects.base import PdfName, PdfReference, encode_text_string
 from pdfnaut.cos.parser import PdfParser
 from pdfnaut.exceptions import PdfParseError, PdfWriteError
+from pdfnaut.objects.actions import Action, action_into
+from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
 
 from ..common.dictmodels import dictmodel, field
 from ..cos.objects.containers import PdfArray, PdfDictionary
@@ -89,7 +91,7 @@ class AnnotationFlags(enum.IntFlag):
     """Do not allow the contents of the annotation to be modified."""
 
 
-@dictmodel()
+@dictmodel(init=False)
 class Annotation(PdfDictionary):
     """An annotation associates an object such as a note, link, or multimedia element
     with a location on a page of a PDF document (see § 12.5, "Annotations")."""
@@ -163,6 +165,129 @@ class Annotation(PdfDictionary):
         self["NM"] = encode_text_string(name)
 
         self.indirect_ref = indirect_ref
+
+
+LinkHighlightMode = Literal["N", "I", "O", "P"]
+BorderStyle = Literal["S", "D", "B", "I", "U"]
+
+
+@dictmodel(init=False)
+class AnnotationBorderStyle(PdfDictionary):
+    """The border style for the outline that surrounds an annotation.
+
+    See § 12.5.4 "Border styles" for details.
+    """
+
+    width: float = field("W", default=1)
+    """The border width in points."""
+
+    style: BorderStyle = field("S", default="S")
+    """The border style. May be either of the following:
+
+    - S: A solid rectangle.
+    - D: A dashed rectangle specified by :attr:`.AnnotationBorderStyle.dash_pattern`.
+    - B: A simulated embossed (beveled) rectangle.
+    - I: A simulated engraved (inset) rectangle.
+    - U: An underline
+    """
+
+    dash_pattern: PdfArray[float] | None = field("D", default=None)
+    """The dash pattern used for the border style if dashed."""
+
+    @classmethod
+    def from_dict(cls, mapping: PdfDictionary) -> Self:
+        border_style = cls()
+        border_style.data = mapping.data
+        return border_style
+
+
+@dictmodel(init=False)
+class LinkAnnotation(Annotation):
+    highlight_mode: LinkHighlightMode = field("H", default="I")
+    """The annotation's highlight mode. May be either of the following:
+
+    - N: No highlight.
+    - I: Invert the contents of the annotation rectangle (default).
+    - O: Invert the annotation's border/outline.
+    - P: Display the annotation as if it were being pushed below the surface of the page.
+    """
+
+    quad_points: PdfArray[float] | None = field(default=None)
+    """A sequence of n quadrilaterals, comprised of 8 numbers representing the coordinates
+    in default user space that comprise the region in which the link should be activated.
+    
+    Item order: x1, y1, x2, y2, x3, y3, x4, y4
+    """
+
+    def __init__(
+        self,
+        rect: Iterable[float],
+        contents: str,
+        name: str,
+        action: Action | None = None,
+        destination: DestType | None = None,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> None:
+        super().__init__("Link", rect, contents, name, indirect_ref=indirect_ref)
+
+        self.action = action
+        self.destination = destination
+
+    @property
+    def action(self) -> Action | None:
+        """The action that shall be performed when the link annotation is triggered."""
+        if "A" not in self:
+            return
+
+        act = cast(PdfDictionary, self["A"])
+        return action_into(act)
+
+    @action.setter
+    def action(self, act: Action | None) -> None:
+        if act is None:
+            self.pop("A", None)
+        else:
+            self["A"] = PdfDictionary(act.data)
+
+    @property
+    def destination(self) -> DestType | None:
+        """The destination that shall be displayed when the link annotation is triggered."""
+
+        if "Dest" not in self:
+            return
+
+        dest = self["Dest"]
+
+        if isinstance(dest, PdfArray):
+            return Destination(dest)
+
+        return cast(NamedDestination, self["Dest"])
+
+    @destination.setter
+    def destination(self, dest: DestType | None = None) -> None:
+        if dest is None:
+            self.pop("Dest", None)
+        else:
+            self["Dest"] = dest
+
+    @property
+    def border_style(self) -> AnnotationBorderStyle | None:
+        """The border style specifying the line width and dash pattern
+        that shall be used when drawing the annotation outline."""
+
+        if "BS" not in self:
+            return
+
+        mapping = cast(PdfDictionary, self["BS"])
+        return AnnotationBorderStyle.from_dict(mapping)
+
+    @border_style.setter
+    def border_style(self, style: AnnotationBorderStyle | None) -> None:
+        if style is None:
+            self.pop("BS", None)
+        else:
+            self["BS"] = PdfDictionary(style.data)
 
 
 class AnnotationList(MutableSequence[Annotation]):

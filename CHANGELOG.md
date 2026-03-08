@@ -3,6 +3,19 @@
 
 This is the changelog for pdfnaut. Versions follow the scheme specified in the [Contributing Guide](./CONTRIBUTING.md#versioning). Dates are specified in YYYY-MM-DD format.
 
+## [unreleased]
+
+### Additions
+
+- Add `Page.new_annotations`.
+- Add `Annotation.border_style` attribute and the related `AnnotationBorderStyle` class.
+- Add `URIAction` and `LinkAnnotation`
+- Split `actions` module into `destinations` module.
+
+### Fixes
+
+- Assign PDF instance to pages which interact with `PageList`.
+
 ## [0.11.1] (2026-03-08)
 
 ### Fixes
@@ -245,6 +258,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 The first release of pdfnaut. :tada:
 
+[unreleased]: https://github.com/aescarias/pdfnaut/compare/v0.11.1...HEAD
 [0.11.1]: https://github.com/aescarias/pdfnaut/compare/v0.11...v0.11.1
 [0.11.0]: https://github.com/aescarias/pdfnaut/compare/v0.10...v0.11
 [0.10.0]: https://github.com/aescarias/pdfnaut/compare/v0.9...v0.10

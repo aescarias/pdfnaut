@@ -12,7 +12,8 @@ from pdfnaut.cos.objects import PdfDictionary
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray
 from pdfnaut.cos.parser import PdfParser
-from pdfnaut.objects.actions import Action, Destination, DestType, NamedDestination, action_into
+from pdfnaut.objects.actions import Action, action_into
+from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
 
 
 def is_outline_tree(item: PdfDictionary) -> bool:

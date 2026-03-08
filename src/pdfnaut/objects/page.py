@@ -147,9 +147,12 @@ class Page(PdfDictionary):
 
         If a page does not specify a list of annotations, this field is none.
         """
-
         if "Annots" not in self:
             return
 
         annots = cast(PdfArray, self["Annots"])
         return AnnotationList(annots, pdf=self.pdf)
+
+    def new_annotations(self) -> None:
+        """Creates a new annotation list."""
+        self["Annots"] = PdfArray()

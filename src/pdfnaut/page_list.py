@@ -126,6 +126,7 @@ class PageList(MutableSequence[Page]):
         replacing_ref = tree["Kids"].data[tree_idx]
         self._pdf.objects.delete(replacing_ref.object_number)
         self._indexed_page_cache[index].indirect_ref = None
+        self._indexed_page_cache[index].pdf = None
 
         # set the page
         tree["Kids"][tree_idx] = value.indirect_ref
@@ -260,6 +261,7 @@ class PageList(MutableSequence[Page]):
         if output.indirect_ref is not None:
             self._pdf.objects.delete(output.indirect_ref.object_number)
             output.indirect_ref = None
+            output.pdf = None
 
         return output
 
@@ -271,6 +273,7 @@ class PageList(MutableSequence[Page]):
         """
         index = self.index(value)
         value.indirect_ref = None
+        value.pdf = None
 
         self.pop(index)
 
@@ -301,6 +304,7 @@ class PageList(MutableSequence[Page]):
 
         # only set the reference if the page has none.
         if page.indirect_ref is None:
+            page.pdf = self._pdf
             page.indirect_ref = page_ref
             page.data = added_page.data
             return page
