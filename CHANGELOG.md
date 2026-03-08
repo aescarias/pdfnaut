@@ -8,13 +8,13 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 ### Additions
 
 - Allow modifying annotations in pages by adding `AnnotationList` for `Page.annotations`.
-- Read support for document outlines via `PdfDocument.outline`.
+- Read/write support for document outlines via `PdfDocument.outline`.
+- Add `Destination` and `GoToAction`.
 
 ### Changes
 
+- Rewrite `PdfSerializer` to use BytesIO rather than a list of bytes (accessed via the `content` attribute), considerably reducing the amount of time taken to write a document.
 - Move annotations to separate `pdfnaut.objects.annotations` module.
-- Rewrite `PdfSerializer` to use BytesIO object rather than a list of bytes. This should considerably decrease the time taken to save a document.
-- The `PdfSerializer.content` attribute now contains a BytesIO object of the content to be written.
 - Move to 3.10 union syntax in dictmodels (`T | None`).
 - Allow the `@dictmodel` decorator to be used without parentheses.
 
