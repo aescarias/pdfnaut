@@ -9,7 +9,8 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 - Add `Page.new_annotations`.
 - Add `Annotation.border_style` attribute and the related `AnnotationBorderStyle` class.
-- Add `URIAction` and `LinkAnnotation`
+- Add `URIAction`
+- Add `LinkAnnotation` and `TextAnnotation`
 - Split `actions` module into `destinations` module.
 
 ### Fixes

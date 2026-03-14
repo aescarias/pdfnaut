@@ -1,5 +1,11 @@
 from .actions import Action, ActionKind, GoToAction, URIAction
-from .annotations import Annotation, AnnotationFlags, LinkAnnotation
+from .annotations import (
+    Annotation,
+    AnnotationFlags,
+    LinkAnnotation,
+    MarkupAnnotation,
+    TextAnnotation,
+)
 from .catalog import (
     PageLayout,
     PageMode,
@@ -24,6 +30,8 @@ __all__ = (
     "Page",
     "Annotation",
     "LinkAnnotation",
+    "TextAnnotation",
+    "MarkupAnnotation",
     "AnnotationFlags",
     "Info",
     "UserAccessPermissions",

@@ -1,6 +1,7 @@
 import enum
 from collections.abc import Iterable, MutableSequence
-from typing import Literal, cast, overload
+from datetime import datetime
+from typing import Annotated, Literal, cast, overload
 
 from typing_extensions import Self
 
@@ -233,6 +234,18 @@ class LinkAnnotation(Annotation):
     Item order: x1, y1, x2, y2, x3, y3, x4, y4
     """
 
+    @classmethod
+    def from_dict(
+        cls,
+        mapping: PdfDictionary,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> Self:
+        dictionary = cls([0, 0, 0, 0], "", "", indirect_ref=indirect_ref)
+        dictionary.data = mapping.data
+
+        return dictionary
+
     def __init__(
         self,
         rect: Iterable[float],
@@ -304,6 +317,159 @@ class LinkAnnotation(Annotation):
             self["BS"] = PdfDictionary(style.data)
 
 
+class AnnotationReplyType(enum.Enum):
+    """The reply type or relationship between an annotation and its annotation's
+    :attr:`.MarkupAnnotation.in_reply_to` value."""
+
+    REPLY = 0
+    """The annotation is considered a reply to another annotation."""
+
+    GROUP = 0
+    """The annotation shall be grouped with the annotation replied to."""
+
+
+@dictmodel(init=False)
+class MarkupAnnotation(Annotation):
+    """A markup annotation is a type of annotation used primarily to mark
+    PDF documents.
+
+    See ISO 32000-2:2020 § 12.5.6.2 "Markup annotations" for details.
+    """
+
+    title: str | None = field("T", None)
+    """The text label to display as the title of the annotation's popup window.
+    This shall identify the user who added the annotation.
+    """
+
+    creation_date: datetime | None = None
+    """The datetime the annotation was created."""
+
+    subject: str | None = field("Subj", default=None)
+    """A short description of the subject being addressed by the annotation."""
+
+    @property
+    def in_reply_to(self) -> Annotation | None:
+        """The annotation that this annotation is in reply to."""
+        irt = self.data.get("IRT")
+
+        if irt is not None:
+            return annotation_into(irt.get(), indirect_ref=irt)
+
+    def __init__(
+        self,
+        kind: AnnotationKind,
+        rect: Iterable[float],
+        contents: str,
+        name: str,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> None:
+        super().__init__(kind, rect, contents, name, indirect_ref=indirect_ref)
+
+    @property
+    def reply_type(self) -> AnnotationReplyType | str | None:
+        """The relationship or reply type between this annotation and the one
+        in :attr:`.in_reply_to`."""
+
+        rt_name = self.get("RT")
+        if rt_name is None:
+            return
+
+        reply_type = cast(PdfName, rt_name).value.decode()
+
+        if reply_type == "R":
+            return AnnotationReplyType.REPLY
+        elif reply_type == "Group":
+            return AnnotationReplyType.GROUP
+        else:
+            return reply_type
+
+
+@dictmodel(init=False)
+class TextAnnotation(MarkupAnnotation):
+    """A text annotation represents a sticky note attached to a point in the PDF document.
+    When closed, it shall appear as an icon (defined by :attr:`.TextAnnotation.icon`);
+    when open, it shall display a popup window containing the text of the note.
+
+    See ISO 32000-2:2020 § 12.5.6.4 "Text annotations" for details.
+    """
+
+    is_open: bool = field("Open", default=False)
+    """Whether the annotation is initially displayed open."""
+
+    icon: Annotated[str, "name"] = field("Name", default="Note")
+    """The name of an icon that shall be used when displaying the annotation.
+    
+    The icon name may be any of the following standard names or any other
+    supported value. 
+    
+    Standard names: Comment, Key, Note, Help, NewParagraph, Paragraph, and Insert.
+    """
+
+    @classmethod
+    def from_dict(
+        cls,
+        mapping: PdfDictionary,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> Self:
+        dictionary = cls([0, 0, 0, 0], "", "", indirect_ref=indirect_ref)
+        dictionary.data = mapping.data
+
+        return dictionary
+
+    def __init__(
+        self,
+        rect: Iterable[float],
+        contents: str,
+        name: str,
+        is_open: bool = False,
+        icon: str = "Note",
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> None:
+        super().__init__("Text", rect, contents, name, indirect_ref=indirect_ref)
+
+        self.is_open = is_open
+        self.icon = icon
+
+
+def annotation_into(
+    annot: PdfDictionary, *, indirect_ref: PdfReference | None = None
+) -> Annotation:
+    """Converts a mapping ``annot`` into an instance of :class:`.Annotation` or
+    one of its subclasses according to the annotation subtype."""
+
+    subtype = cast(PdfName, annot["Subtype"]).value.decode()
+
+    if subtype == "Link":
+        return LinkAnnotation.from_dict(annot, indirect_ref=indirect_ref)
+    elif subtype == "Text":
+        return TextAnnotation.from_dict(annot, indirect_ref=indirect_ref)
+    elif subtype in {
+        "FreeText",
+        "Line",
+        "Square",
+        "Circle",
+        "Polygon",
+        "PolyLine",
+        "Highlight",
+        "Underline",
+        "Squiggly",
+        "StrikeOut",
+        "Caret",
+        "Stamp",
+        "Ink",
+        "FileAttachment",
+        "Sound",
+        "Redact",
+        "Projection",
+    }:
+        return MarkupAnnotation.from_dict(annot, indirect_ref=indirect_ref)
+    else:
+        return Annotation.from_dict(annot, indirect_ref=indirect_ref)
+
+
 class AnnotationList(MutableSequence[Annotation]):
     """A mutable sequence representing the list of annotations (the ``Annots`` key)
     in a page object."""
@@ -321,9 +487,9 @@ class AnnotationList(MutableSequence[Annotation]):
         # TODO: implement caching similar to page list
         if isinstance(index, int):
             ref = self.array.data[index]
-            return Annotation.from_dict(ref.get(), indirect_ref=ref)
+            return annotation_into(ref.get(), indirect_ref=ref)
 
-        return [Annotation.from_dict(ref.get(), indirect_ref=ref) for ref in self.array.data[index]]
+        return [annotation_into(ref.get(), indirect_ref=ref) for ref in self.array.data[index]]
 
     @overload
     def __setitem__(self, index: int, value: Annotation) -> None: ...
@@ -369,7 +535,7 @@ class AnnotationList(MutableSequence[Annotation]):
     def pop(self, index: int = -1) -> Annotation:
         """Pops an annotation at ``index``."""
         value = self.array.pop(index)
-        return Annotation.from_dict(value.get())
+        return annotation_into(value.get())
 
     def remove(self, value: Annotation) -> None:
         """Removes an annotation ``value`` from the list."""
