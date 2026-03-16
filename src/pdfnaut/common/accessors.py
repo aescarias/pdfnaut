@@ -20,7 +20,11 @@ if TYPE_CHECKING:
     from .dictmodels import Field
 
 
-MISSING = type("MISSING", (), {})()
+class _MISSING_TYPE:
+    pass
+
+
+MISSING = _MISSING_TYPE()
 
 
 class Accessor(Protocol):

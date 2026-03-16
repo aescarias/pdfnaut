@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal, Union
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.cos.objects import PdfDictionary
+from pdfnaut.cos.objects import PdfArray, PdfDictionary, PdfName
 
 NumberingStyle = Literal["D", "R", "r", "A", "a"]
 
@@ -36,6 +36,33 @@ def test_dictmodel_with_defaults() -> None:
 
     scheme["St"] = 10
     assert scheme.start == 10
+
+
+def test_dictmodel_default_factory() -> None:
+    @dictmodel
+    class OutlineItem(PdfDictionary):
+        title: str = field("T")
+        color: PdfArray[float] = field("C", default_factory=lambda: PdfArray([0, 0, 0]))
+
+    item_1 = OutlineItem("Title")
+
+    assert item_1.title == "Title" and item_1.color == PdfArray([0, 0, 0])
+
+    item_2 = OutlineItem("Another Title", PdfArray([0.5, 0.5, 0.5]))
+    assert item_2.data["T"] == b"Another Title" and item_2.data["C"] == PdfArray([0.5, 0.5, 0.5])
+
+
+def test_dictmodel_post_init() -> None:
+    @dictmodel
+    class GeoCoordSystem(PdfDictionary):
+        epsg: int | None = field("EPSG", default=None)
+        wkt: str | None = field("WKT", default=None)
+
+        def __post_init__(self) -> None:
+            self["Type"] = PdfName(b"GEOGCS")
+
+    gcs = GeoCoordSystem(epsg=4122)
+    assert gcs["EPSG"] == 4122 and gcs["Type"] == PdfName(b"GEOGCS")
 
 
 def test_inherited_dictmodel() -> None:

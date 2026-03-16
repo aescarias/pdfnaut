@@ -1,10 +1,11 @@
+from collections.abc import Callable
 from inspect import getattr_static
 from typing import Any, TypeVar, cast
 
 from typing_extensions import dataclass_transform, get_type_hints
 
 from ..cos.objects.containers import PdfDictionary
-from .accessors import MISSING, Accessor, lookup_accessor
+from .accessors import _MISSING_TYPE, MISSING, Accessor, lookup_accessor
 
 _T = TypeVar("_T")
 
@@ -14,6 +15,7 @@ class Field:
         self,
         key: str | None = None,
         default: Any = MISSING,
+        default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
         init: bool | None = None,
         repr_: bool | None = None,
         metadata: dict[str, Any] | None = None,
@@ -24,6 +26,7 @@ class Field:
 
         self._key = key
         self.default = default
+        self.default_factory = default_factory
         self.init = init
         self.repr_ = repr_
         self.metadata = metadata
@@ -31,7 +34,7 @@ class Field:
     @property
     def key(self) -> str:
         if self._key is None:
-            raise ValueError(f"No key assigned for field {self.name!r}.")
+            raise ValueError(f"no key assigned to field {self.name!r}.")
 
         return self._key
 
@@ -39,6 +42,7 @@ class Field:
 def field(
     key: str | None = None,
     default: Any = MISSING,
+    default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
     init: bool | None = None,
     repr_: bool | None = None,
     metadata: dict[str, Any] | None = None,
@@ -54,6 +58,10 @@ def field(
             The default value of the field if it is not specified. If no default is
             specified, the field is assumed to be required.
 
+        default_factory (Callable[[], Any], optional):
+            A callable that takes no arguments and produces the default value of the field.
+            This can be used to specify default mutable values.
+
         init (bool | None, optional):
             Whether this field will appear as part of the class constructor. If not specified,
             it defaults to the value of the ``init`` argument in the dictmodel.
@@ -65,8 +73,12 @@ def field(
 
         metadata (dict[str, Any], optional):
             Additional metadata for this field which may be used by the accessor.
+
+    .. note::
+        default and default_factory are mutually exclusive. If both are specified,
+        default_factory takes precedence.
     """
-    return Field(key, default, init, repr_, metadata)
+    return Field(key, default, default_factory, init, repr_, metadata)
 
 
 T = TypeVar("T")
@@ -85,7 +97,9 @@ def defaultize(cls: type[T]) -> T:
         if not acc.field.init:
             continue
 
-        if acc.field.default is not MISSING:
+        if (factory := acc.field.default_factory) is not MISSING and callable(factory):
+            mapping[acc.field.name] = factory()
+        elif acc.field.default is not MISSING:
             mapping[acc.field.name] = acc.field.default
         else:
             mapping[acc.field.name] = None
@@ -102,7 +116,7 @@ T = TypeVar("T")
 
 def build_repr(cls: type[T], repr_accessors: list[Accessor]):
     def _repr(self: T) -> str:
-        attrs = []
+        attrs: list[str] = []
 
         for acc in repr_accessors:
             assert acc.field.name is not None
@@ -145,7 +159,7 @@ def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True)
 
         accessor, metadata = lookup_accessor(type_)
         if accessor is None:
-            raise ValueError(f"No accessor registered for type {type_!r}")
+            raise ValueError(f"no accessor registered for type {type_!r}")
 
         if metadata is not None:
             if model_field.metadata is not None:
@@ -177,7 +191,9 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
                 continue
 
             init_arg_string = accessor.field.name
-            if accessor.field.default is not MISSING:
+            if accessor.field.default_factory is not MISSING:
+                init_arg_string += " = None"
+            elif accessor.field.default is not MISSING:
                 init_arg_string += f" = {accessor.field.default!r}"
 
             init_args.append(init_arg_string)
@@ -194,17 +210,27 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
 
         init_fn_body = [
             f"def __init__({', '.join(init_args)}):",
-            f"  super({cls.__name__}, self).__init__({', '.join(required_subcls_args)})",
+            f"    super({cls.__name__}, self).__init__({', '.join(required_subcls_args)})",
         ]
 
         for acc in accessors:
             if not acc.field.init:
                 continue
 
-            init_fn_body.append(f"  self.{acc.field.name} = {acc.field.name}\n")
+            if (df := acc.field.default_factory) is not MISSING and callable(df):
+                value = df()
+                fname = acc.field.name
+                init_fn_body.append(
+                    f"    self.{fname} = {fname} if {fname} is not None else {value!r}\n"
+                )
+            else:
+                init_fn_body.append(f"    self.{acc.field.name} = {acc.field.name}\n")
 
         repr_fn = build_repr(cls, [acc for acc in accessors if acc.field.repr_])
         namespace = {}
+
+        if "__post_init__" in cls.__dict__:
+            init_fn_body.append("    self.__post_init__()")
 
         exec("\n".join(init_fn_body), {cls.__name__: cls}, namespace)
 
