@@ -5,7 +5,7 @@ from typing import Any, TypeVar, cast
 from typing_extensions import dataclass_transform, get_type_hints
 
 from ..cos.objects.containers import PdfDictionary
-from .accessors import _MISSING_TYPE, MISSING, Accessor, lookup_accessor
+from .accessors import _MISSING_TYPE, MISSING, Accessor, lookup_accessor_by_field
 
 _T = TypeVar("_T")
 
@@ -16,6 +16,8 @@ class Field:
         key: str | None = None,
         default: Any = MISSING,
         default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
+        encoder: Callable[[Any], Any] | None = None,
+        decoder: Callable[[Any], Any] | None = None,
         init: bool | None = None,
         repr_: bool | None = None,
         metadata: dict[str, Any] | None = None,
@@ -27,6 +29,8 @@ class Field:
         self._key = key
         self.default = default
         self.default_factory = default_factory
+        self.encoder = encoder
+        self.decoder = decoder
         self.init = init
         self.repr_ = repr_
         self.metadata = metadata
@@ -43,6 +47,8 @@ def field(
     key: str | None = None,
     default: Any = MISSING,
     default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
+    encoder: Callable[[Any], Any] | None = None,
+    decoder: Callable[[Any], Any] | None = None,
     init: bool | None = None,
     repr_: bool | None = None,
     metadata: dict[str, Any] | None = None,
@@ -62,6 +68,14 @@ def field(
             A callable that takes no arguments and produces the default value of the field.
             This can be used to specify default mutable values.
 
+        encoder (Callable[[Any], Any], optional):
+            A callable that takes one argument and transforms the value that will be set
+            for the field in the underlying dictionary.
+
+        decoder (Callable[[Any], Any], optional):
+            A callable that takes one argument and transforms the value returned when
+            getting the field from the underlying dictionary.
+
         init (bool | None, optional):
             Whether this field will appear as part of the class constructor. If not specified,
             it defaults to the value of the ``init`` argument in the dictmodel.
@@ -77,8 +91,12 @@ def field(
     .. note::
         default and default_factory are mutually exclusive. If both are specified,
         default_factory takes precedence.
+
+        The encoder and decoder argument must both be specified if used. These values
+        are only honored if the field type is not itself already handled by an accessor;
+        otherwise, it is ignored.
     """
-    return Field(key, default, default_factory, init, repr_, metadata)
+    return Field(key, default, default_factory, encoder, decoder, init, repr_, metadata)
 
 
 T = TypeVar("T")
@@ -157,11 +175,11 @@ def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True)
         if model_field.repr_ is None:
             model_field.repr_ = parent_repr
 
-        accessor, metadata = lookup_accessor(type_)
+        accessor, metadata = lookup_accessor_by_field(model_field)
         if accessor is None:
             raise ValueError(f"no accessor registered for type {type_!r}")
 
-        if metadata is not None:
+        if metadata:
             if model_field.metadata is not None:
                 model_field.metadata |= metadata
             else:

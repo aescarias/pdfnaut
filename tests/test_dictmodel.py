@@ -1,6 +1,7 @@
-from __future__ import annotations
-
+from enum import IntEnum
 from typing import Literal, Union
+
+from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
 from pdfnaut.cos.objects import PdfArray, PdfDictionary, PdfName
@@ -80,3 +81,48 @@ def test_inherited_dictmodel() -> None:
 
     p3 = Point3D(10, 20, 30)
     assert p3.data == {"X": 10, "Y": 20, "Z": 30}
+
+
+def test_dictmodel_model() -> None:
+    @dictmodel
+    class Foo(PdfDictionary):
+        bar: int
+        baz: int
+
+        @classmethod
+        def from_dict(cls, mapping: PdfDictionary) -> Self:
+            foo = cls(0, 0)
+            foo.data = mapping.data
+            return foo
+
+    @dictmodel
+    class FooWrap(PdfDictionary):
+        foo: Foo
+
+        @classmethod
+        def from_dict(cls, mapping: PdfDictionary) -> Self:
+            wrap = cls(Foo(0, 0))
+            wrap.data = mapping.data
+            return wrap
+
+    foo = Foo(bar=10, baz=20)
+    wrap = FooWrap(foo)
+
+    assert wrap.foo == foo
+    assert wrap.data["Foo"] == foo.data
+
+
+def test_dictmodel_transform() -> None:
+    class Color(IntEnum):
+        NONE = 0
+        RED = 1
+        GREEN = 2
+        BLUE = 3
+
+    @dictmodel
+    class Bar(PdfDictionary):
+        color: Color = field(encoder=int, decoder=Color)
+
+    bar = Bar(Color.RED)
+    assert bar.color == Color.RED
+    assert bar.data["Color"] == 1

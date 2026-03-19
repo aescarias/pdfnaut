@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import datetime
 from types import UnionType
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, TypeVar, cast, get_origin
-
-from typing_extensions import get_args
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Literal,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from ..common.dates import encode_iso8824, parse_iso8824
 from ..cos.objects.base import (
@@ -48,10 +57,15 @@ class StandardAccessor:
         self.field = field
 
     def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> PdfObject:
-        if self.field.default is MISSING:
-            return obj[self.field.key]
+        assert (ty := self.field.type_) is not None
 
-        return obj.get(self.field.key, self.field.default)
+        if not callable(ty):
+            ty = lambda x: x  # noqa: E731 -- shorter
+
+        if self.field.default is MISSING:
+            return ty(obj[self.field.key])
+
+        return ty(obj.get(self.field.key, self.field.default))
 
     def __set__(self, obj: PdfDictionary, value: PdfObject | None) -> None:
         if value is None:
@@ -139,6 +153,60 @@ class DateAccessor:
         obj.pop(self.field.key, None)
 
 
+class ModelAccessor:
+    """An accessor defining a key whose value is a dictionary represented by
+    a dictmodel."""
+
+    def __init__(self, field: Field) -> None:
+        self.field = field
+
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> PdfObject | None:
+        metadata = self.field.metadata or {}
+
+        model = metadata["model"]
+        if self.field.default is MISSING:
+            return model.from_dict(obj[self.field.key])
+
+        value = obj.get(self.field.key, self.field.default)
+        return model.from_dict(value) if value is not None else None
+
+    def __set__(self, obj: PdfDictionary, value: PdfObject | None) -> None:
+        if value is None:
+            return self.__delete__(obj)
+
+        value = cast(PdfDictionary, value)
+        obj[self.field.key] = PdfDictionary(value.data)
+
+    def __delete__(self, obj: PdfDictionary) -> None:
+        obj.pop(self.field.key, None)
+
+
+class TransformAccessor:
+    """An accessor defining a key whose value is handled by user-provided encoder
+    and decoder functions."""
+
+    def __init__(self, field: Field) -> None:
+        self.field = field
+
+    def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> PdfObject:
+        assert self.field.encoder is not None and self.field.decoder is not None
+
+        if self.field.default is MISSING:
+            return self.field.decoder(obj[self.field.key])
+
+        return self.field.decoder(obj.get(self.field.key, self.field.default))
+
+    def __set__(self, obj: PdfDictionary, value: PdfObject | None) -> None:
+        if value is None:
+            return self.__delete__(obj)
+
+        assert self.field.encoder is not None
+        obj[self.field.key] = self.field.encoder(value)
+
+    def __delete__(self, obj: PdfDictionary) -> None:
+        obj.pop(self.field.key, None)
+
+
 def _is_string_type(value: Any) -> bool:
     # string handling
     if isinstance(value, type) and issubclass(value, str):
@@ -151,7 +219,26 @@ def _is_string_type(value: Any) -> bool:
     return all(isinstance(lit, str) for lit in get_args(value))
 
 
-def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
+def _is_dictmodel(model: type[Any]) -> bool:
+    return (
+        hasattr(model, "__bases__")
+        and PdfDictionary in model.__bases__
+        and hasattr(model, "__accessors__")
+        and hasattr(model, "from_dict")
+    )
+
+
+def lookup_accessor_by_field(field: Field) -> tuple[type[Accessor], dict[str, Any]]:
+    if field.encoder is not None and field.decoder is not None:
+        return TransformAccessor, {}
+
+    if field.type_ is None:
+        raise ValueError(f"field {field.name!r} must have a type")
+
+    return lookup_accessor_by_type(field.type_)
+
+
+def lookup_accessor_by_type(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
     if value_type is str:
         return TextStringAccessor, {}
     elif value_type is datetime.datetime:
@@ -175,18 +262,20 @@ def lookup_accessor(value_type: type) -> tuple[type[Accessor], dict[str, Any]]:
                 raise TypeError(f"{subtype!r} not a valid subtype for a string accessor")
 
         raise NotImplementedError(f"accessor from annotated form {value_type!r} not implemented")
-    elif get_origin(value_type) is UnionType:
+    elif (origin := get_origin(value_type)) is UnionType or origin is Union:
         args = get_args(value_type)
         assert len(args) >= 1
 
         if len(args) > 2:
             raise ValueError(f"cannot create accessor for type {value_type!r}")
 
-        if isinstance(args[-1], type(None)):
-            raise NotImplementedError("only supported union form is Union[T, None]")
+        if not issubclass(args[-1], type(None)):
+            raise NotImplementedError("only supported union form is T | None")
 
-        return lookup_accessor(args[0])
+        return lookup_accessor_by_type(args[0])
     elif get_origin(value_type) is Literal:
         return NameAccessor, {}
+    elif _is_dictmodel(value_type):
+        return ModelAccessor, {"model": value_type}
 
     return StandardAccessor, {}

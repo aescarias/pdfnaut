@@ -42,6 +42,8 @@ def action_into(mapping: PdfDictionary) -> Action:
 
     if subtype == "GoTo":
         return GoToAction.from_dict(mapping)
+    elif subtype == "URI":
+        return URIAction.from_dict(mapping)
 
     return Action.from_dict(mapping)
 

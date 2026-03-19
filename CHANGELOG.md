@@ -12,10 +12,19 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - Add `URIAction`
 - Add `LinkAnnotation` and `TextAnnotation`
 - Split `actions` module into `destinations` module.
+- Add support for dictmodel and transform (custom encoder/decoder) accessors.
+
+### Changes
+
+- Auto convert PDF object types when accessed via dictmodels.
+- Split `lookup_accessor` into `lookup_accessor_by_type` and `lookup_accessor_by_field`.
 
 ### Fixes
 
 - Assign PDF instance to pages which interact with `PageList`.
+- Fix union syntax and `T | None` support in dictmodels.
+- Fix Python 3.10 specific bug that caused CryptProvider subclasses to fail with
+  `TypeError: <class> takes no arguments`. This is due to CryptProvider being a protocol and protocols not properly generating their `__init__` method.
 
 ## [0.11.1] (2026-03-08)
 
