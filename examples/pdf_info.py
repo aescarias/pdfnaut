@@ -111,6 +111,22 @@ def get_embfile_status(pdf: PdfDocument) -> str:
     return "Yes" if "EmbeddedFiles" in names else "No"
 
 
+def get_tagged_status(pdf: PdfDocument) -> str:
+    info = pdf.mark_info
+
+    if info and info.marked:
+        if info.suspects and info.user_properties:
+            return "Yes (partial, with user properties)"
+        elif info.suspects:
+            return "Yes (partial)"
+
+        return "Yes"
+    elif "StructTreeRoot" in pdf.catalog:
+        return "Yes"
+
+    return "No"
+
+
 document = PdfDocument.from_filename(sys.argv[1])
 
 if not document.access_level:
@@ -161,7 +177,7 @@ print(f"Page Mode:        {humanize_page_mode(document.page_mode)}")
 print(f"Page Count:       {len(document.pages)}")
 
 print(f"PDF Version:      {document.pdf_version}")
-print(f"Tagged:           {'StructTreeRoot' in document.catalog}")
+print(f"Tagged:           {get_tagged_status(document)}")
 print(f"Access Level:     {humanize_access_level(document.access_level)}")
 print(f"Has Forms:        {get_acroform_status(document)}")
 print(f"Has Javascript:   {get_javascript_status(document)}")

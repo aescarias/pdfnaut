@@ -1,14 +1,10 @@
 """This script prints the outline tree of a PDF document."""
 
-from __future__ import annotations
-
 import sys
 from getpass import getpass
-from typing import cast
 
 from pdfnaut import PdfDocument
-from pdfnaut.cos.objects.base import PdfHexString, parse_text_string
-from pdfnaut.cos.objects.containers import PdfDictionary
+from pdfnaut.objects.outlines import OutlineItem, OutlineTree
 
 if len(sys.argv) < 2:
     sys.exit(f"usage: {sys.argv[0]} [filename]")
@@ -24,25 +20,21 @@ if not pdf.access_level:
 
 
 def print_outline_tree(
-    tree: PdfDictionary, *, level: int = 0, indent: str = "  ", indicator: str = ""
+    tree: OutlineItem | OutlineTree, *, level: int = 0, indent: str = "  ", indicator: str = ""
 ) -> None:
-    outline = cast(PdfDictionary, tree["First"])
+    outline = tree.first
 
-    while True:
-        title = parse_text_string(cast("bytes | PdfHexString", outline["Title"]))
-
+    while outline is not None:
+        title = outline.text
         print(f"{indent * level}{indicator}{title}")
 
-        if "First" in outline:
+        if outline.first is not None:
             print_outline_tree(outline, level=level + 1, indent=indent, indicator=indicator)
 
-        if "Next" not in outline:
-            break
-
-        outline = cast(PdfDictionary, outline["Next"])
+        outline = outline.next
 
 
-if pdf.outline_tree is not None:
-    print_outline_tree(cast(PdfDictionary, pdf.outline_tree), indicator="- ")
+if pdf.outline is not None and pdf.outline.first:
+    print_outline_tree(pdf.outline, indicator="- ")
 else:
-    print("This document includes no outlines.")
+    print("This document has no outlines.")
