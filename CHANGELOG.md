@@ -18,13 +18,14 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 - Auto convert PDF object types when accessed via dictmodels.
 - Split `lookup_accessor` into `lookup_accessor_by_type` and `lookup_accessor_by_field`.
+- Allow deleting XMP properties by setting them to `None`.
 
 ### Fixes
 
-- Assign PDF instance to pages which interact with `PageList`.
+- Assign PDF instance to pages that interact with `PageList`.
 - Fix union syntax and `T | None` support in dictmodels.
-- Fix Python 3.10 specific bug that caused CryptProvider subclasses to fail with
-  `TypeError: <class> takes no arguments`. This is due to CryptProvider being a protocol and protocols not properly generating their `__init__` method.
+- Fix Python 3.10 specific bug that caused CryptProvider subclasses to fail with `TypeError: <class> takes no arguments`. This is due to CryptProvider being a protocol and protocols not properly generating their `__init__` method.
+- Fix inconsistent behavior of `del pdf.xmp_info.property` which caused it to not delete XMP properties correctly.
 
 ## [0.11.1] (2026-03-08)
 

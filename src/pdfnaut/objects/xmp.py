@@ -152,12 +152,21 @@ class XMPProperty:
         self._fetch_xml_property(xmp)
 
         if self._xml_property is None:
-            raise ValueError(
-                f"No such element: {self.local_name!r} with namespace {self.namespace_uri!r}"
-            )
+            return
 
-        self._xml_property.parentNode.removeChild(self._xml_property)
+        parent = self._xml_property.parentNode
+        if parent is None:
+            raise PdfParseError("cannot remove XMP property because it has no parent")
+
+        removed = parent.removeChild(self._xml_property)
+        if (owner := removed.ownerDocument) is not None:
+            xmp.packet = owner
+            removed.unlink()
+        else:
+            raise PdfParseError("could not set property because XMP document is null")
+
         self._xml_property = None
+        xmp.stream.modify(xmp.packet.toprettyxml().encode())
 
 
 class XMPTextProperty(XMPProperty):
@@ -168,8 +177,11 @@ class XMPTextProperty(XMPProperty):
 
         return get_full_text(self._xml_property) if self._xml_property else None
 
-    def __set__(self, xmp: XmpMetadata, value: str) -> None:
+    def __set__(self, xmp: XmpMetadata, value: str | None) -> None:
         self._fetch_xml_property(xmp)
+        if value is None:
+            self._delete_xml_property(xmp)
+            return
 
         text_node = xmp.packet.createTextNode(value)
         self._set_xml_property(xmp, [text_node])
@@ -194,7 +206,6 @@ class XMPLangAltProperty(XMPProperty):
 
     def __get__(self, xmp: XmpMetadata, objtype: Any | None) -> dict[str, str] | None:
         self._fetch_xml_property(xmp)
-
         if self._xml_property is None:
             return
 
@@ -209,8 +220,12 @@ class XMPLangAltProperty(XMPProperty):
 
         return langalt
 
-    def __set__(self, xmp: XmpMetadata, value: dict[str, str]) -> None:
+    def __set__(self, xmp: XmpMetadata, value: dict[str, str] | None) -> None:
         self._fetch_xml_property(xmp)
+
+        if value is None:
+            self._delete_xml_property(xmp)
+            return
 
         prefix = self._ensure_rdf_prefix(xmp)
         alt: minidom.Element = xmp.packet.createElementNS(namespaces["rdf"], f"{prefix}:Alt")
@@ -237,7 +252,7 @@ class XMPListProperty(XMPProperty):  # list being either a sequence or bag
     See § 7.7 "Array valued XMP properties" in Part 1 of the XMP specification.
     """
 
-    def __get__(self, xmp: XmpMetadata, objtype: Any | None) -> list[Any] | None:
+    def __get__(self, xmp: XmpMetadata, objtype: Any | None) -> list[str] | None:
         self._fetch_xml_property(xmp)
 
         if self._xml_property is None:
@@ -255,8 +270,12 @@ class XMPListProperty(XMPProperty):  # list being either a sequence or bag
 
         return items
 
-    def __set__(self, xmp: XmpMetadata, value: list[Any]) -> None:
+    def __set__(self, xmp: XmpMetadata, value: list[str] | None) -> None:
         self._fetch_xml_property(xmp)
+
+        if value is None:
+            self._delete_xml_property(xmp)
+            return
 
         prefix = self._ensure_rdf_prefix(xmp)
         kind = self.extra["kind"]
@@ -295,8 +314,12 @@ class XMPDateProperty(XMPProperty):
         text = get_full_text(self._xml_property)
         return parse_iso8601(text)
 
-    def __set__(self, xmp: XmpMetadata, value: datetime.datetime) -> None:
+    def __set__(self, xmp: XmpMetadata, value: datetime.datetime | None) -> None:
         self._fetch_xml_property(xmp)
+
+        if value is None:
+            self._delete_xml_property(xmp)
+            return
 
         text_node = xmp.packet.createTextNode(encode_iso8601(value))
         self._set_xml_property(xmp, [text_node])

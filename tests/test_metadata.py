@@ -44,12 +44,19 @@ def test_docinfo_write() -> None:
 
 def test_docinfo_remove() -> None:
     original_pdf = PdfDocument.from_filename(r"tests\docs\sample.pdf")
-    original_pdf.doc_info = None
+    assert original_pdf.doc_info is not None
 
+    # test removal of attribute
+    del original_pdf.doc_info.producer
+    assert original_pdf.doc_info.producer is None
+
+    # then remove the doc info completely
+    original_pdf.doc_info = None
     original_pdf.save((fp := BytesIO()))
 
     fp.seek(0)
 
+    # check that removal was done
     edited_pdf = PdfDocument(fp.read())
     assert edited_pdf.doc_info is None
 
@@ -110,8 +117,16 @@ def test_xmp_write() -> None:
 
 def test_xmp_remove() -> None:
     original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+    assert original_pdf.xmp_info is not None
+
+    # test removal of attribute first
+    del original_pdf.xmp_info.pdf_keywords
+    assert original_pdf.xmp_info.pdf_keywords is None
+
+    # then completely remove the xmp metadata
     original_pdf.xmp_info = None
 
+    # check that removal was done
     original_pdf.save((fp := BytesIO()))
 
     fp.seek(0)
