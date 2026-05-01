@@ -80,24 +80,35 @@ class XMPProperty:
         self.extra = extra
         """Any additional property-specific values."""
 
-        self._xml_property: minidom.Element | None = None
+    def _get_xml_property(self, xmp: XmpMetadata) -> minidom.Element | None:
+        """Gets the XML property element for this property on the given metadata instance."""
+        return xmp._xml_properties.get(self)
+
+    def _set_xml_property_cache(self, xmp: XmpMetadata, element: minidom.Element | None) -> None:
+        """Sets the XML property element for this property on the given metadata instance."""
+        if element is None:
+            xmp._xml_properties.pop(self, None)
+        else:
+            xmp._xml_properties[self] = element
 
     def _fetch_xml_property(self, xmp: XmpMetadata) -> None:
-        if self._xml_property is not None:
+        """Retrieves the current XML property element from the XMP packet."""
+        if self._get_xml_property(xmp) is not None:
             return
 
         candidates = xmp.rdf_root.getElementsByTagNameNS(self.namespace_uri, self.local_name)
-        self._xml_property = candidates[0] if candidates else None
+        self._set_xml_property_cache(xmp, candidates[0] if candidates else None)
 
-    def _set_xml_property(self, xmp: XmpMetadata, node_list: list[minidom.Node]) -> None:
+    def _set_xml_property(self, xmp: XmpMetadata, nodes: list[minidom.Node]) -> None:
+        """Sets the current XML property element to the items in ``node_list``."""
         self._fetch_xml_property(xmp)
 
-        if self._xml_property:
+        xml_property = self._get_xml_property(xmp)
+        if xml_property:
             # This property is present in the document.
             # Simply replace the children with a new text node.
-            self._xml_property.childNodes[:] = node_list
+            xml_property.childNodes[:] = nodes
             xmp.stream.modify(xmp.packet.toprettyxml().encode())
-
             return
 
         # We will have to make a new property
@@ -132,12 +143,15 @@ class XMPProperty:
             element_with_prefix = xmp.rdf_root
 
         # Insert the new element
-        element.childNodes[:] = node_list
+        element.childNodes[:] = nodes
         element_with_prefix.appendChild(element)
 
+        self._set_xml_property_cache(xmp, element)
         xmp.stream.modify(xmp.packet.toprettyxml().encode())
 
-    def _ensure_rdf_prefix(self, xmp: XmpMetadata) -> str:
+    def _get_rdf_prefix(self, xmp: XmpMetadata) -> str:
+        """Gets the prefix used for the RDF namespace by this XMP packet, creating
+        one if no prefix exists."""
         prefix_and_node = lookup_prefix_for_ns(xmp.rdf_root, namespaces["rdf"])
 
         if prefix_and_node is not None:
@@ -149,23 +163,25 @@ class XMPProperty:
         return prefix
 
     def _delete_xml_property(self, xmp: XmpMetadata) -> None:
+        """Deletes the current XML property element from the packet."""
         self._fetch_xml_property(xmp)
 
-        if self._xml_property is None:
+        xml_property = self._get_xml_property(xmp)
+        if xml_property is None:
             return
 
-        parent = self._xml_property.parentNode
+        parent = xml_property.parentNode
         if parent is None:
             raise PdfParseError("cannot remove XMP property because it has no parent")
 
-        removed = parent.removeChild(self._xml_property)
+        removed = parent.removeChild(xml_property)
         if (owner := removed.ownerDocument) is not None:
             xmp.packet = owner
             removed.unlink()
         else:
             raise PdfParseError("could not set property because XMP document is null")
 
-        self._xml_property = None
+        self._set_xml_property_cache(xmp, None)
         xmp.stream.modify(xmp.packet.toprettyxml().encode())
 
 
@@ -175,7 +191,8 @@ class XMPTextProperty(XMPProperty):
     def __get__(self, xmp: XmpMetadata, objtype: Any | None = None) -> str | None:
         self._fetch_xml_property(xmp)
 
-        return get_full_text(self._xml_property) if self._xml_property else None
+        xml_property = self._get_xml_property(xmp)
+        return get_full_text(xml_property) if xml_property else None
 
     def __set__(self, xmp: XmpMetadata, value: str | None) -> None:
         self._fetch_xml_property(xmp)
@@ -206,10 +223,11 @@ class XMPLangAltProperty(XMPProperty):
 
     def __get__(self, xmp: XmpMetadata, objtype: Any | None) -> dict[str, str] | None:
         self._fetch_xml_property(xmp)
-        if self._xml_property is None:
+        xml_property = self._get_xml_property(xmp)
+        if xml_property is None:
             return
 
-        alt = self._xml_property.getElementsByTagNameNS(namespaces["rdf"], "Alt")
+        alt = xml_property.getElementsByTagNameNS(namespaces["rdf"], "Alt")
         if not alt:
             return
 
@@ -227,7 +245,7 @@ class XMPLangAltProperty(XMPProperty):
             self._delete_xml_property(xmp)
             return
 
-        prefix = self._ensure_rdf_prefix(xmp)
+        prefix = self._get_rdf_prefix(xmp)
         alt: minidom.Element = xmp.packet.createElementNS(namespaces["rdf"], f"{prefix}:Alt")
 
         for lang, val in value.items():
@@ -255,12 +273,11 @@ class XMPListProperty(XMPProperty):  # list being either a sequence or bag
     def __get__(self, xmp: XmpMetadata, objtype: Any | None) -> list[str] | None:
         self._fetch_xml_property(xmp)
 
-        if self._xml_property is None:
+        xml_property = self._get_xml_property(xmp)
+        if xml_property is None:
             return
 
-        containers = self._xml_property.getElementsByTagNameNS(
-            namespaces["rdf"], self.extra["kind"]
-        )
+        containers = xml_property.getElementsByTagNameNS(namespaces["rdf"], self.extra["kind"])
         if not containers:
             return
 
@@ -277,7 +294,7 @@ class XMPListProperty(XMPProperty):  # list being either a sequence or bag
             self._delete_xml_property(xmp)
             return
 
-        prefix = self._ensure_rdf_prefix(xmp)
+        prefix = self._get_rdf_prefix(xmp)
         kind = self.extra["kind"]
         container: minidom.Element = xmp.packet.createElementNS(
             namespaces["rdf"], f"{prefix}:{kind}"
@@ -308,10 +325,11 @@ class XMPDateProperty(XMPProperty):
     def __get__(self, xmp: XmpMetadata, objtype: Any | None = None) -> datetime.datetime | None:
         self._fetch_xml_property(xmp)
 
-        if self._xml_property is None:
+        xml_property = self._get_xml_property(xmp)
+        if xml_property is None:
             return
 
-        text = get_full_text(self._xml_property)
+        text = get_full_text(xml_property)
         return parse_iso8601(text)
 
     def __set__(self, xmp: XmpMetadata, value: datetime.datetime | None) -> None:
@@ -404,6 +422,9 @@ class XmpMetadata:
     def __init__(self, stream: PdfStream | None = None) -> None:
         self.stream: PdfStream
         """The XMP packet as a string."""
+
+        self._xml_properties: dict[XMPProperty, minidom.Element | None] = {}
+        """Mapping of XML property descriptors to XML elements for this instance."""
 
         if stream is None:
             self.stream = PdfStream.create(

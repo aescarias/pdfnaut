@@ -26,6 +26,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - Fix union syntax and `T | None` support in dictmodels.
 - Fix Python 3.10 specific bug that caused CryptProvider subclasses to fail with `TypeError: <class> takes no arguments`. This is due to CryptProvider being a protocol and protocols not properly generating their `__init__` method.
 - Fix inconsistent behavior of `del pdf.xmp_info.property` which caused it to not delete XMP properties correctly.
+- Move XML property cache to `XmpMetadata`. Previously, each descriptor handled its own cache, which caused unwanted data sharing between XMP instances.
 
 ## [0.11.1] (2026-03-08)
 
