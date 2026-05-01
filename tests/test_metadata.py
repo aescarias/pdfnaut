@@ -4,7 +4,7 @@ import datetime
 from io import BytesIO
 
 import pdfnaut
-from pdfnaut import PdfDocument
+from pdfnaut import MetadataCopyDirection, PdfDocument
 from pdfnaut.objects.catalog import ViewerPreferences
 from pdfnaut.objects.xmp import XmpMetadata
 
@@ -133,6 +133,32 @@ def test_xmp_remove() -> None:
 
     edited_pdf = PdfDocument(fp.read())
     assert edited_pdf.xmp_info is None
+
+
+def test_copy_metadata() -> None:
+    original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+
+    assert original_pdf.doc_info is None
+    assert original_pdf.xmp_info is not None
+    original_pdf.copy_metadata(MetadataCopyDirection.XMP_TO_DOC_INFO)
+
+    assert original_pdf.doc_info is not None
+    assert original_pdf.doc_info.title == "A simple PDF 2.0 example file"
+    assert original_pdf.doc_info.author == "Datalogics Incorporated"
+    assert (
+        original_pdf.doc_info.subject
+        == "Demonstration of a simple PDF 2.0 file, including comments related to "
+        "differences from earlier PDF revisions and helpful hints about PDF."
+    )
+    assert original_pdf.doc_info.keywords == "PDF 2.0 sample example"
+    assert original_pdf.doc_info.creator == "Datalogics - example creator tool name here"
+    assert original_pdf.doc_info.producer == "Datalogics - example producer program name here"
+    assert original_pdf.doc_info.creation_date == datetime.datetime(
+        2017, 5, 24, 10, 30, 11, tzinfo=datetime.timezone.utc
+    )
+    assert original_pdf.doc_info.modify_date == datetime.datetime(
+        2017, 7, 11, 7, 55, 11, tzinfo=datetime.timezone.utc
+    )
 
 
 def test_viewer_preferences() -> None:

@@ -4,8 +4,8 @@ import pathlib
 from collections.abc import Generator
 from typing import cast
 
-from pdfnaut.objects.outlines import OutlineTree
-
+from .common import metadata
+from .common.metadata import MetadataCopyDirection
 from .cos.objects import (
     PdfArray,
     PdfDictionary,
@@ -26,6 +26,7 @@ from .objects.catalog import (
     UserAccessPermissions,
     ViewerPreferences,
 )
+from .objects.outlines import OutlineTree
 from .objects.page import Page
 from .objects.trailer import Info
 from .objects.xmp import XmpMetadata
@@ -383,3 +384,21 @@ class PdfDocument(PdfParser):
         else:
             # A new object will be set as is.
             dest.data[key] = new_value
+
+    def copy_metadata(self, direction: MetadataCopyDirection) -> None:
+        """Performs reconciling of the document metadata sources by copying data
+        from one source to another, based on the provided ``direction``.
+
+        A PDF may store document metadata in either the document information (DocInfo)
+        dictionary or in XMP. This function ensures that the two sources are equivalent
+        by using the metadata mapping described in :ref:`Reconciling PDF metadata`.
+
+        If the metadata source to copy to does not exist, it will be created; otherwise,
+        it will be overwritten. :class:`ValueError` is raised if the source to copy from
+        does not exist.
+        """
+
+        if direction == MetadataCopyDirection.XMP_TO_DOC_INFO:
+            return metadata.copy_xmp_to_doc_info(self)
+        elif direction == MetadataCopyDirection.DOC_INFO_TO_XMP:
+            return metadata.copy_doc_info_to_xmp(self)

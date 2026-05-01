@@ -598,8 +598,9 @@ class PdfParser:
         return subsections
 
     def parse_compressed_xref(self) -> PdfXRefSection:
-        """Parses a compressed cross-reference stream which includes both the XRef table and information
-        from the PDF trailer as described in ISO 32000-2:2020 § 7.5.8 "Cross-reference streams".
+        """Parses a compressed cross-reference stream which includes both the XRef table
+        and information from the PDF trailer as described in ISO 32000-2:2020 § 7.5.8
+        "Cross-reference streams".
         """
         xref_stream = self.parse_indirect_object(InUseXRefEntry(self._tokenizer.position, 0), None)
         assert isinstance(xref_stream, PdfStream)

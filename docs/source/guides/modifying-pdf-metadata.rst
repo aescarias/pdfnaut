@@ -82,6 +82,8 @@ If you want to remove the DocInfo dictionary, simply set the ``doc_info`` attrib
     
     pdf.save("new-sample.pdf")
 
+This is also the case if you want to remove fields from the DocInfo dictionary. Setting a field to ``None`` or using ``del`` on the field will remove it.
+
 
 Writing XMP metadata
 --------------------
@@ -95,15 +97,15 @@ Adding or modifying XMP metadata can be modified in a similar manner to modifyin
     from pdfnaut import PdfDocument
     from pdfnaut.objects.xmp import XmpMetadata
     
-    doc = PdfDocument.from_filename("./tests/docs/sample.pdf")
-    if doc.xmp_info is None:
+    pdf = PdfDocument.from_filename("./tests/docs/sample.pdf")
+    if pdf.xmp_info is None:
         # Creates a new XMP metadata object if not specified.
-        doc.xmp_info = XmpMetadata()
+        pdf.xmp_info = XmpMetadata()
     
-    doc.xmp_info.dc_title = "Sample PDF file"
-    doc.xmp_info.xmp_modify_date = datetime.datetime.now()
+    pdf.xmp_info.dc_title = "Sample PDF file"
+    pdf.xmp_info.xmp_modify_date = datetime.datetime.now()
 
-    doc.save("new-sample.pdf")
+    pdf.save("new-sample.pdf")
 
 If you want to remove the document-level XMP metadata, simply set the ``xmp_info`` attribute to None.
 
@@ -115,3 +117,54 @@ If you want to remove the document-level XMP metadata, simply set the ``xmp_info
     doc.xmp_info = None
     
     doc.save("new-sample.pdf")
+
+Removing a field can be done by setting it to ``None`` or by using ``del``.
+
+
+Reconciling PDF metadata
+------------------------
+
+As mentioned earlier, a PDF supports two types of metadata: DocInfo and XMP. Both sources should ideally be equivalent so that PDF processors can retrieve the same metadata regardless of the source they use to extract it.
+
+:class:`.PdfDocument` provides the :meth:`.PdfDocument.copy_metadata` method which allows copying from one metadata source to another. This ensures that the data in both sources is equivalent.
+
+.. code-block:: python
+
+    from pdfnaut import MetadataCopyDirection, PdfDocument
+    
+    pdf = PdfDocument.from_filename(r"tests/docs/pdf2-incremental.pdf")
+
+    print(pdf.doc_info)  # None
+    print(pdf.xmp_info)  # <XmpMetadata pdf_producer="Datalogics" [...]>
+
+    pdf.copy_metadata(MetadataCopyDirection.XMP_TO_DOC_INFO)
+    print(pdf.doc_info)  # Info(producer="Datalogics", ...)
+
+Because the structure of the DocInfo dictionary and XMP differ, the mappings described in ISO 32000-2:2020 (PDF 2.0) § 14.3.3 are used. Note that not all metadata fields in XMP can be copied to DocInfo and vice versa. Only the standard properties are mapped.
+
+.. csv-table:: XMP - DocInfo Mapping
+    :header: "XMP", "DocInfo"
+
+    "pdf:Producer", "Producer"
+    "pdf:Keywords", "Keywords"
+    "pdf:PDFVersion", "N/A [#f1]_"
+    "pdf:Trapped", "Trapped"
+    "xmp:CreatorTool", "Creator"
+    "xmp:CreateDate", "CreationDate"
+    "xmp:MetadataDate", "ModDate"
+    "xmp:ModifyDate", "ModDate"
+    "dc:title", "Title [#f2]_"
+    "dc:creator", "Author [#f3]_"
+    "dc:description", "Subject [#f2]_"
+    "dc:subject", "N/A [#f1]_"
+    "dc:rights", "N/A [#f1]_"
+    "dc:format", "N/A [#f1]_"
+
+.. rubric:: Footnotes
+
+.. [#f1] Some fields do not have equivalents in the DocInfo dictionary, hence they cannot be mapped.
+.. [#f2] ``dc:title`` and ``dc:description`` are language-alternate properties, meaning they store a mapping of language names to text strings. When copying from XMP to DocInfo, the ``x-default`` key of the property is copied (or the first available entry otherwise).
+.. [#f3] ``dc:creator`` is an array of text strings. When copying from XMP to DocInfo, the value of ``Author`` will be the concatenation of the values of ``dc:creator``, separated by semicolons.
+
+
+

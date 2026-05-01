@@ -7,6 +7,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Additions
 
+- Add `PdfDocument.copy_metadata` for reconciling PDF metadata sources.
 - Add `Page.new_annotations`.
 - Add `Annotation.border_style` attribute and the related `AnnotationBorderStyle` class.
 - Add `URIAction`
