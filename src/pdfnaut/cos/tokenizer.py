@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from typing import cast
 
+from pdfnaut.exceptions import PdfParseError
+
 from .objects import (
     ObjectGetter,
     PdfArray,
@@ -229,9 +231,13 @@ class PdfTokenizer:
         """Returns whether ``byte`` is an ASCII digit (0-9)."""
         return b"0" <= byte <= b"9"
 
-    def _is_octal(self, byte: bytes) -> bool:
-        """Returns whether ``byte`` is a valid octal number (0-7)."""
+    def _is_octal_digit(self, byte: bytes) -> bool:
+        """Returns whether ``byte`` is a valid octal digit (0-7)."""
         return b"0" <= byte <= b"7"
+
+    def _is_hex_digit(self, byte: bytes) -> bool:
+        """Returns whether ``byte`` is a valid hex digit (0-9 then A-F)."""
+        return byte in b"0123456789abcdefABCDEF"
 
     def skip_if_matches(self, keyword: bytes) -> bool:
         """Advances ``len(keyword)`` characters if ``keyword`` starts at the current
@@ -358,10 +364,27 @@ class PdfTokenizer:
         data. If the sequence is uneven, the last character is assumed to be 0."""
         self.skip()  # adv. past the <
 
-        content = self.consume_while(lambda ch: ch != b">")
+        content: list[bytes] = []
+
+        while not self.done and not self.matches(b">"):
+            # whitespace (including comments) is ignored
+            self.skip_whitespace()
+            self.skip_if_comment()
+
+            if not self._is_hex_digit(ch := self.peek()) and ch != b">":
+                raise PdfParseError(f"invalid hex digit {ch!r}")
+
+            if ch != b">":
+                content.append(self.consume(1))
+
         self.skip()  # adv. past the >
 
-        return PdfHexString(content)
+        # if the last byte of the last pair is omitted, it is zero
+        data = b"".join(content)
+        if len(data) % 2 != 0:
+            data += b"0"
+
+        return PdfHexString(data)
 
     def parse_dictionary(self) -> PdfDictionary:
         """Parses a dictionary object.
@@ -449,8 +472,8 @@ class PdfTokenizer:
                 matched = self.skip_if_matches(EOL_CRLF)
                 if not matched and self.peek() in EOL_CRLF:
                     self.skip()
-                elif self._is_octal(self.peek()):
-                    octal_code = self.consume_while(self._is_octal, limit=3)
+                elif self._is_octal_digit(self.peek()):
+                    octal_code = self.consume_while(self._is_octal_digit, limit=3)
                     # the octal value will be 8 bit at most
                     string += int(octal_code, 8).to_bytes(1, "little")
                     continue

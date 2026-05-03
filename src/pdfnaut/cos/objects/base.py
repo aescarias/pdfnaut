@@ -56,12 +56,6 @@ class PdfHexString:
     raw: bytes
     """The hex value of the string."""
 
-    def __post_init__(self) -> None:
-        # If the final digit of a hexadecimal string is missing, the final digit
-        # shall be assumed to be 0.
-        if len(self.raw) % 2 != 0:
-            self.raw += b"0"
-
     @classmethod
     def from_raw(cls, data: bytes) -> Self:
         """Creates a hexadecimal string from ``data``."""

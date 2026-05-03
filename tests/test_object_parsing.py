@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import cast
 
+import pytest
+
 from pdfnaut.cos.objects import (
     PdfArray,
     PdfComment,
@@ -15,6 +17,7 @@ from pdfnaut.cos.objects import (
 )
 from pdfnaut.cos.objects.base import PdfOperator
 from pdfnaut.cos.tokenizer import ContentStreamTokenizer, PdfTokenizer
+from pdfnaut.exceptions import PdfParseError
 
 
 def test_null_and_boolean() -> None:
@@ -75,10 +78,35 @@ def test_literal_string() -> None:
 
 
 def test_hex_string() -> None:
+    # test hex strings with no whitespace
     lexer = PdfTokenizer(b"<A5B2FF><6868ADE>")
     tokens = cast("list[PdfHexString]", list(lexer))
-
     assert tokens[0].raw == b"A5B2FF" and tokens[1].raw == b"6868ADE0"
+
+    # test that whitespace is ignored when parsing hex strings
+    lexer = PdfTokenizer(b"<58 50>")
+    hex_str = cast(PdfHexString, lexer.get_next_token())
+    assert hex_str.raw == b"5850"
+
+    # test that zero is appended to hex string if odd
+    lexer = PdfTokenizer(b"<58 5c e>")
+    hex_str = cast(PdfHexString, lexer.get_next_token())
+    assert hex_str.raw == b"585ce0"
+
+    # test the empty string
+    lexer = PdfTokenizer(b"<>")
+    hex_str = cast(PdfHexString, lexer.get_next_token())
+    assert hex_str.raw == b""
+
+    # test that comments are ignored, as required by the PDF spec
+    lexer = PdfTokenizer(b"<%abcdef\nAB>")
+    hex_str = cast(PdfHexString, lexer.get_next_token())
+    assert hex_str.raw == b"AB"
+
+    # test that invalid characters raise an exception
+    with pytest.raises(PdfParseError):
+        lexer = PdfTokenizer(b"<AB XX DE>")
+        lexer.get_next_token()
 
 
 def test_dictionary() -> None:
