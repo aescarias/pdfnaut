@@ -20,6 +20,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - Auto convert PDF object types when accessed via dictmodels.
 - Split `lookup_accessor` into `lookup_accessor_by_type` and `lookup_accessor_by_field`.
 - Allow deleting XMP properties by setting them to `None`.
+- Use /Length key in inline images when available.
 
 ### Fixes
 
@@ -28,6 +29,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - Fix Python 3.10 specific bug that caused CryptProvider subclasses to fail with `TypeError: <class> takes no arguments`. This is due to CryptProvider being a protocol and protocols not properly generating their `__init__` method.
 - Fix inconsistent behavior of `del pdf.xmp_info.property` which caused it to not delete XMP properties correctly.
 - Move XML property cache to `XmpMetadata`. Previously, each descriptor handled its own cache, which caused unwanted data sharing between XMP instances.
+- Validate hex strings during parsing.
 
 ## [0.11.1] (2026-03-08)
 

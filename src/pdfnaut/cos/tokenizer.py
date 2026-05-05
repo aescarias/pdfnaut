@@ -123,8 +123,16 @@ class ContentStreamTokenizer:
             self.tokenizer.skip_whitespace()
             self.tokenizer.skip_if_comment()
 
-        # TODO: handle PDF 2.0's /L & /Length for inline images
-        image_data = self.tokenizer.consume_while(lambda _: self.tokenizer.peek(2) != b"EI")
+        # check for PDF 2.0 /L and /Length; use if available, otherwise scan for EI.
+        length = mapping.get("L", mapping.get("Length"))
+        if length is not None and (length := cast(int, length)) >= 0:
+            image_data = self.tokenizer.consume(length)
+            self.tokenizer.skip_next_eol(no_cr=True)
+
+            if (tok := self.tokenizer.peek(2)) != b"EI":
+                raise PdfParseError(f"expected end of inline image 'EI', got {tok!r}")
+        else:
+            image_data = self.tokenizer.consume_while(lambda _: self.tokenizer.peek(2) != b"EI")
 
         return PdfOperator(self.tokenizer.consume(2), [PdfInlineImage(mapping, image_data)])
 

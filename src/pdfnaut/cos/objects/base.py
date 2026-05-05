@@ -17,7 +17,8 @@ T = TypeVar("T", default=bytes)
 
 
 class PdfNull:
-    """A PDF object representing a unique state (see ISO 32000-2:2020 § 7.3.9 "Null Object")."""
+    """A PDF 'null' object, distinct from all other PDF objects (see ISO 32000-2:2020
+    § 7.3.9 "Null Object")."""
 
     def __repr__(self) -> str:
         return "PdfNull()"
