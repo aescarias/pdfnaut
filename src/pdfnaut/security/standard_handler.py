@@ -3,7 +3,7 @@ from typing import Literal
 
 from pdfnaut.exceptions import MissingCryptProviderError
 
-from ..common.utils import ensure_bytes
+from ..common.utils import ensure_bytes, is_null
 from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
@@ -47,7 +47,11 @@ class StandardSecurityHandler:
     @property
     def key_length(self) -> int:
         """The length of the encryption key in bytes."""
-        return self.encryption.get("Length", 40) // 8
+        length = self.encryption.get("Length")
+        if is_null(length):
+            length = 40
+
+        return length // 8
 
     def compute_encryption_key(self, password: bytes) -> bytes:
         """Computes an encryption key from ``password`` according to ISO 32000-2:2020 §
@@ -73,7 +77,11 @@ class StandardSecurityHandler:
 
         # f) If the handler is revision 4 or greater, and the metadata is not being
         #    encrypted, pass 4 bytes to the hash function.
-        if self.encryption["R"] >= 4 and not self.encryption.get("EncryptMetadata", True):
+        encrypt_metadata = self.encryption.get("EncryptMetadata")
+        if is_null(encrypt_metadata):
+            encrypt_metadata = True
+
+        if self.encryption["R"] >= 4 and not encrypt_metadata:
             psw_hash.update(b"\xff\xff\xff\xff")
 
         # g) Finish the hash.
@@ -364,9 +372,12 @@ class StandardSecurityHandler:
         return provider
 
     def _get_crypt_method(self, contents: Encryptable) -> CryptMethod:
-        if self.encryption.get("V", 0) != 4:
-            # ARC4 is assumed given that can only be specified if V = 4. It is definitely
-            # not Identity because the document wouldn't be encrypted in that case.
+        version = self.encryption.get("V")
+        if is_null(version):
+            version = 0
+
+        if version != 4:
+            # todo: should we assume ARC4?
             return "ARC4"
 
         if isinstance(contents, PdfStream):

@@ -4,7 +4,7 @@ import hashlib
 import logging
 from collections.abc import Iterable
 from datetime import time
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeGuard, TypeVar
 
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
@@ -16,6 +16,10 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 Placeholder = type("Placeholder", (), {})
+
+
+def is_null(obj: PdfObject | None) -> TypeGuard[PdfNull | None]:
+    return isinstance(obj, PdfNull) or obj is None
 
 
 def ensure_bytes(contents: PdfHexString | bytes) -> bytes:

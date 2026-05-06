@@ -5,6 +5,7 @@ from typing import Annotated, Literal, cast, overload
 
 from typing_extensions import Self
 
+from pdfnaut.common.utils import is_null
 from pdfnaut.cos.objects.base import PdfName, PdfReference, encode_text_string
 from pdfnaut.cos.parser import PdfParser
 from pdfnaut.exceptions import PdfParseError, PdfWriteError
@@ -268,10 +269,11 @@ class LinkAnnotation(Annotation):
     @property
     def action(self) -> Action | None:
         """The action that shall be performed when the link annotation is triggered."""
-        if "A" not in self:
+        act = self.get("A")
+        if is_null(act):
             return
 
-        act = cast(PdfDictionary, self["A"])
+        act = cast(PdfDictionary, act)
         return action_into(act)
 
     @action.setter
@@ -284,16 +286,14 @@ class LinkAnnotation(Annotation):
     @property
     def destination(self) -> DestType | None:
         """The destination that shall be displayed when the link annotation is triggered."""
-
-        if "Dest" not in self:
+        dest = self.get("Dest")
+        if is_null(dest):
             return
-
-        dest = self["Dest"]
 
         if isinstance(dest, PdfArray):
             return Destination(dest)
 
-        return cast(NamedDestination, self["Dest"])
+        return cast(NamedDestination, dest)
 
     @destination.setter
     def destination(self, dest: DestType | None = None) -> None:
@@ -306,12 +306,12 @@ class LinkAnnotation(Annotation):
     def border_style(self) -> AnnotationBorderStyle | None:
         """The border style specifying the line width and dash pattern
         that shall be used when drawing the annotation outline."""
-
-        if "BS" not in self:
+        border_style = self.get("BS")
+        if is_null(border_style):
             return
 
-        mapping = cast(PdfDictionary, self["BS"])
-        return AnnotationBorderStyle.from_dict(mapping)
+        border_style = cast(PdfDictionary, border_style)
+        return AnnotationBorderStyle.from_dict(border_style)
 
     @border_style.setter
     def border_style(self, style: AnnotationBorderStyle | None) -> None:
@@ -351,14 +351,6 @@ class MarkupAnnotation(Annotation):
     subject: str | None = field("Subj", default=None)
     """A short description of the subject being addressed by the annotation."""
 
-    @property
-    def in_reply_to(self) -> Annotation | None:
-        """The annotation that this annotation is in reply to."""
-        irt = self.data.get("IRT")
-
-        if irt is not None:
-            return annotation_into(irt.get(), indirect_ref=irt)
-
     def __init__(
         self,
         kind: AnnotationKind,
@@ -371,12 +363,21 @@ class MarkupAnnotation(Annotation):
         super().__init__(kind, rect, contents, name, indirect_ref=indirect_ref)
 
     @property
+    def in_reply_to(self) -> Annotation | None:
+        """The annotation that this annotation is in reply to."""
+        irt = self.get("IRT")
+
+        if not is_null(irt):
+            irt = cast(PdfReference, self.data["IRT"])
+            return annotation_into(irt.get(), indirect_ref=irt)
+
+    @property
     def reply_type(self) -> AnnotationReplyType | str | None:
         """The relationship or reply type between this annotation and the one
         in :attr:`.in_reply_to`."""
 
         rt_name = self.get("RT")
-        if rt_name is None:
+        if is_null(rt_name):
             return
 
         reply_type = cast(PdfName, rt_name).value.decode()

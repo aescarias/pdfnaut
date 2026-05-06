@@ -3,6 +3,8 @@ from typing import Annotated, Literal, cast
 
 from typing_extensions import Self
 
+from pdfnaut.common.utils import is_null
+
 from ..common.dictmodels import defaultize, dictmodel, field
 from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
@@ -189,11 +191,11 @@ class ViewerPreferences(PdfDictionary):
         """(PDF 2.0) An array of names of viewer preferences that shall be enforced by
         PDF processors and that shall not be overridden by subsequent selections in
         the application user interface."""
-        if "Enforce" not in self:
+        enforced = self.get("Enforce")
+        if is_null(enforced):
             return
 
-        enforced = cast(PdfArray[PdfName], self["Enforce"])
-
+        enforced = cast(PdfArray[PdfName], enforced)
         return [cast(Enforceable, it.value.decode()) for it in enforced]
 
 

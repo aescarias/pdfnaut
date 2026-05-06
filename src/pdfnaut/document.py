@@ -6,6 +6,7 @@ from typing import cast
 
 from .common import metadata
 from .common.metadata import MetadataCopyDirection
+from .common.utils import is_null
 from .cos.objects import (
     PdfArray,
     PdfDictionary,
@@ -100,7 +101,7 @@ class PdfDocument(PdfParser):
     @property
     def has_encryption(self) -> bool:
         """Whether this document includes encryption."""
-        return "Encrypt" in self.trailer
+        return not is_null(self.trailer.get("Encrypt"))
 
     @property
     def catalog(self) -> PdfDictionary:
@@ -130,10 +131,11 @@ class PdfDocument(PdfParser):
         PDF 2.0 deprecated all keys of the DocInfo dictionary except for ``CreationDate``
         and ``ModDate``.
         """
-        if "Info" not in self.trailer:
+        info = self.trailer.get("Info")
+        if is_null(info):
             return
 
-        return Info.from_dict(cast(PdfDictionary, self.trailer["Info"]))
+        return Info.from_dict(cast(PdfDictionary, info))
 
     @doc_info.setter
     def doc_info(self, value: Info | None) -> None:
@@ -160,24 +162,24 @@ class PdfDocument(PdfParser):
     def xmp_info(self) -> XmpMetadata | None:
         """The ``/Metadata`` entry of the document catalog which includes
         document-level metadata stored as XMP."""
-        if "Metadata" not in self.catalog:
+        metadata = self.catalog.get("Metadata")
+        if is_null(metadata):
             return
 
-        stm = cast(PdfStream, self.catalog["Metadata"])
-        return XmpMetadata(stm)
+        return XmpMetadata(cast(PdfStream, metadata))
 
     @xmp_info.setter
     def xmp_info(self, xmp: XmpMetadata | None) -> None:
         metadata_ref = cast("PdfReference | None", self.catalog.data.get("Metadata"))
 
-        # A new metadata object will be created
-        if metadata_ref is None and xmp is not None:
+        if is_null(metadata_ref) and xmp is not None:
+            # A new metadata object will be created
             self.catalog["Metadata"] = self.objects.add(xmp.stream)
-        # A metadata object will be set
         elif metadata_ref and isinstance(xmp, XmpMetadata):
+            # A metadata object will be set
             self.objects[metadata_ref.object_number] = xmp.stream
-        # A metadata object will be removed
         elif metadata_ref:
+            # A metadata object will be removed
             self.objects.delete(metadata_ref.object_number)
             self.catalog.pop("Metadata", None)
 
@@ -193,13 +195,18 @@ class PdfDocument(PdfParser):
     def outline_tree(self) -> PdfDictionary | None:
         """The document's outline tree including what is commonly referred to as
         bookmarks. See ISO 32000-2:2020 § 12.3.3 "Document outline" for details."""
-        return cast("PdfDictionary | None", self.catalog.get("Outlines"))
+        outlines = self.catalog.get("Outlines")
+        if is_null(outlines):
+            return
+
+        return cast("PdfDictionary | None", outlines)
 
     @property
     def outline(self) -> OutlineTree | None:
         """The outline tree including a hierarchy of outline items or bookmarks used
         for document-level navigation."""
-        if "Outlines" not in self.catalog:
+        outlines = self.catalog.get("Outlines")
+        if is_null(outlines):
             return
 
         outline = cast(PdfDictionary, self.catalog["Outlines"])
@@ -245,10 +252,12 @@ class PdfDocument(PdfParser):
         - TwoPageRight: Display the pages two at a time, with odd-numbered
           pages on the right (PDF 1.5).
         """
-        if "PageLayout" not in self.catalog:
+        page_layout = self.catalog.get("PageLayout")
+        if is_null(page_layout):
             return "SinglePage"
 
-        return cast(PageLayout, cast(PdfName, self.catalog["PageLayout"]).value.decode())
+        layout_name = cast(PdfName, page_layout).value.decode()
+        return cast(PageLayout, layout_name)
 
     @page_layout.setter
     def page_layout(self, layout: PageLayout) -> None:
@@ -266,10 +275,12 @@ class PdfDocument(PdfParser):
         - UseOC: Optional content group panel visible (PDF 1.5).
         - UseAttachments: Attachments panel visible (PDF 1.6).
         """
-        if "PageMode" not in self.catalog:
+        page_mode = self.catalog.get("PageMode")
+        if is_null(page_mode):
             return "UseNone"
 
-        return cast(PageMode, cast(PdfName, self.catalog["PageMode"]).value.decode())
+        mode_name = cast(PdfName, page_mode).value.decode()
+        return cast(PageMode, mode_name)
 
     @page_mode.setter
     def page_mode(self, mode: PageMode) -> None:
@@ -285,11 +296,11 @@ class PdfDocument(PdfParser):
 
         If this entry is absent or invalid, the language shall be considered unknown.
         """
-
-        if "Lang" not in self.catalog:
+        lang = self.catalog.get("Lang")
+        if is_null(lang):
             return
 
-        return parse_text_string(cast("PdfHexString | bytes", self.catalog["Lang"]))
+        return parse_text_string(cast("PdfHexString | bytes", lang))
 
     @language.setter
     def language(self, text: str) -> None:
@@ -306,7 +317,7 @@ class PdfDocument(PdfParser):
 
         encrypt_dict = cast(PdfDictionary, self.trailer["Encrypt"])
 
-        if (perms := encrypt_dict.get("P")) is not None:
+        if not is_null(perms := encrypt_dict.get("P")):
             return UserAccessPermissions(perms)
 
     @property
@@ -331,10 +342,11 @@ class PdfDocument(PdfParser):
 
         See :class:`.ViewerPreferences` for details.
         """
-        if "ViewerPreferences" not in self.catalog:
+        viewer_prefs = self.catalog.get("ViewerPreferences")
+        if is_null(viewer_prefs):
             return
 
-        return ViewerPreferences.from_dict(cast(PdfDictionary, self.catalog["ViewerPreferences"]))
+        return ViewerPreferences.from_dict(cast(PdfDictionary, viewer_prefs))
 
     @viewer_preferences.setter
     def viewer_preferences(self, value: ViewerPreferences | None) -> None:
@@ -344,10 +356,11 @@ class PdfDocument(PdfParser):
     def extensions(self) -> ExtensionMap | None:
         """Developer-defined extensions to this document. This feature was introduced
         in ISO 32000-1 (PDF 1.7). See :class:`.ExtensionMap` for details."""
-        if "Extensions" not in self.catalog:
+        extensions = self.catalog.get("Extensions")
+        if is_null(extensions):
             return
 
-        return ExtensionMap.from_dict(cast(PdfDictionary, self.catalog["Extensions"]))
+        return ExtensionMap.from_dict(cast(PdfDictionary, extensions))
 
     @property
     def mark_info(self) -> MarkInfo | None:
@@ -355,10 +368,11 @@ class PdfDocument(PdfParser):
 
         See :class:`.MarkInfo` for details.
         """
-        if "MarkInfo" not in self.catalog:
+        mark_info = self.catalog.get("MarkInfo")
+        if is_null(mark_info):
             return
 
-        return MarkInfo.from_dict(cast(PdfDictionary, self.catalog["MarkInfo"]))
+        return MarkInfo.from_dict(cast(PdfDictionary, mark_info))
 
     def _set_dict_attribute(
         self, dest: PdfDictionary, key: str, value: PdfDictionary | None
@@ -374,7 +388,7 @@ class PdfDocument(PdfParser):
 
         new_value = PdfDictionary(**value.data)
 
-        if current_value is None:
+        if is_null(current_value):
             # A new object will be created.
             reference = self.objects.add(new_value)
             dest.data[key] = reference

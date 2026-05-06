@@ -2,6 +2,7 @@ from typing import Literal, cast
 
 from typing_extensions import Self
 
+from pdfnaut.common.utils import is_null
 from pdfnaut.cos.parser import PdfParser
 from pdfnaut.objects.annotations import AnnotationList
 
@@ -128,10 +129,11 @@ class Page(PdfDictionary):
     @property
     def content_stream(self) -> ContentStreamTokenizer | None:
         """An iterator over the instructions producing the contents of this page."""
-        if "Contents" not in self:
+        contents = self.get("Contents")
+        if is_null(contents):
             return
 
-        contents = cast("PdfStream | PdfArray[PdfStream]", self["Contents"])
+        contents = cast("PdfStream | PdfArray[PdfStream]", contents)
 
         if isinstance(contents, PdfArray):
             # when Contents is an array, it shall be concatenated into a single
@@ -144,10 +146,11 @@ class Page(PdfDictionary):
     def annotations(self) -> AnnotationList | None:
         """All annotations associated with this page. If a page does not specify
         a list of annotations, this field is none."""
-        if "Annots" not in self:
+        annots = self.get("Annots")
+        if is_null(annots):
             return
 
-        annots = cast(PdfArray, self["Annots"])
+        annots = cast(PdfArray, annots)
         return AnnotationList(annots, pdf=self.pdf)
 
     def new_annotations(self) -> None:

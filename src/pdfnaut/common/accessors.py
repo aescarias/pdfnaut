@@ -15,6 +15,8 @@ from typing import (
     get_origin,
 )
 
+from pdfnaut.common.utils import is_null
+
 from ..common.dates import encode_iso8824, parse_iso8824
 from ..cos.objects.base import (
     PdfHexString,
@@ -116,8 +118,11 @@ class TextStringAccessor:
         self.field = field
 
     def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> str | None:
-        if (value := obj.get(self.field.key)) is not None:
-            return parse_text_string(cast("PdfHexString | bytes", value))
+        value = obj.get(self.field.key)
+        if not is_null(value):
+            value = cast("PdfHexString | bytes", value)
+            return parse_text_string(value)
+
         return self.field.default
 
     def __set__(self, obj: PdfDictionary, value: str | None) -> None:
@@ -141,6 +146,7 @@ class DateAccessor:
 
         if text is not None:
             return parse_iso8824(text)
+
         return self.field.default
 
     def __set__(self, obj: PdfDictionary, value: datetime.datetime | None) -> None:

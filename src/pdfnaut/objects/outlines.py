@@ -8,6 +8,7 @@ from typing import Any, cast, overload
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
+from pdfnaut.common.utils import is_null
 from pdfnaut.cos.objects import PdfDictionary
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray
@@ -130,34 +131,38 @@ class OutlineItem(PdfDictionary):
     @property
     def first(self) -> OutlineItem | None:
         """The first child item of the outline if any."""
-        if "First" not in self:
+        first = self.get("First")
+        if is_null(first):
             return
 
-        return OutlineItem.from_dict(self["First"], pdf=self.pdf, indirect_ref=self.data["First"])
+        return OutlineItem.from_dict(first, pdf=self.pdf, indirect_ref=self.data["First"])
 
     @property
     def last(self) -> OutlineItem | None:
         """The last child item of the outline if any."""
-        if "Last" not in self:
+        last = self.get("Last")
+        if is_null(last):
             return
 
-        return OutlineItem.from_dict(self["Last"], pdf=self.pdf, indirect_ref=self.data["Last"])
+        return OutlineItem.from_dict(last, pdf=self.pdf, indirect_ref=self.data["Last"])
 
     @property
     def previous(self) -> OutlineItem | None:
         """The previous item at the current outline level if any."""
-        if "Prev" not in self:
+        prev = self.get("Prev")
+        if is_null(prev):
             return
 
-        return OutlineItem.from_dict(self["Prev"], pdf=self.pdf, indirect_ref=self.data["Prev"])
+        return OutlineItem.from_dict(prev, pdf=self.pdf, indirect_ref=self.data["Prev"])
 
     @property
     def next(self) -> OutlineItem | None:
         """The next item at the current outline level if any."""
-        if "Next" not in self:
+        next_item = self.get("Next")
+        if is_null(next_item):
             return
 
-        return OutlineItem.from_dict(self["Next"], pdf=self.pdf, indirect_ref=self.data["Next"])
+        return OutlineItem.from_dict(next_item, pdf=self.pdf, indirect_ref=self.data["Next"])
 
     @property
     def visible_items(self) -> int:
@@ -184,10 +189,11 @@ class OutlineItem(PdfDictionary):
     def color(self) -> PdfArray[int | float]:
         """The color that shall be used for the outline item text, as an array of RGB
         color components in the range 0 to 1."""
-        if "C" not in self:
+        color = self.get("C")
+        if is_null(color):
             return PdfArray([0, 0, 0])
 
-        return self["C"]
+        return color
 
     @color.setter
     def color(self, value: PdfArray[int | float] | None) -> None:
@@ -202,15 +208,14 @@ class OutlineItem(PdfDictionary):
         a named destination (a name or byte string) or an explicit destination
         (a :class:`Destination` object)."""
 
-        if "Dest" not in self:
+        dest = self.get("Dest")
+        if is_null(dest):
             return
-
-        dest = self["Dest"]
 
         if isinstance(dest, PdfArray):
             return Destination(dest)
 
-        return cast(NamedDestination, self["Dest"])
+        return cast(NamedDestination, dest)
 
     @destination.setter
     def destination(self, dest: DestType | None = None) -> None:
@@ -224,10 +229,11 @@ class OutlineItem(PdfDictionary):
     @property
     def action(self) -> Action | None:
         """The action that shall be triggered when the item is activated."""
-        if "A" not in self:
+        act = self.get("A")
+        if is_null(act):
             return
 
-        act = cast(PdfDictionary, self["A"])
+        act = cast(PdfDictionary, act)
         return action_into(act)
 
     @action.setter
@@ -292,18 +298,20 @@ class OutlineTree(PdfDictionary):
     @property
     def first(self) -> OutlineItem | None:
         """The first outline item in the tree."""
-        if "First" not in self:
+        first = self.get("First")
+        if is_null(first):
             return
 
-        return OutlineItem.from_dict(self["First"], pdf=self._pdf, indirect_ref=self.data["First"])
+        return OutlineItem.from_dict(first, pdf=self._pdf, indirect_ref=self.data["First"])
 
     @property
     def last(self) -> OutlineItem | None:
         """The last outline item in the tree."""
-        if "Last" not in self:
+        last = self.get("Last")
+        if is_null(last):
             return
 
-        return OutlineItem.from_dict(self["Last"], pdf=self._pdf, indirect_ref=self.data["Last"])
+        return OutlineItem.from_dict(last, pdf=self._pdf, indirect_ref=self.data["Last"])
 
     @property
     def visible_items(self) -> int:

@@ -1,6 +1,7 @@
 from .actions import Action, ActionKind, GoToAction, URIAction
 from .annotations import (
     Annotation,
+    AnnotationBorderStyle,
     AnnotationFlags,
     LinkAnnotation,
     MarkupAnnotation,
@@ -29,6 +30,7 @@ __all__ = (
     "PageMode",
     "Page",
     "Annotation",
+    "AnnotationBorderStyle",
     "LinkAnnotation",
     "TextAnnotation",
     "MarkupAnnotation",

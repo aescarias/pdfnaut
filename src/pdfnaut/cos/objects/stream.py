@@ -32,7 +32,9 @@ class PdfStream:
         """
 
         filters = cast("PdfName | PdfArray[PdfName] | None", self.details.get("Filter"))
-        params = cast("PdfDictionary | PdfArray[PdfDictionary]", self.details.get("DecodeParms"))
+        decode_params = cast(
+            "PdfDictionary | PdfArray[PdfDictionary]", self.details.get("DecodeParms")
+        )
 
         if filters is None:
             return self.raw
@@ -40,12 +42,12 @@ class PdfStream:
         if isinstance(filters, PdfName):
             filters = PdfArray([filters])
 
-        if not isinstance(params, PdfArray):
-            params = PdfArray([params])
+        if not isinstance(decode_params, PdfArray):
+            decode_params = PdfArray([decode_params])
 
         output = self.raw
 
-        for filt, params in zip(filters, params):
+        for filt, params in zip(filters, decode_params):
             if filt.value not in SUPPORTED_FILTERS:
                 raise PdfFilterError(f"{filt.value.decode()}: Filter is unsupported.")
 

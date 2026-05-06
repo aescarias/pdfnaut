@@ -26,6 +26,9 @@ class PdfNull:
     def __str__(self) -> str:
         return "null"
 
+    def __bool__(self) -> bool:
+        return False
+
 
 @dataclass
 class PdfComment:
