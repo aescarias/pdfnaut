@@ -3,32 +3,35 @@
 
 This is the changelog for pdfnaut. Versions follow the scheme specified in the [Contributing Guide](./CONTRIBUTING.md#versioning). Dates are specified in YYYY-MM-DD format.
 
-## [unreleased]
+## [0.12.0] (2026-05-05)
 
 ### Additions
 
 - Add `PdfDocument.copy_metadata` for reconciling PDF metadata sources.
-- Add `Page.new_annotations`.
+- Add `Page.new_annotations` for initializing the annotation list.
 - Add `Annotation.border_style` attribute and the related `AnnotationBorderStyle` class.
-- Add `URIAction`
-- Add `LinkAnnotation` and `TextAnnotation`
-- Split `actions` module into `destinations` module.
+- Add `URIAction`, `MarkupAnnotation`, `LinkAnnotation`, and `TextAnnotation`
 - Add support for dictmodel and transform (custom encoder/decoder) accessors.
+- Add support for `__post_init__` in dictmodels and `default_factory` in dictmodel fields.
+- Split `lookup_accessor` into `lookup_accessor_by_type` and `lookup_accessor_by_field`.
 
 ### Changes
 
-- Auto convert PDF object types when accessed via dictmodels.
-- Split `lookup_accessor` into `lookup_accessor_by_type` and `lookup_accessor_by_field`.
 - Allow deleting XMP properties by setting them to `None`.
+- Move destination-related objects from `actions` to `destinations` module.
+- Return specialized annotation types in `AnnotationList` when available (falling back to the base `Annotation` class).
 - Use /Length key in inline images when available.
+- Standardize PDF spec references in documentation.
+- Auto convert PDF object types when accessed via dictmodels.
 
 ### Fixes
 
-- Assign PDF instance to pages that interact with `PageList`.
-- Fix union syntax and `T | None` support in dictmodels.
+- Always assign PDF document instance to pages that interact with `PageList`.
+- Fix handling of `T | None` union syntax in dictmodels.
 - Fix Python 3.10 specific bug that caused CryptProvider subclasses to fail with `TypeError: <class> takes no arguments`. This is due to CryptProvider being a protocol and protocols not properly generating their `__init__` method.
-- Fix inconsistent behavior of `del pdf.xmp_info.property` which caused it to not delete XMP properties correctly.
-- Move XML property cache to `XmpMetadata`. Previously, each descriptor handled its own cache, which caused unwanted data sharing between XMP instances.
+- Ensure that `XmpMetadata` always writes deletions to the underlying XMP packet.
+- Move XML property cache to `XmpMetadata`. Previously, each descriptor handled its own cache, which caused data leaking between XMP instances.
+- Improve handling of explicit nulls in PDF dictionaries.
 - Validate hex strings during parsing.
 
 ## [0.11.1] (2026-03-08)
@@ -273,7 +276,8 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 The first release of pdfnaut. :tada:
 
-[unreleased]: https://github.com/aescarias/pdfnaut/compare/v0.11.1...HEAD
+<!-- [unreleased]: https://github.com/aescarias/pdfnaut/compare/v0.12...HEAD -->
+[0.12.0]: https://github.com/aescarias/pdfnaut/compare/v0.11.1...v0.12
 [0.11.1]: https://github.com/aescarias/pdfnaut/compare/v0.11...v0.11.1
 [0.11.0]: https://github.com/aescarias/pdfnaut/compare/v0.10...v0.11
 [0.10.0]: https://github.com/aescarias/pdfnaut/compare/v0.9...v0.10
