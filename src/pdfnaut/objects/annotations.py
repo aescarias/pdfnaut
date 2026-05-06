@@ -180,7 +180,7 @@ LinkHighlightMode = Literal["N", "I", "O", "P"]
 BorderStyle = Literal["S", "D", "B", "I", "U"]
 
 
-@dictmodel(init=False)
+@dictmodel
 class AnnotationBorderStyle(PdfDictionary):
     """The border style for the outline that surrounds an annotation.
 
@@ -200,8 +200,12 @@ class AnnotationBorderStyle(PdfDictionary):
     - U: An underline.
     """
 
-    dash_pattern: PdfArray[float] | None = field("D", default=None)
-    """The dash pattern used for the border style if dashed."""
+    dash_pattern: list[int | float] | None = field(
+        "D", default=None, encoder=PdfArray, decoder=list
+    )
+    """The dash pattern that will be used for the border if the style specified
+    is dashed. The array consists of alternating dashes and gaps. The dash phase
+    is not specified and is assumed to be zero."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
