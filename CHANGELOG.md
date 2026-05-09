@@ -3,6 +3,17 @@
 
 This is the changelog for pdfnaut. Versions follow the scheme specified in the [Contributing Guide](./CONTRIBUTING.md#versioning). Dates are specified in YYYY-MM-DD format.
 
+## [unreleased]
+
+### Changes
+
+- Make `Annotation.contents` and `Annotation.name` optional as per the PDF spec.
+
+### Fixes
+
+- Set proper type and enum values to `AnnotationReplyType`.
+- Guarantee that `Annotation` appended to annotation list is correctly mapped to the PDF object store.
+
 ## [0.12.0] (2026-05-05)
 
 ### Additions
@@ -276,7 +287,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 The first release of pdfnaut. :tada:
 
-<!-- [unreleased]: https://github.com/aescarias/pdfnaut/compare/v0.12...HEAD -->
+[unreleased]: https://github.com/aescarias/pdfnaut/compare/v0.12...HEAD
 [0.12.0]: https://github.com/aescarias/pdfnaut/compare/v0.11.1...v0.12
 [0.11.1]: https://github.com/aescarias/pdfnaut/compare/v0.11...v0.11.1
 [0.11.0]: https://github.com/aescarias/pdfnaut/compare/v0.10...v0.11

@@ -6,7 +6,7 @@ from typing import Annotated, Literal, cast, overload
 from typing_extensions import Self
 
 from pdfnaut.common.utils import is_null
-from pdfnaut.cos.objects.base import PdfName, PdfReference, encode_text_string
+from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.parser import PdfParser
 from pdfnaut.exceptions import PdfParseError, PdfWriteError
 from pdfnaut.objects.actions import Action, action_into
@@ -110,12 +110,12 @@ class Annotation(PdfDictionary):
     rect: PdfArray[float]
     """A rectangle specifying the location of the annotation in the page."""
 
-    contents: str
+    contents: str | None = None
     """The text contents that shall be displayed when the annotation is open or, if this
     annotation kind does not display text, an alternate description of the annotation's 
     contents."""
 
-    name: str = field("NM")
+    name: str | None = field("NM", default=None)
     """An annotation name uniquely identifying the annotation among others in its page."""
 
     last_modified: str | None = field("M", default=None)
@@ -162,17 +162,17 @@ class Annotation(PdfDictionary):
         self,
         kind: AnnotationKind,
         rect: Iterable[float],
-        contents: str,
-        name: str,
+        contents: str | None = None,
+        name: str | None = None,
         *,
         indirect_ref: PdfReference | None = None,
     ) -> None:
         super().__init__()
 
-        self["Subtype"] = PdfName(kind.encode("ascii"))
-        self["Rect"] = PdfArray(rect)
-        self["Contents"] = encode_text_string(contents)
-        self["NM"] = encode_text_string(name)
+        self.kind = kind
+        self.rect = PdfArray(rect)
+        self.contents = contents
+        self.name = name
 
         self.indirect_ref = indirect_ref
 
@@ -254,8 +254,8 @@ class LinkAnnotation(Annotation):
     def __init__(
         self,
         rect: Iterable[float],
-        contents: str,
-        name: str,
+        contents: str | None = None,
+        name: str | None = None,
         action: Action | None = None,
         destination: DestType | None = None,
         *,
@@ -321,14 +321,14 @@ class LinkAnnotation(Annotation):
             self["BS"] = PdfDictionary(style.data)
 
 
-class AnnotationReplyType(enum.Enum):
+class AnnotationReplyType(str, enum.Enum):
     """The reply type or relationship between an annotation and its annotation's
     :attr:`.MarkupAnnotation.in_reply_to` value."""
 
-    REPLY = 0
+    REPLY = "R"
     """The annotation is considered a reply to another annotation."""
 
-    GROUP = 0
+    GROUP = "Group"
     """The annotation shall be grouped with the annotation replied to."""
 
 
@@ -340,7 +340,7 @@ class MarkupAnnotation(Annotation):
     See ISO 32000-2:2020 § 12.5.6.2 "Markup annotations" for details.
     """
 
-    title: str | None = field("T", None)
+    title: str | None = field("T", default=None)
     """The text label to display as the title of the annotation's popup window.
     This shall identify the user who added the annotation.
     """
@@ -355,8 +355,8 @@ class MarkupAnnotation(Annotation):
         self,
         kind: AnnotationKind,
         rect: Iterable[float],
-        contents: str,
-        name: str,
+        contents: str | None = None,
+        name: str | None = None,
         *,
         indirect_ref: PdfReference | None = None,
     ) -> None:
@@ -426,8 +426,8 @@ class TextAnnotation(MarkupAnnotation):
     def __init__(
         self,
         rect: Iterable[float],
-        contents: str,
-        name: str,
+        contents: str | None = None,
+        name: str | None = None,
         is_open: bool = False,
         icon: str = "Note",
         *,
@@ -571,7 +571,10 @@ class AnnotationList(MutableSequence[Annotation]):
             if self.pdf is None:
                 raise PdfWriteError("annotation list must belong to a pdf")
 
-            annot.indirect_ref = self.pdf.objects.add(PdfDictionary(annot.data))
+            mapping = PdfDictionary(annot.data)
+            annot.indirect_ref = self.pdf.objects.add(mapping)
+            annot.data = mapping.data
+
             references.append(annot.indirect_ref)
 
         return references
