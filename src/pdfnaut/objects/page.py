@@ -37,30 +37,30 @@ class Page(PdfDictionary):
             As with ``pdf``, this value need not be specified in typical usage.
     """
 
-    mediabox: PdfArray[float] = field("MediaBox")
+    mediabox: list[float] = field("MediaBox", encoder=PdfArray, decoder=list)
     """A rectangle defining the boundaries of the physical medium in which the page
     should be printed or displayed."""
 
-    cropbox: PdfArray[float] | None = field("CropBox", default=None)
+    cropbox: list[float] | None = field("CropBox", default=None, encoder=PdfArray, decoder=list)
     """A rectangle defining the visible region of the page.
     
     If none, the cropbox is the same as the mediabox.
     """
 
-    bleedbox: PdfArray[float] | None = field("BleedBox", default=None)
+    bleedbox: list[float] | None = field("BleedBox", default=None, encoder=PdfArray, decoder=list)
     """A rectangle defining the region to which the contents of the page shall be 
     clipped when output in a production environment.
     
     If none, the bleedbox is the same as the cropbox.
     """
 
-    trimbox: PdfArray[float] | None = field("TrimBox", default=None)
+    trimbox: list[float] | None = field("TrimBox", default=None, encoder=PdfArray, decoder=list)
     """A rectangle defining the intended dimensions of the finished page after trimming.
 
     If none, the trimbox is the same as the cropbox.
     """
 
-    artbox: PdfArray[float] | None = field("ArtBox", default=None)
+    artbox: list[float] | None = field("ArtBox", default=None, encoder=PdfArray, decoder=list)
     """A rectangle defining the extent of the page's meaningful content as intended 
     by the page's creator.
     

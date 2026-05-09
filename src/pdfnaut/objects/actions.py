@@ -66,7 +66,8 @@ class Action(PdfDictionary):
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
-        action = cls(subtype=mapping["S"].value.decode())
+        subtype = cast(PdfName, mapping["S"]).value.decode()
+        action = cls(subtype=cast(ActionKind, subtype))
         action.data = mapping.data
         return action
 
@@ -86,8 +87,10 @@ class Action(PdfDictionary):
             return
 
         if isinstance(next_seq, PdfArray):
+            next_seq = cast(PdfArray[PdfDictionary], next_seq)
             return [action_into(act) for act in next_seq]
 
+        next_seq = cast(PdfDictionary, next_seq)
         return action_into(next_seq)
 
     @next_action.setter
@@ -151,7 +154,7 @@ class URIAction(Action):
     uri: str = field("URI")
     """The uniform resource identifier (URI) to resolve."""
 
-    is_map: bool = field(default=False)
+    is_map: bool = False
     """Whether to track the mouse position when the URI is resolved."""
 
     @classmethod

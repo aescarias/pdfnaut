@@ -107,7 +107,7 @@ class Annotation(PdfDictionary):
     kind: AnnotationKind = field("Subtype")
     """The kind of annotation. See ISO 32000-2:2020 "Table 171 — Annotation types" for details."""
 
-    rect: PdfArray[float]
+    rect: list[float] = field(encoder=PdfArray, decoder=list)
     """A rectangle specifying the location of the annotation in the page."""
 
     contents: str | None = None
@@ -134,7 +134,7 @@ class Annotation(PdfDictionary):
     flags: AnnotationFlags = field("F", default=AnnotationFlags.NULL.value)
     """Flags specifying various characteristics of the annotation."""
 
-    color: PdfArray[float] | None = field("C", default=None)
+    color: list[float] | None = field("C", default=None, encoder=PdfArray, decoder=list)
     """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
     for the following purposes:
 
@@ -143,7 +143,7 @@ class Annotation(PdfDictionary):
     - The border of a link annotation.
 
     The number of array elements determines the color space in which the color shall
-    be defined: 0 is no color or transparent; 1 is grayscale; 3 is RGB; and 4 is CMYK.
+    be defined: 0 is no color or transparent, 1 is grayscale, 3 is RGB, and 4 is CMYK.
     """
 
     @classmethod
@@ -170,7 +170,7 @@ class Annotation(PdfDictionary):
         super().__init__()
 
         self.kind = kind
-        self.rect = PdfArray(rect)
+        self.rect = list(rect)
         self.contents = contents
         self.name = name
 
@@ -201,9 +201,7 @@ class AnnotationBorderStyle(PdfDictionary):
     - U: An underline.
     """
 
-    dash_pattern: list[int | float] | None = field(
-        "D", default=None, encoder=PdfArray, decoder=list
-    )
+    dash_pattern: list[int] | None = field("D", default=None, encoder=PdfArray, decoder=list)
     """The dash pattern that will be used for the border if the style specified
     is dashed. The array consists of alternating dashes and gaps. The dash phase
     is not specified and is assumed to be zero."""
@@ -232,7 +230,7 @@ class LinkAnnotation(Annotation):
     - P: Display the annotation as if it were being pushed below the surface of the page.
     """
 
-    quad_points: PdfArray[float] | None = field(default=None)
+    quad_points: list[float] | None = field(default=None, encoder=PdfArray, decoder=list)
     """A sequence of n quadrilaterals, comprised of 8 numbers representing the coordinates
     in default user space that comprise the region in which the link should be activated.
     

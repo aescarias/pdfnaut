@@ -8,6 +8,13 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 ### Changes
 
 - Make `Annotation.contents` and `Annotation.name` optional as per the PDF spec.
+- Change field type of the following fields to use the Python `list` type instead of `PdfArray`:
+  - `Annotation.rect` and `Annotation.color`
+  - `AnnotationBorderStyle.dash_pattern`
+  - `LinkAnnotation.quad_points`
+  - `ViewerPreferences.print_page_range`
+  - `OutlineItem.color`
+  - `Page.mediabox`, `Page.cropbox`, `Page.bleedbox`, `Page.trimbox`, and `Page.artbox`
 
 ### Fixes
 

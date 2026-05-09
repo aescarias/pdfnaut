@@ -88,6 +88,12 @@ class OutlineItem(PdfDictionary):
     text: str = field("Title")
     """The display text for this outline item."""
 
+    color: list[float] | None = field(
+        "C", default_factory=lambda: [0, 0, 0], encoder=PdfArray, decoder=list
+    )
+    """The color that shall be used for the outline item text, as an array of RGB
+    color components in the range 0 to 1."""
+
     flags: OutlineItemFlags = field("F", default=OutlineItemFlags.NULL.value)
     """A set of bit flags describing characteristics of the outline item text."""
 
@@ -110,7 +116,7 @@ class OutlineItem(PdfDictionary):
         flags: OutlineItemFlags = OutlineItemFlags.NULL,
         destination: DestType | None = None,
         action: Action | None = None,
-        color: PdfArray[int | float] | None = None,
+        color: list[float] | None = None,
         *,
         pdf: PdfParser | None = None,
         indirect_ref: PdfReference | None = None,
@@ -184,23 +190,6 @@ class OutlineItem(PdfDictionary):
             return OutlineTree(self.pdf, parent, parent_ref)
 
         return OutlineItem.from_dict(parent, pdf=self.pdf, indirect_ref=parent_ref)
-
-    @property
-    def color(self) -> PdfArray[int | float]:
-        """The color that shall be used for the outline item text, as an array of RGB
-        color components in the range 0 to 1."""
-        color = self.get("C")
-        if is_null(color):
-            return PdfArray([0, 0, 0])
-
-        return color
-
-    @color.setter
-    def color(self, value: PdfArray[int | float] | None) -> None:
-        if value is None:
-            self.pop("C", None)
-        else:
-            self["C"] = value
 
     @property
     def destination(self) -> DestType | None:
