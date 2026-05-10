@@ -134,7 +134,12 @@ class Annotation(PdfDictionary):
     flags: AnnotationFlags = field("F", default=AnnotationFlags.NULL.value)
     """Flags specifying various characteristics of the annotation."""
 
-    color: list[float] | None = field("C", default=None, encoder=PdfArray, decoder=list)
+    color: list[float] | None = field(
+        "C",
+        default=None,
+        encoder=lambda lst: PdfArray(lst) if lst is not None else None,
+        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+    )
     """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
     for the following purposes:
 
@@ -201,7 +206,12 @@ class AnnotationBorderStyle(PdfDictionary):
     - U: An underline.
     """
 
-    dash_pattern: list[int] | None = field("D", default=None, encoder=PdfArray, decoder=list)
+    dash_pattern: list[int] | None = field(
+        "D",
+        default=None,
+        encoder=lambda lst: PdfArray(lst) if lst is not None else None,
+        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+    )
     """The dash pattern that will be used for the border if the style specified
     is dashed. The array consists of alternating dashes and gaps. The dash phase
     is not specified and is assumed to be zero."""
@@ -230,7 +240,11 @@ class LinkAnnotation(Annotation):
     - P: Display the annotation as if it were being pushed below the surface of the page.
     """
 
-    quad_points: list[float] | None = field(default=None, encoder=PdfArray, decoder=list)
+    quad_points: list[float] | None = field(
+        default=None,
+        encoder=lambda lst: PdfArray(lst) if lst is not None else None,
+        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+    )
     """A sequence of n quadrilaterals, comprised of 8 numbers representing the coordinates
     in default user space that comprise the region in which the link should be activated.
     

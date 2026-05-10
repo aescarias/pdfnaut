@@ -163,7 +163,11 @@ class ViewerPreferences(PdfDictionary):
     If this value is none, the document producer may choose their own default setting.
     """
 
-    print_page_range: list[int] | None = field(default=None, encoder=PdfArray, decoder=list)
+    print_page_range: list[int] | None = field(
+        default=None,
+        encoder=lambda lst: PdfArray(lst) if lst is not None else None,
+        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+    )
     """The page numbers used to initialize the print dialog box. The array should
     contain an even number of values interpreted as pairs, with each pair specifying
     the first and last pages in a sub-range of pages to be printed (the first page being

@@ -88,7 +88,7 @@ class OutlineItem(PdfDictionary):
     text: str = field("Title")
     """The display text for this outline item."""
 
-    color: list[float] | None = field(
+    color: list[float] = field(
         "C", default_factory=lambda: [0, 0, 0], encoder=PdfArray, decoder=list
     )
     """The color that shall be used for the outline item text, as an array of RGB
