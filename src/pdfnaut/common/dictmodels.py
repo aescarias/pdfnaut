@@ -14,7 +14,7 @@ class Field:
     def __init__(
         self,
         key: str | None = None,
-        default: Any = MISSING,
+        default_value: Any = MISSING,
         default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
         encoder: Callable[[Any], Any] | None = None,
         decoder: Callable[[Any], Any] | None = None,
@@ -27,7 +27,7 @@ class Field:
         self.type_: type | None = None
 
         self._key = key
-        self.default = default
+        self.default_value = default_value
         self.default_factory = default_factory
         self.encoder = encoder
         self.decoder = decoder
@@ -41,6 +41,13 @@ class Field:
             raise ValueError(f"no key assigned to field {self.name!r}.")
 
         return self._key
+
+    @property
+    def default(self) -> Any:
+        if (df := self.default_factory) and callable(df):
+            return df()
+
+        return self.default_value
 
 
 def field(
@@ -162,7 +169,7 @@ def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True)
             # inherited field from an accessor
             model_field = default.field
         else:
-            model_field = Field(default=default)
+            model_field = Field(default_value=default)
 
         if model_field._key is None:
             model_field._key = snake_to_title_case(attr)

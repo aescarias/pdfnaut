@@ -15,6 +15,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
   - `ViewerPreferences.print_page_range`
   - `OutlineItem.color`
   - `Page.mediabox`, `Page.cropbox`, `Page.bleedbox`, `Page.trimbox`, and `Page.artbox`
+- Account for `default` and `default_factory` in accessors by converting `Field.default` into a property. `default_value` is the name of the new parameter for specifying immutable defaults.
 
 ### Fixes
 
