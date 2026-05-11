@@ -5,6 +5,11 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ## [unreleased]
 
+### Additions
+
+- Add `LineAnnotation` and `RectangleAnnotation`.
+- Add `PdfDocument.open_action`
+
 ### Changes
 
 - Make `Annotation.contents` and `Annotation.name` optional as per the PDF spec.

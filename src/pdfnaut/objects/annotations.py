@@ -451,6 +451,134 @@ class TextAnnotation(MarkupAnnotation):
         self.icon = icon
 
 
+class LineEndingStyle(str, enum.Enum):
+    SQUARE = "Square"
+    CIRCLE = "Circle"
+    DIAMOND = "Diamond"
+    OPEN_ARROW = "OpenArrow"
+    CLOSED_ARROW = "ClosedArrow"
+    NONE = "None"
+    BUTT = "Butt"
+    REVERSED_OPEN_ARROW = "ROpenArrow"
+    REVERSED_CLOSED_ARROW = "RClosedArrow"
+    SLASH = "Slash"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dictmodel(init=False)
+class LineAnnotation(MarkupAnnotation):
+    """A line annotation displays a simple straight line on the page.
+
+    See ISO 32000-2:2020 § 12.5.6.7 "Line annotations" for details.
+    """
+
+    path: list[float] = field("L", decoder=list, encoder=PdfArray)
+    """An array of four numbers (x1, y1, x2, y2) representing the start and end
+    coordinates of the line in default user space units."""
+
+    border_style: AnnotationBorderStyle | None = field("BS", default=None)
+    """The border style of the line annotation, controlling the width and dash
+    pattern of the line."""
+
+    line_ending_color: list[float] | None = field("IC", default=None)
+    """The interior color that will be used for the line endings.
+
+    The number of elements determines the color space: 0 is no color or transparent,
+    1 is grayscale, 3 is RGB, and 4 is CMYK.
+    """
+
+    @property
+    def line_endings(self) -> tuple[LineEndingStyle, LineEndingStyle]:
+        """The line ending styles to use when drawing the line.
+
+        The value consists of two line endings for the first and second pair
+        of coordinates, respectively.
+        """
+        line_ends = self.get("LE")
+        if is_null(line_ends):
+            return (LineEndingStyle.NONE, LineEndingStyle.NONE)
+
+        line_ends = cast(PdfArray[PdfName], line_ends)
+
+        first_end = LineEndingStyle(line_ends[0].value.decode())
+        last_end = LineEndingStyle(line_ends[1].value.decode())
+        return (first_end, last_end)
+
+    @line_endings.setter
+    def line_endings(self, value: tuple[LineEndingStyle, LineEndingStyle] | None) -> None:
+        if value is None:
+            self.data.pop("LE", None)
+            return
+
+        first_le = PdfName(value[0].encode())
+        last_le = PdfName(value[1].encode())
+
+        self["LE"] = PdfArray([first_le, last_le])
+
+    @classmethod
+    def from_dict(
+        cls,
+        mapping: PdfDictionary,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> Self:
+        dictionary = cls(rect=[0, 0, 0, 0], p1=(0, 0), p2=(0, 0), indirect_ref=indirect_ref)
+        dictionary.data = mapping.data
+
+        return dictionary
+
+    def __init__(
+        self,
+        rect: Iterable[float],
+        p1: tuple[int, int],
+        p2: tuple[int, int],
+        line_endings: tuple[LineEndingStyle, LineEndingStyle] | None = None,
+        contents: str | None = None,
+        name: str | None = None,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> None:
+        super().__init__("Line", rect, contents, name, indirect_ref=indirect_ref)
+
+        self.line_endings = line_endings
+        self.path = [*p1, *p2]
+
+
+@dictmodel(init=False)
+class RectangleAnnotation(MarkupAnnotation):
+    """A rectangle annotation displays a rectangle on the page.
+
+    See ISO 32000-2:2020 § 12.5.6.8 "Square and circle annotations" for details.
+    """
+
+    border_style: AnnotationBorderStyle | None = field("BS", default=None)
+    """The border style of the rectangle."""
+
+    interior_color: list[float] | None = field("IC", default=None)
+    """The interior color that will be used for the rectangle.
+
+    The number of elements determines the color space: 0 is no color or transparent,
+    1 is grayscale, 3 is RGB, and 4 is CMYK.
+    """
+
+    def __init__(
+        self,
+        rect: Iterable[float],
+        interior_color: list[float] | None = None,
+        border_style: AnnotationBorderStyle | None = None,
+        contents: str | None = None,
+        name: str | None = None,
+        *,
+        indirect_ref: PdfReference | None = None,
+    ) -> None:
+        super().__init__("Square", rect, contents, name, indirect_ref=indirect_ref)
+
+        self.interior_color = interior_color
+        self.border_style = border_style
+
+
 def annotation_into(
     annot: PdfDictionary, *, indirect_ref: PdfReference | None = None
 ) -> Annotation:
@@ -463,10 +591,12 @@ def annotation_into(
         return LinkAnnotation.from_dict(annot, indirect_ref=indirect_ref)
     elif subtype == "Text":
         return TextAnnotation.from_dict(annot, indirect_ref=indirect_ref)
+    elif subtype == "Line":
+        return LineAnnotation.from_dict(annot, indirect_ref=indirect_ref)
+    elif subtype == "Square":
+        return RectangleAnnotation.from_dict(annot, indirect_ref=indirect_ref)
     elif subtype in {
         "FreeText",
-        "Line",
-        "Square",
         "Circle",
         "Polygon",
         "PolyLine",
