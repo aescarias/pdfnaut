@@ -4,6 +4,9 @@ import pathlib
 from collections.abc import Generator
 from typing import cast
 
+from pdfnaut.objects.actions import Action, action_into
+from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
+
 from .common import metadata
 from .common.metadata import MetadataCopyDirection
 from .common.utils import is_null
@@ -374,30 +377,45 @@ class PdfDocument(PdfParser):
 
         return MarkInfo.from_dict(cast(PdfDictionary, mark_info))
 
+    @property
+    def open_action(self) -> DestType | Action | None:
+        """The destination or action that shall be displayed or performed when
+        the document is opened."""
+
+        dest_or_action = self.catalog.get("OpenAction")
+        if is_null(dest_or_action):
+            return
+
+        if isinstance(dest_or_action, PdfArray):
+            return Destination(dest_or_action)
+        elif isinstance(dest_or_action, PdfDictionary):
+            return action_into(dest_or_action)
+
+        return cast(NamedDestination, dest_or_action)
+
+    @open_action.setter
+    def open_action(self, action: DestType | Action | None) -> None:
+        self._set_dict_attribute(self.catalog, "OpenAction", action)
+
     def _set_dict_attribute(
-        self, dest: PdfDictionary, key: str, value: PdfDictionary | None
+        self, dest: PdfDictionary, key: str, value: PdfObject | None, indirect: bool = True
     ) -> None:
         current_value = dest.data.get(key)
         if value is None:
-            # The object will be removed.
-            if isinstance(current_value, PdfReference):
-                self.objects.free(current_value.object_number)
-
             dest.data.pop(key, None)
             return
 
-        new_value = PdfDictionary(**value.data)
+        if isinstance(value, PdfReference):
+            dest.data[key] = value
+            return
 
-        if is_null(current_value):
-            # A new object will be created.
-            reference = self.objects.add(new_value)
+        if indirect and isinstance(current_value, PdfReference):
+            self.objects[current_value.object_number] = value
+        elif indirect:
+            reference = self.objects.add(value)
             dest.data[key] = reference
-        elif isinstance(current_value, PdfReference):
-            # A new object will be set as a reference.
-            self.objects[current_value.object_number] = new_value
         else:
-            # A new object will be set as is.
-            dest.data[key] = new_value
+            dest.data[key] = value
 
     def copy_metadata(self, direction: MetadataCopyDirection) -> None:
         """Performs reconciling of the document metadata sources by copying data
