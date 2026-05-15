@@ -32,10 +32,17 @@ if TYPE_CHECKING:
 
 
 class _MISSING_TYPE:
-    pass
+    def __repr__(self) -> str:
+        return "MISSING"
+
+
+class _HAS_DEFAULT_FACTORY_TYPE:
+    def __repr__(self) -> str:
+        return "<factory>"
 
 
 MISSING = _MISSING_TYPE()
+HAS_DEFAULT_FACTORY = _HAS_DEFAULT_FACTORY_TYPE()
 
 
 class Accessor(Protocol):
@@ -200,7 +207,11 @@ class TransformAccessor:
         if self.field.default is MISSING:
             return self.field.decoder(obj[self.field.key])
 
-        return self.field.decoder(obj.get(self.field.key, self.field.default))
+        value = obj.get(self.field.key)
+        if is_null(value):
+            return self.field.default
+
+        return self.field.decoder(value)
 
     def __set__(self, obj: PdfDictionary, value: PdfObject | None) -> None:
         if value is None:

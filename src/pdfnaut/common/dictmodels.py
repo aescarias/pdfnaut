@@ -5,7 +5,13 @@ from typing import Any, TypeVar, cast
 from typing_extensions import dataclass_transform, get_type_hints
 
 from ..cos.objects.containers import PdfDictionary
-from .accessors import _MISSING_TYPE, MISSING, Accessor, lookup_accessor_by_field
+from .accessors import (
+    _MISSING_TYPE,
+    HAS_DEFAULT_FACTORY,
+    MISSING,
+    Accessor,
+    lookup_accessor_by_field,
+)
 
 _T = TypeVar("_T")
 
@@ -206,6 +212,7 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
         accessors = create_accessors(cls, parent_init=init, parent_repr=repr_)
 
         init_args = ["self"]
+        default_map: dict[str, Any] = {}
 
         for accessor in accessors:
             assert accessor.field.name is not None
@@ -217,13 +224,14 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
 
             init_arg_string = accessor.field.name
             if accessor.field.default_factory is not MISSING:
-                init_arg_string += " = None"
-            elif accessor.field.default is not MISSING:
-                init_arg_string += f" = {accessor.field.default!r}"
+                init_arg_string += " = HAS_DEFAULT_FACTORY"
+            elif accessor.field.default_value is not MISSING:
+                default_map[accessor.field.name] = accessor.field.default
+                init_arg_string += f" = _dflt[{accessor.field.name!r}]"
 
             init_args.append(init_arg_string)
 
-        required_subcls_args = []
+        required_subcls_args: list[str] = []
         for acc in getattr(cls, "__accessors__", []):
             if not acc.field.init:
                 continue
@@ -239,17 +247,18 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
         ]
 
         for acc in accessors:
-            if not acc.field.init:
+            if not acc.field.init or not acc.field.name:
                 continue
 
+            fname = acc.field.name
             if (df := acc.field.default_factory) is not MISSING and callable(df):
-                value = df()
-                fname = acc.field.name
+                default_map[fname] = df()
                 init_fn_body.append(
-                    f"    self.{fname} = {fname} if {fname} is not None else {value!r}\n"
+                    f"    self.{fname} = "
+                    f"{fname} if {fname} is not HAS_DEFAULT_FACTORY else _dflt[{fname!r}]\n"
                 )
             else:
-                init_fn_body.append(f"    self.{acc.field.name} = {acc.field.name}\n")
+                init_fn_body.append(f"    self.{fname} = {fname}\n")
 
         repr_fn = build_repr(cls, [acc for acc in accessors if acc.field.repr_])
         namespace = {}
@@ -257,7 +266,11 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
         if "__post_init__" in cls.__dict__:
             init_fn_body.append("    self.__post_init__()")
 
-        exec("\n".join(init_fn_body), {cls.__name__: cls}, namespace)
+        exec(
+            "\n".join(init_fn_body),
+            {cls.__name__: cls, "_dflt": default_map, "HAS_DEFAULT_FACTORY": HAS_DEFAULT_FACTORY},
+            namespace,
+        )
 
         if "__init__" not in cls.__dict__:
             cls.__init__ = namespace["__init__"]
