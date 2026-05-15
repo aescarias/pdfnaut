@@ -23,8 +23,16 @@ class AnnotationReplyType(str, enum.Enum):
     GROUP = "Group"
     """The annotation shall be grouped with the annotation replied to."""
 
+    def __str__(self) -> str:
+        return self.value
+
 
 class LineEndingStyle(str, enum.Enum):
+    """The line ending style used for annotations.
+
+    See ISO 32000-2:2020 § Table 179 - "Line ending styles" for details.
+    """
+
     SQUARE = "Square"
     CIRCLE = "Circle"
     DIAMOND = "Diamond"

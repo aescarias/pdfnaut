@@ -1,17 +1,35 @@
 from collections.abc import Iterable
-from typing import Literal, cast
+from enum import Enum
+from typing import cast
 
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
 from pdfnaut.common.utils import is_null
-from pdfnaut.cos.objects.base import PdfReference
+from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.annotations import Annotation, AnnotationBorderStyle
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
 
-LinkHighlightMode = Literal["N", "I", "O", "P"]
+
+class LinkHighlightMode(str, Enum):
+    """The highlighting mode for link annotations (see :class:`LinkAnnotation`)."""
+
+    NONE = "N"
+    """No highlight."""
+
+    INVERT_CONTENTS = "I"
+    """Invert the contents of the annotation rectangle (default)."""
+
+    INVERT_OUTLINE = "O"
+    """Invert the annotation's border or outline."""
+
+    PUSH = "P"
+    """Display the annotation as if it were being pushed below the surface of the page."""
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dictmodel(init=False)
@@ -22,14 +40,26 @@ class LinkAnnotation(Annotation):
     See ISO 32000-2:2020 § 12.5.6.5 "Link annotations" for details.
     """
 
-    highlight_mode: LinkHighlightMode = field("H", default="I")
-    """The annotation's highlight mode. May be either of the following:
+    @staticmethod
+    def _get_highlight(highlight_name: PdfName) -> LinkHighlightMode | str:
+        name = cast(PdfName, highlight_name).value.decode()
 
-    - N: No highlight.
-    - I: Invert the contents of the annotation rectangle (default).
-    - O: Invert the annotation's border/outline.
-    - P: Display the annotation as if it were being pushed below the surface of the page.
-    """
+        if name in list(LinkHighlightMode):
+            return LinkHighlightMode(name)
+
+        return name
+
+    @staticmethod
+    def _set_highlight(style: LinkHighlightMode | str) -> PdfName:
+        return PdfName(style.encode())
+
+    highlight_mode: LinkHighlightMode | str = field(
+        "H",
+        default=LinkHighlightMode.INVERT_CONTENTS,
+        encoder=_set_highlight,
+        decoder=_get_highlight,
+    )
+    """The annotation's highlight mode."""
 
     quad_points: list[float] | None = field(
         default=None,

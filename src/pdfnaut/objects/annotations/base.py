@@ -207,7 +207,26 @@ def annotation_into(
         return Annotation.from_dict(annot, indirect_ref=indirect_ref)
 
 
-BorderStyle = Literal["S", "D", "B", "I", "U"]
+class BorderStyleType(str, enum.Enum):
+    """The border style type applied to an annotation via :class:`.AnnotationBorderStyle`."""
+
+    SOLID = "S"
+    """A solid rectangle."""
+
+    DASHED = "D"
+    """A dashed rectangle specified by :attr:`.AnnotationBorderStyle.dash_pattern`."""
+
+    BEVELED = "B"
+    """A simulated embossed (beveled) rectangle."""
+
+    INSET = "I"
+    """A simulated engraved (inset) rectangle."""
+
+    UNDERLINE = "U"
+    """An underline."""
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dictmodel
@@ -220,15 +239,23 @@ class AnnotationBorderStyle(PdfDictionary):
     width: float = field("W", default=1)
     """The border width in points."""
 
-    style: BorderStyle = field("S", default="S")
-    """The border style. May be either of the following:
+    @staticmethod
+    def _get_style(style_name: PdfName) -> BorderStyleType | str:
+        name = cast(PdfName, style_name).value.decode()
 
-    - S: A solid rectangle.
-    - D: A dashed rectangle specified by :attr:`.AnnotationBorderStyle.dash_pattern`.
-    - B: A simulated embossed (beveled) rectangle.
-    - I: A simulated engraved (inset) rectangle.
-    - U: An underline.
-    """
+        if name in list(BorderStyleType):
+            return BorderStyleType(name)
+
+        return name
+
+    @staticmethod
+    def _set_style(style: BorderStyleType | str) -> PdfName:
+        return PdfName(style.encode())
+
+    style: BorderStyleType | str = field(
+        "S", default=BorderStyleType.SOLID, encoder=_set_style, decoder=_get_style
+    )
+    """The border style."""
 
     dash_pattern: list[int] | None = field(
         "D",

@@ -8,10 +8,14 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 ### Additions
 
 - Add `LineAnnotation` and `RectangleAnnotation`.
-- Add `PdfDocument.open_action`
+- Add `PdfDocument.open_action`.
+- Replace `LinkHighlightMode` literal with enum.
+- Replace `BorderStyle` literal with `BorderStyleType` enum.
 
 ### Changes
 
+- Use `BorderStyleType` enum for `AnnotationBorderStyle.style`
+- Add `__str__` method to `AnnotationReplyType` enum.
 - Make `Annotation.contents` and `Annotation.name` optional as per the PDF spec.
 - Change field type of the following fields to use the Python `list` type instead of `PdfArray`:
   - `Annotation.rect` and `Annotation.color`
@@ -21,6 +25,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
   - `OutlineItem.color`
   - `Page.mediabox`, `Page.cropbox`, `Page.bleedbox`, `Page.trimbox`, and `Page.artbox`
 - Account for `default` and `default_factory` in accessors by converting `Field.default` into a property. `default_value` is the name of the new parameter for specifying immutable defaults.
+- Use mapping for default values in dictmodel init instead of relying on `repr()`.
 
 ### Fixes
 
