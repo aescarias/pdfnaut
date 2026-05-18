@@ -7,8 +7,9 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Additions
 
-- Add `LineAnnotation` and `RectangleAnnotation`.
-- Add `PdfDocument.open_action`.
+- `LineAnnotation` and `RectangleAnnotation`.
+- `PdfDocument.open_action`.
+- Name trees and number trees.
 - Replace `LinkHighlightMode` literal with enum.
 - Replace `BorderStyle` literal with `BorderStyleType` enum.
 

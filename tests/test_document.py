@@ -3,9 +3,8 @@ from __future__ import annotations
 from io import BytesIO
 
 from pdfnaut import PdfDocument
-from pdfnaut.cos.objects import PdfArray
-from pdfnaut.cos.objects.base import PdfName
 from pdfnaut.objects import OutlineItem, Page
+from pdfnaut.objects.destinations import Destination
 
 
 def test_get_object() -> None:
@@ -57,8 +56,8 @@ def test_add_pages_to_doc_with_flat_tree() -> None:
     new_pdf = PdfDocument(docdata.getvalue())
 
     assert len(new_pdf.pages) == 3
-    assert new_pdf.pages[0].mediabox == PdfArray([0, 0, 300, 300])
-    assert new_pdf.pages[-1].mediabox == PdfArray([0, 0, 500, 500])
+    assert new_pdf.pages[0].mediabox == [0, 0, 300, 300]
+    assert new_pdf.pages[-1].mediabox == [0, 0, 500, 500]
 
 
 def test_add_pages_to_doc_with_nested_tree() -> None:
@@ -73,8 +72,8 @@ def test_add_pages_to_doc_with_nested_tree() -> None:
     # saved changes
     saved_pdf = PdfDocument(docdata.getvalue())
     assert len(saved_pdf.pages) == 6
-    assert saved_pdf.pages[0].mediabox == PdfArray([0, 0, 300, 300])
-    assert saved_pdf.pages[-1].mediabox == PdfArray([0, 0, 500, 500])
+    assert saved_pdf.pages[0].mediabox == [0, 0, 300, 300]
+    assert saved_pdf.pages[-1].mediabox == [0, 0, 500, 500]
 
 
 def test_remove_pages_from_doc() -> None:
@@ -147,14 +146,11 @@ def test_simple_outline() -> None:
     pdf.new_outline()
     assert pdf.outline is not None
 
-    def fit(page: Page) -> PdfArray:
-        return PdfArray([page.indirect_ref, PdfName(b"Fit")])
-
     pdf.outline.children.append(
-        first := OutlineItem(text="Data model", destination=fit(pdf.pages[0]))
+        first := OutlineItem(text="Data model", destination=Destination.fit(pdf.pages[0]))
     )
     pdf.outline.children.append(
-        last := OutlineItem(text="Serialization", destination=fit(pdf.pages[1]))
+        last := OutlineItem(text="Serialization", destination=Destination.fit(pdf.pages[1]))
     )
 
     assert len(pdf.outline.children) == 2
@@ -163,7 +159,7 @@ def test_simple_outline() -> None:
     pdf.outline.children.insert(
         0,
         new_first := OutlineItem(
-            text="Extensible Metadata Platform", destination=fit(pdf.pages[0])
+            text="Extensible Metadata Platform", destination=Destination.fit(pdf.pages[0])
         ),
     )
     assert pdf.outline.first == new_first
@@ -181,15 +177,14 @@ def test_nested_outline() -> None:
     pdf.new_outline()
     assert pdf.outline is not None
 
-    def fit(page: Page) -> PdfArray:
-        return PdfArray([page.indirect_ref, PdfName(b"Fit")])
-
     pdf.outline.children.append(
-        first := OutlineItem("Extensible Metadata Platform", destination=fit(pdf.pages[0]))
+        first := OutlineItem(
+            "Extensible Metadata Platform", destination=Destination.fit(pdf.pages[0])
+        )
     )
 
-    first.children.append(OutlineItem("Data model", destination=fit(pdf.pages[0])))
-    first.children.append(OutlineItem("Serialization", destination=fit(pdf.pages[1])))
+    first.children.append(OutlineItem("Data model", destination=Destination.fit(pdf.pages[0])))
+    first.children.append(OutlineItem("Serialization", destination=Destination.fit(pdf.pages[1])))
 
     assert len(pdf.outline.children) == 1
     assert pdf.outline.visible_items == 3
@@ -205,54 +200,65 @@ def test_outline_item() -> None:
     pdf.new_outline()
     assert pdf.outline is not None
 
-    def fit_hz(page: Page, top: int) -> PdfArray:
-        return PdfArray([page.indirect_ref, PdfName(b"FitH"), top])
-
     pdf.outline.children.append(
         metadata := OutlineItem(
-            "Extensible Metadata Platform", destination=fit_hz(pdf.pages[0], -1)
+            "Extensible Metadata Platform", destination=Destination.fit_horizontal(pdf.pages[0], -1)
         )
     )
 
-    metadata.children.append(OutlineItem("Data model", destination=fit_hz(pdf.pages[0], 400)))
-
     metadata.children.append(
-        serialization := OutlineItem("Serialization", destination=fit_hz(pdf.pages[0], 100))
+        OutlineItem("Data model", destination=Destination.fit_horizontal(pdf.pages[0], 400))
     )
-    serialization.children.append(OutlineItem("Example", destination=fit_hz(pdf.pages[1], 550)))
 
     metadata.children.append(
-        embedding := OutlineItem("Embedding", destination=fit_hz(pdf.pages[2], 700))
+        serialization := OutlineItem(
+            "Serialization", destination=Destination.fit_horizontal(pdf.pages[0], 100)
+        )
+    )
+    serialization.children.append(
+        OutlineItem("Example", destination=Destination.fit_horizontal(pdf.pages[1], 550))
+    )
+
+    metadata.children.append(
+        embedding := OutlineItem(
+            "Embedding", destination=Destination.fit_horizontal(pdf.pages[2], 700)
+        )
     )
     embedding.children.append(
-        OutlineItem("Location in file types", destination=fit_hz(pdf.pages[2], 520))
+        OutlineItem(
+            "Location in file types", destination=Destination.fit_horizontal(pdf.pages[2], 520)
+        )
     )
 
     metadata.children.append(
-        support := OutlineItem("Support and acceptance", destination=fit_hz(pdf.pages[2], 180))
+        support := OutlineItem(
+            "Support and acceptance", destination=Destination.fit_horizontal(pdf.pages[2], 180)
+        )
     )
 
     support.children.extend(
         [
-            OutlineItem("XMP Toolkit", destination=fit_hz(pdf.pages[2], 120)),
+            OutlineItem("XMP Toolkit", destination=Destination.fit_horizontal(pdf.pages[2], 120)),
             OutlineItem(
                 "Free software and open-source tools (read/write support)",
-                destination=fit_hz(pdf.pages[3], 700),
+                destination=Destination.fit_horizontal(pdf.pages[3], 700),
             ),
             OutlineItem(
                 "Proprietary tools (read/write support)",
-                destination=fit_hz(pdf.pages[3], 280),
+                destination=Destination.fit_horizontal(pdf.pages[3], 280),
             ),
-            OutlineItem("Licensing", destination=fit_hz(pdf.pages[4], 180)),
+            OutlineItem("Licensing", destination=Destination.fit_horizontal(pdf.pages[4], 180)),
         ]
     )
 
     metadata.children.extend(
         [
-            OutlineItem("History", destination=fit_hz(pdf.pages[5], 650)),
-            OutlineItem("See also", destination=fit_hz(pdf.pages[5], 320)),
-            OutlineItem("References", destination=fit_hz(pdf.pages[5], 200)),
-            OutlineItem("External links", destination=fit_hz(pdf.pages[6], 380)),
+            OutlineItem("History", destination=Destination.fit_horizontal(pdf.pages[5], 650)),
+            OutlineItem("See also", destination=Destination.fit_horizontal(pdf.pages[5], 320)),
+            OutlineItem("References", destination=Destination.fit_horizontal(pdf.pages[5], 200)),
+            OutlineItem(
+                "External links", destination=Destination.fit_horizontal(pdf.pages[6], 380)
+            ),
         ]
     )
 

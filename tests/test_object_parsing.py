@@ -16,6 +16,7 @@ from pdfnaut.cos.objects import (
     PdfReference,
 )
 from pdfnaut.cos.objects.base import PdfOperator
+from pdfnaut.cos.objects.trees import NameTree, NumberTree
 from pdfnaut.cos.tokenizer import ContentStreamTokenizer, PdfTokenizer
 from pdfnaut.exceptions import PdfParseError
 
@@ -192,3 +193,47 @@ EI              % End inline image object
         }
     )
     assert operator[0].args[0].raw == b"E,8rmAS?!uA7]d(AoD]4Bl.9kAH~>\n"
+
+
+def test_number_tree() -> None:
+    lexer = PdfTokenizer(
+        b"""
+        << /Kids [<< /Limits [1 3]
+                     /Nums [1 /Name 2 (String) 3 10] >>
+                  << /Limits [4 6]
+                     /Nums [4 (abc) 5 /Type 6 (def)] >>
+                 ]
+        >>
+        """
+    )
+
+    tree_map = cast(PdfDictionary, next(lexer))
+    tree = NumberTree(tree_map)
+
+    assert tree[3] == 10
+    assert tree[5] == PdfName(b"Type")
+
+    with pytest.raises(KeyError):
+        tree[7]
+
+
+def test_name_tree() -> None:
+    lexer = PdfTokenizer(
+        b"""
+        << /Kids [<< /Limits [(A) (C)]
+                     /Names [(A) /Name (B) (String) (C) 10] >>
+                  << /Limits [(D) (F)]
+                     /Names [(D) (abc) (E) /Type (F) (def)] >>
+                 ]
+        >>
+        """
+    )
+
+    tree_map = cast(PdfDictionary, next(lexer))
+    tree = NameTree(tree_map)
+
+    assert tree[b"C"] == 10
+    assert tree[b"F"] == b"def"
+
+    with pytest.raises(KeyError):
+        tree[b"X"]
