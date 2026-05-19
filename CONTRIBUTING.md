@@ -21,8 +21,6 @@ Contributions to pdfnaut are welcome. Before creating a pull request, you should
 
 Please make an issue before creating your PR if you want to make a change that may require additional discussion. You can skip making an issue if your change is a documentation change such as fixing a typo.
 
-Please see [Versioning](#versioning) and [Deprecation Policy](#deprecation-policy) if you are adding or removing features.
-
 ## Contributing to Source Code
 
 ### Style Guide
@@ -46,15 +44,6 @@ For example:
 - Upgrading from `1.0.0` to `2.0.0` is incompatible. So is downgrading from `2.0.0` to `1.0.0`.
 - Upgrading from `1.0.0` to `1.1.0` is compatible, but not downgrading from `1.1.0` to `1.0.0`.
 - Upgrading from `1.0.0` to `1.0.1` is compatible. So is downgrading from `1.0.1` to `1.0.0`.
-
-### Deprecation Policy
-
-Even though pdfnaut is still in initial development (0.x), the removal of a feature should still be done with caution to avoid unexpected changes to the API.
-
-If it has been decided to remove a feature, and assuming that the current version is `0.y.z`, the process should be done as follows:
-
-- Raise deprecation warnings for the feature in `0.(y+1).0` and `0.(y+2).0`. If the feature has a replacement, it should be mentioned.
-- Remove the feature in `0.(y+3).0`.
 
 ### Commit Messages
 
