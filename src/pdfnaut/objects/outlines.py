@@ -8,7 +8,7 @@ from typing import Any, cast, overload
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.common.utils import is_null
+from pdfnaut.cos.helpers import is_null_like
 from pdfnaut.cos.objects import PdfDictionary
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray
@@ -138,7 +138,7 @@ class OutlineItem(PdfDictionary):
     def first(self) -> OutlineItem | None:
         """The first child item of the outline if any."""
         first = self.get("First")
-        if is_null(first):
+        if is_null_like(first):
             return
 
         return OutlineItem.from_dict(first, pdf=self.pdf, indirect_ref=self.data["First"])
@@ -147,7 +147,7 @@ class OutlineItem(PdfDictionary):
     def last(self) -> OutlineItem | None:
         """The last child item of the outline if any."""
         last = self.get("Last")
-        if is_null(last):
+        if is_null_like(last):
             return
 
         return OutlineItem.from_dict(last, pdf=self.pdf, indirect_ref=self.data["Last"])
@@ -156,7 +156,7 @@ class OutlineItem(PdfDictionary):
     def previous(self) -> OutlineItem | None:
         """The previous item at the current outline level if any."""
         prev = self.get("Prev")
-        if is_null(prev):
+        if is_null_like(prev):
             return
 
         return OutlineItem.from_dict(prev, pdf=self.pdf, indirect_ref=self.data["Prev"])
@@ -165,7 +165,7 @@ class OutlineItem(PdfDictionary):
     def next(self) -> OutlineItem | None:
         """The next item at the current outline level if any."""
         next_item = self.get("Next")
-        if is_null(next_item):
+        if is_null_like(next_item):
             return
 
         return OutlineItem.from_dict(next_item, pdf=self.pdf, indirect_ref=self.data["Next"])
@@ -198,7 +198,7 @@ class OutlineItem(PdfDictionary):
         (a :class:`Destination` object)."""
 
         dest = self.get("Dest")
-        if is_null(dest):
+        if is_null_like(dest):
             return
 
         if isinstance(dest, PdfArray):
@@ -219,7 +219,7 @@ class OutlineItem(PdfDictionary):
     def action(self) -> Action | None:
         """The action that shall be triggered when the item is activated."""
         act = self.get("A")
-        if is_null(act):
+        if is_null_like(act):
             return
 
         act = cast(PdfDictionary, act)
@@ -288,7 +288,7 @@ class OutlineTree(PdfDictionary):
     def first(self) -> OutlineItem | None:
         """The first outline item in the tree."""
         first = self.get("First")
-        if is_null(first):
+        if is_null_like(first):
             return
 
         return OutlineItem.from_dict(first, pdf=self._pdf, indirect_ref=self.data["First"])
@@ -297,7 +297,7 @@ class OutlineTree(PdfDictionary):
     def last(self) -> OutlineItem | None:
         """The last outline item in the tree."""
         last = self.get("Last")
-        if is_null(last):
+        if is_null_like(last):
             return
 
         return OutlineItem.from_dict(last, pdf=self._pdf, indirect_ref=self.data["Last"])

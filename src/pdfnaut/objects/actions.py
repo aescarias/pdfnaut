@@ -5,11 +5,10 @@ from typing import Annotated, Literal, cast
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.common.utils import is_null
+from pdfnaut.cos.helpers import is_null_like
 from pdfnaut.cos.objects.base import PdfName
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
-
-from .destinations import Destination, DestType, NamedDestination
+from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
 
 ActionKind = Literal[
     "GoTo",
@@ -83,7 +82,7 @@ class Action(PdfDictionary):
     def next_action(self) -> list[Action] | Action | None:
         """The next action or sequence of actions that shall be performed after this action."""
         next_seq = self.get("Next")
-        if is_null(next_seq):
+        if is_null_like(next_seq):
             return
 
         if isinstance(next_seq, PdfArray):

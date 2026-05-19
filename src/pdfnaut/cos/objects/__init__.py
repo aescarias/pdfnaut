@@ -11,6 +11,7 @@ from .base import (
 )
 from .containers import PdfArray, PdfDictionary
 from .stream import PdfStream
+from .trees import NameTree, NumberTree
 from .xref import (
     CompressedXRefEntry,
     FreeXRefEntry,
@@ -39,4 +40,6 @@ __all__ = (
     "InUseXRefEntry",
     "CompressedXRefEntry",
     "PdfStream",
+    "NameTree",
+    "NumberTree",
 )

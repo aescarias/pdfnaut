@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from collections import UserDict
+from datetime import time
 from enum import IntEnum
 from functools import partial
 from io import BufferedIOBase, BytesIO
 from pathlib import Path
-from typing import IO, Any, BinaryIO, TypeVar, cast, overload
+from typing import IO, BinaryIO, TypeVar, cast
 
 from typing_extensions import TypeAlias
 
-from ..common.utils import generate_file_id, get_closest
+from ..common._utils import get_closest
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
@@ -31,6 +33,23 @@ from .tokenizer import PdfTokenizer
 LOGGER = logging.getLogger(__name__)
 
 
+def generate_file_id(filename: str, content_size: int) -> PdfHexString:
+    """Generates a file identifier using ``filename`` and ``content_size`` as
+    described in ISO 32000-2:2020 § 14.4 "File identifiers".
+
+    File identifiers are values that uniquely separate a revision of a document
+    from another. The file identifier is generated using the same information
+    specified in the standard, that is, the current time, the file path and
+    the file size in bytes.
+    """
+
+    id_digest = hashlib.md5(time().isoformat("auto").encode())
+    id_digest.update(filename.encode())
+    id_digest.update(str(content_size).encode())
+
+    return PdfHexString(id_digest.hexdigest().encode())
+
+
 class PermsAcquired(IntEnum):
     """Permissions acquired after opening or decrypting a document."""
 
@@ -47,7 +66,7 @@ class FreeObject:
         return "free"
 
 
-MapObject: TypeAlias = "PdfObject | PdfStream | FreeObject"
+MapObject: TypeAlias = "PdfObject | FreeObject"
 
 
 class ObjectStream:
@@ -218,7 +237,7 @@ class ObjectMap(UserDict[int, MapObject]):
         highest_objnum = max(self.keys())
         return PdfReference(highest_objnum + 1, 0)
 
-    def add(self, pdf_object: PdfObject | PdfStream) -> PdfReference[PdfObject | PdfStream]:
+    def add(self, pdf_object: PdfObject) -> PdfReference[PdfObject]:
         """Adds a new ``pdf_object`` to the map. Returns its reference."""
         reference = self.get_next_ref()
         self[reference.object_number] = pdf_object
@@ -646,7 +665,7 @@ class PdfParser:
 
     def parse_indirect_object(
         self, xref_entry: InUseXRefEntry, reference: PdfReference | None
-    ) -> PdfObject | PdfStream:
+    ) -> PdfObject:
         """Parses an indirect object not within an object stream, or basically, an object
         that is directly referred to by an ``xref_entry`` and a ``reference``."""
         self._tokenizer.position = xref_entry.offset
@@ -680,19 +699,7 @@ class PdfParser:
 
         return self._get_decrypted(item, reference)
 
-    @overload
-    def _get_decrypted(
-        self, pdf_object: PdfObject, reference: PdfReference | None
-    ) -> PdfObject: ...
-
-    @overload
-    def _get_decrypted(
-        self, pdf_object: PdfStream, reference: PdfReference | None
-    ) -> PdfStream: ...
-
-    def _get_decrypted(
-        self, pdf_object: PdfObject | PdfStream, reference: PdfReference | None
-    ) -> PdfObject | PdfStream:
+    def _get_decrypted(self, pdf_object: PdfObject, reference: PdfReference | None) -> PdfObject:
         if self.security_handler is None or not self._encryption_key or reference is None:
             return pdf_object
 
@@ -784,19 +791,9 @@ class PdfParser:
 
         return contents
 
-    T = TypeVar("T")
-
-    @overload
-    def get_object(self, reference: PdfReference[T], cache: bool = True) -> T: ...
-
-    @overload
-    def get_object(
-        self, reference: tuple[int, int], cache: bool = True
-    ) -> PdfObject | PdfStream | PdfNull | FreeObject: ...
-
     def get_object(
         self, reference: PdfReference | tuple[int, int], cache: bool = True
-    ) -> PdfObject | PdfStream | PdfNull | FreeObject | Any:
+    ) -> MapObject:
         """Resolves a reference into the indirect object it points to.
 
         Arguments:
@@ -836,7 +833,7 @@ class PdfParser:
         # If cache requested and the object is cached.
         if cache and reference.object_number not in self.objects.unresolved:
             self._hot_references.remove(reference)
-            return self.objects.get(reference.object_number)
+            return self.objects[reference.object_number]
 
         root_entry = self.xref.get((reference.object_number, reference.generation))
 

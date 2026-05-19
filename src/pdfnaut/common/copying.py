@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import logging
-from collections.abc import Iterable
-from datetime import time
-from typing import TYPE_CHECKING, TypeGuard, TypeVar
+from typing import TYPE_CHECKING
+
+from pdfnaut.cos.helpers import ensure
+from pdfnaut.cos.parser import FreeObject
 
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
@@ -14,55 +14,16 @@ if TYPE_CHECKING:
     from pdfnaut.cos.parser import PdfParser
 
 
+class _PlaceholderType:
+    def __repr__(self) -> str:
+        return "PLACEHOLDER"
+
+
 LOGGER = logging.getLogger(__name__)
-Placeholder = type("Placeholder", (), {})
+PLACEHOLDER = _PlaceholderType()
 
 
-def is_null(obj: PdfObject | None) -> TypeGuard[PdfNull | None]:
-    return isinstance(obj, PdfNull) or obj is None
-
-
-def ensure_bytes(contents: PdfHexString | bytes) -> bytes:
-    """Returns the decoded value of ``contents`` if it is an instance of
-    :class:`.PdfHexString`, otherwise returns ``contents`` as is."""
-    return contents.value if isinstance(contents, PdfHexString) else contents
-
-
-R = TypeVar("R")
-
-
-def ensure_object(obj: PdfReference[R] | R) -> R:
-    """Resolves ``obj`` to a direct object if ``obj`` is an instance of
-    :class:`.PdfReference`. Otherwise, returns ``obj`` as is."""
-    if isinstance(obj, PdfReference):
-        return obj.get()
-
-    return obj
-
-
-def get_closest(values: Iterable[int], target: int) -> int:
-    """Returns the integer in ``values`` closest to ``target``."""
-    return min(values, key=lambda offset: abs(offset - target))
-
-
-def generate_file_id(filename: str, content_size: int) -> PdfHexString:
-    """Generates a file identifier using ``filename`` and ``content_size`` as
-    described in ISO 32000-2:2020 § 14.4 "File identifiers".
-
-    File identifiers are values that uniquely separate a revision of a document
-    from another. The file identifier is generated using the same information
-    specified in the standard, that is, the current time, the file path and
-    the file size in bytes.
-    """
-
-    id_digest = hashlib.md5(time().isoformat("auto").encode())
-    id_digest.update(filename.encode())
-    id_digest.update(str(content_size).encode())
-
-    return PdfHexString(id_digest.hexdigest().encode())
-
-
-def is_page_or_page_tree(obj: PdfObject | PdfStream) -> bool:
+def _is_page_or_page_tree(obj: PdfObject) -> bool:
     """Reports whether an object ``obj`` is a page object or a page tree node."""
 
     if not isinstance(obj, PdfDictionary) or "Type" not in obj:
@@ -74,7 +35,7 @@ def is_page_or_page_tree(obj: PdfObject | PdfStream) -> bool:
     return True
 
 
-def copy_object(obj: PdfObject | PdfStream) -> PdfObject | PdfStream:
+def copy_object(obj: PdfObject) -> PdfObject:
     """Performs a deep copy of a PDF object ``obj``. Returns the copied object.
 
     Deep copying works by creating a new object for the container then adding a copy
@@ -83,6 +44,7 @@ def copy_object(obj: PdfObject | PdfStream) -> PdfObject | PdfStream:
     Numbers, literal strings, booleans, and the null object are not copied and are
     returned as is. Unlike :meth:`.clone_in_document`, when a reference is found,
     it is simply copied into the object without modifying the referred object.
+
     """
 
     if isinstance(obj, PdfDictionary):
@@ -91,7 +53,11 @@ def copy_object(obj: PdfObject | PdfStream) -> PdfObject | PdfStream:
             kv.data[key] = copy_object(value)
         return kv
     elif isinstance(obj, PdfStream):
-        return PdfStream(copy_object(obj.details), obj.raw, copy_object(obj._crypt_params))
+        return PdfStream(
+            ensure(copy_object(obj.details), PdfDictionary),
+            obj.raw,
+            ensure(copy_object(obj._crypt_params), PdfDictionary),
+        )
     elif isinstance(obj, PdfArray):
         arr = PdfArray()
         for value in obj.data:
@@ -108,8 +74,8 @@ def copy_object(obj: PdfObject | PdfStream) -> PdfObject | PdfStream:
 
 
 def clone_into_document(
-    dest: PdfParser, root: PdfObject | PdfStream, *, ignore_keys: list[str] | None = None
-) -> PdfObject | PdfStream:
+    dest: PdfParser, root: PdfObject, *, ignore_keys: list[str] | None = None
+) -> PdfObject:
     """Clones an object ``root`` and its contents into document ``dest``. Returns
     the cloned object.
 
@@ -135,7 +101,7 @@ def clone_into_document(
     cloned_map = {}
     references = set()
 
-    def inner(obj: PdfObject | PdfStream) -> type[Placeholder] | PdfObject | PdfStream:
+    def inner(obj: PdfObject) -> PdfObject | _PlaceholderType:
         if obj in cloned_map:
             # object is already cloned
             return cloned_map[obj]
@@ -146,14 +112,16 @@ def clone_into_document(
             if referred is root:
                 # object refers to our origin object. in which case, simply set
                 # a placeholder for later processing
-                return Placeholder
+                return PLACEHOLDER
 
-            if is_page_or_page_tree(referred):
-                # avoid going to pages or anything that might lead us to the page tree
+            if _is_page_or_page_tree(referred):
+                # avoid going to pages or anything that might lead us back to the page tree
                 LOGGER.warning("object %s cannot be reliably copied and has been set to null.", obj)
                 return PdfNull()
 
             cloned_direct = inner(referred)
+            assert not isinstance(cloned_direct, _PlaceholderType)
+
             cloned_map[obj] = dest.objects.add(cloned_direct)
             references.add(cloned_map[obj])
             return cloned_map[obj]
@@ -164,17 +132,30 @@ def clone_into_document(
                 if obj is root and key in ignore_keys:
                     continue
 
-                kv.data[key] = inner(value)
+                cloned_direct = inner(value)
+                assert not isinstance(cloned_direct, _PlaceholderType)
+
+                kv.data[key] = cloned_direct
+
             return kv
         elif isinstance(obj, PdfStream):
-            stm = PdfStream(inner(obj.details), obj.raw, inner(obj._crypt_params))
+            stm = PdfStream(
+                ensure(inner(obj.details), PdfDictionary),
+                obj.raw,
+                ensure(inner(obj._crypt_params), PdfDictionary),
+            )
             cloned_map[obj] = stm
             return stm
         elif isinstance(obj, PdfArray):
             arr = PdfArray()
             cloned_map[obj] = arr
+
             for value in obj.data:
-                arr.data.append(inner(value))
+                cloned_direct = inner(value)
+                assert not isinstance(cloned_direct, _PlaceholderType)
+
+                arr.data.append(cloned_direct)
+
             return arr
         elif isinstance(obj, PdfName):
             return PdfName(obj.value)
@@ -184,17 +165,18 @@ def clone_into_document(
         return obj
 
     cloned = inner(root)
+    assert not isinstance(cloned, _PlaceholderType)
 
-    def replace_placeholders(obj: PdfObject | type[Placeholder]) -> PdfObject:
-        if obj is Placeholder:
+    def replace_placeholders(obj: PdfObject | _PlaceholderType) -> PdfObject:
+        if isinstance(obj, _PlaceholderType):
             return dest.objects.add(cloned)
         elif isinstance(obj, PdfArray):
             return PdfArray(replace_placeholders(it) for it in obj.data)
         elif isinstance(obj, PdfDictionary):
             return PdfDictionary({key: replace_placeholders(val) for key, val in obj.data.items()})
         elif isinstance(obj, PdfStream):
-            obj.details = replace_placeholders(obj.details)
-            obj._crypt_params = replace_placeholders(obj._crypt_params)
+            obj.details = ensure(replace_placeholders(obj.details), PdfDictionary)
+            obj._crypt_params = ensure(replace_placeholders(obj._crypt_params), PdfDictionary)
             return obj
 
         return obj
@@ -202,6 +184,7 @@ def clone_into_document(
     final = replace_placeholders(cloned)
     for ref in references:
         direct = dest.objects[ref.object_number]
+        assert not isinstance(direct, FreeObject)
         dest.objects[ref.object_number] = replace_placeholders(direct)
 
     return final

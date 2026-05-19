@@ -98,9 +98,7 @@ def serialize_stream(stream: PdfStream, *, eol: bytes) -> bytes:
     )
 
 
-def serialize(
-    object_: PdfObject | PdfStream | PdfComment, *, params: dict[str, Any] | None = None
-) -> bytes:
+def serialize(object_: PdfObject | PdfComment, *, params: dict[str, Any] | None = None) -> bytes:
     if params is None:
         params = {}
 
@@ -163,16 +161,14 @@ class PdfSerializer:
             marker = PdfComment(b"\xee\xe1\xf5\xf4")
             self.content.write(serialize_comment(marker) + self.eol)
 
-    def write_object(
-        self, reference: PdfReference | tuple[int, int], contents: PdfObject | PdfStream
-    ) -> int:
+    def write_object(self, reference: PdfReference | tuple[int, int], contents: PdfObject) -> int:
         """Appends an indirect object to the document.
 
         Arguments:
             reference (PdfReference | tuple[int, int]):
                 The object number and generation to which the object should be assigned.
 
-            contents (PdfObject | PdfStream):
+            contents (PdfObject):
                 The contents to associate with the reference.
 
         Returns:

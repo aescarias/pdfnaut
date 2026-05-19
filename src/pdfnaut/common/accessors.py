@@ -15,9 +15,8 @@ from typing import (
     get_origin,
 )
 
-from pdfnaut.common.utils import is_null
-
 from ..common.dates import encode_iso8824, parse_iso8824
+from ..cos.helpers import is_null_like
 from ..cos.objects.base import (
     PdfHexString,
     PdfName,
@@ -126,7 +125,7 @@ class TextStringAccessor:
 
     def __get__(self, obj: PdfDictionary, objtype: Any | None = None) -> str | None:
         value = obj.get(self.field.key)
-        if not is_null(value):
+        if not is_null_like(value):
             value = cast("PdfHexString | bytes", value)
             return parse_text_string(value)
 
@@ -208,7 +207,7 @@ class TransformAccessor:
             return self.field.decoder(obj[self.field.key])
 
         value = obj.get(self.field.key)
-        if is_null(value):
+        if is_null_like(value):
             return self.field.default
 
         return self.field.decoder(value)

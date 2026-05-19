@@ -5,7 +5,7 @@ from typing import cast
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.common.utils import is_null
+from pdfnaut.cos.helpers import is_null_like
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 from pdfnaut.objects.actions import Action, action_into
@@ -64,7 +64,7 @@ class LinkAnnotation(Annotation):
     quad_points: list[float] | None = field(
         default=None,
         encoder=lambda lst: PdfArray(lst) if lst is not None else None,
-        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+        decoder=lambda arr: list(arr) if not is_null_like(arr) else None,
     )
     """A sequence of n quadrilaterals, comprised of 8 numbers representing the coordinates
     in default user space that comprise the region in which the link should be activated.
@@ -103,7 +103,7 @@ class LinkAnnotation(Annotation):
     def action(self) -> Action | None:
         """The action that shall be performed when the link annotation is triggered."""
         act = self.get("A")
-        if is_null(act):
+        if is_null_like(act):
             return
 
         act = cast(PdfDictionary, act)
@@ -120,7 +120,7 @@ class LinkAnnotation(Annotation):
     def destination(self) -> DestType | None:
         """The destination that shall be displayed when the link annotation is triggered."""
         dest = self.get("Dest")
-        if is_null(dest):
+        if is_null_like(dest):
             return
 
         if isinstance(dest, PdfArray):
@@ -140,7 +140,7 @@ class LinkAnnotation(Annotation):
         """The border style specifying the line width and dash pattern
         that shall be used when drawing the annotation outline."""
         border_style = self.get("BS")
-        if is_null(border_style):
+        if is_null_like(border_style):
             return
 
         border_style = cast(PdfDictionary, border_style)

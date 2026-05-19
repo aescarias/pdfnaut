@@ -12,6 +12,7 @@ from ...exceptions import PdfResolutionError
 
 if TYPE_CHECKING:
     from .containers import PdfArray, PdfDictionary
+    from .stream import PdfStream
 
 T = TypeVar("T", default=bytes)
 
@@ -21,9 +22,6 @@ class PdfNull:
     § 7.3.9 "Null Object")."""
 
     def __repr__(self) -> str:
-        return "PdfNull()"
-
-    def __str__(self) -> str:
         return "null"
 
     def __bool__(self) -> bool:
@@ -174,6 +172,7 @@ PdfObject = Union[
     bytes,
     "PdfArray",
     "PdfDictionary",
+    "PdfStream",
     PdfHexString,
     PdfName,
     PdfReference,

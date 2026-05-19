@@ -1,10 +1,9 @@
 from hashlib import md5
 from typing import Literal
 
-from pdfnaut.exceptions import MissingCryptProviderError
-
-from ..common.utils import ensure_bytes, is_null
+from ..cos.helpers import into_bytes, is_null_like
 from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
+from ..exceptions import MissingCryptProviderError
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
 CryptMethod = Literal["Identity", "ARC4", "AESV2"]
@@ -48,7 +47,7 @@ class StandardSecurityHandler:
     def key_length(self) -> int:
         """The length of the encryption key in bytes."""
         length = self.encryption.get("Length")
-        if is_null(length):
+        if is_null_like(length):
             length = 40
 
         return length // 8
@@ -65,7 +64,7 @@ class StandardSecurityHandler:
         psw_hash = md5(padded_password)
 
         # c) Pass the value of the O entry in the Encrypt dictionary.
-        psw_hash.update(ensure_bytes(self.encryption["O"]))
+        psw_hash.update(into_bytes(self.encryption["O"]))
 
         # d) Pass the value of the P entry as a 32-bit unsigned integer.
         #    P may be negative, so it's wrapped into unsigned beforehand.
@@ -73,12 +72,12 @@ class StandardSecurityHandler:
         psw_hash.update(perms.to_bytes(4, "little"))
 
         # e) Pass the first element of the file identifier array.
-        psw_hash.update(ensure_bytes(self.ids[0]))
+        psw_hash.update(into_bytes(self.ids[0]))
 
         # f) If the handler is revision 4 or greater, and the metadata is not being
         #    encrypted, pass 4 bytes to the hash function.
         encrypt_metadata = self.encryption.get("EncryptMetadata")
-        if is_null(encrypt_metadata):
+        if is_null_like(encrypt_metadata):
             encrypt_metadata = True
 
         if self.encryption["R"] >= 4 and not encrypt_metadata:
@@ -160,7 +159,7 @@ class StandardSecurityHandler:
         else:
             # b) Initialize the MD5 hash function with the 32-byte padding string.
             # c) Pass the first element of the file identifier array and finish.
-            padded_id_hash = md5(PASSWORD_PADDING + ensure_bytes(self.ids[0]))
+            padded_id_hash = md5(PASSWORD_PADDING + into_bytes(self.ids[0]))
 
             # d) Encrypt the digest from (c) using ARC4 with the key from (a)
             user_cipher = arc4(encr_key).encrypt(padded_id_hash.digest())
@@ -186,7 +185,7 @@ class StandardSecurityHandler:
         # a) Perform everything but the last step from Algorithms 4 and 5.
         # Algorithms 4 and 5, step (a)
         encryption_key = self.compute_encryption_key(password)
-        stored_password = ensure_bytes(self.encryption["U"])
+        stored_password = into_bytes(self.encryption["U"])
 
         if self.encryption["R"] == 2:
             # Algorithm 4, step (b)
@@ -200,7 +199,7 @@ class StandardSecurityHandler:
             return (encryption_key, True) if stored_password == user_cipher else (b"", False)
         else:
             # Algorithm 5, steps (b) and (c)
-            padded_id_hash = md5(PASSWORD_PADDING + ensure_bytes(self.ids[0]))
+            padded_id_hash = md5(PASSWORD_PADDING + into_bytes(self.ids[0]))
             # Algorithm 5, step (d)
             user_cipher = arc4(encryption_key).encrypt(padded_id_hash.digest())
 
@@ -232,7 +231,7 @@ class StandardSecurityHandler:
 
         cipher_key = digest[: self.key_length]
 
-        user_cipher = ensure_bytes(self.encryption["O"])
+        user_cipher = into_bytes(self.encryption["O"])
         arc4 = self._get_provider("ARC4")
 
         if self.encryption["R"] == 2:
@@ -373,7 +372,7 @@ class StandardSecurityHandler:
 
     def _get_crypt_method(self, contents: Encryptable) -> CryptMethod:
         version = self.encryption.get("V")
-        if is_null(version):
+        if is_null_like(version):
             version = 0
 
         if version != 4:

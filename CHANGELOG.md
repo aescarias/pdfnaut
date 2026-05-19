@@ -27,6 +27,14 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
   - `Page.mediabox`, `Page.cropbox`, `Page.bleedbox`, `Page.trimbox`, and `Page.artbox`
 - Account for `default` and `default_factory` in accessors by converting `Field.default` into a property. `default_value` is the name of the new parameter for specifying immutable defaults.
 - Use mapping for default values in dictmodel init instead of relying on `repr()`.
+- Rename and/or move `utils` functions:
+  - `is_null()` is now `cos.helpers.is_null_like()`.
+  - `ensure_object()` is now `cos.helpers.deref()`.
+  - `ensure_bytes()` is now `cos.helpers.into_bytes()`.
+  - `clone_into_document` and `copy_object` now part of `common.copying`; `is_page_or_page_tree` now private.
+  - `generate_file_id()` now part of `cos.parser`.
+  - `get_closest` and `batched` moved into private `_utils` module.
+- Include `PdfStream` in `PdfObject` union type.
 
 ### Fixes
 

@@ -1,7 +1,7 @@
 from collections.abc import Generator, Iterator, Mapping
 from typing import cast
 
-from ...common.utils import ensure_bytes, is_null
+from ..helpers import into_bytes, is_null_like
 from .base import PdfHexString, PdfObject
 from .containers import PdfArray, PdfDictionary
 
@@ -16,7 +16,7 @@ class NameTree(Mapping[bytes, PdfObject]):
     @property
     def kids(self) -> list[PdfObject] | None:
         kids = self._data.get("Kids")
-        if is_null(kids):
+        if is_null_like(kids):
             return
 
         return list(cast(PdfArray, kids))
@@ -24,7 +24,7 @@ class NameTree(Mapping[bytes, PdfObject]):
     @property
     def names(self) -> list[PdfObject] | None:
         names = self._data.get("Names")
-        if is_null(names):
+        if is_null_like(names):
             return
 
         return list(cast(PdfArray, names))
@@ -32,25 +32,25 @@ class NameTree(Mapping[bytes, PdfObject]):
     @property
     def limits(self) -> tuple[bytes, bytes] | None:
         limits = self._data.get("Limits")
-        if is_null(limits):
+        if is_null_like(limits):
             return
 
         limits = cast(PdfArray[PdfHexString | bytes], limits)
-        return ensure_bytes(limits[0]), ensure_bytes(limits[1])
+        return into_bytes(limits[0]), into_bytes(limits[1])
 
     def walk(self, compare_key: bytes | None = None) -> Generator[tuple[bytes, PdfObject]]:
         if self.kids is not None and self.names is not None:
             raise ValueError("kids and names in name tree are mutually exclusive")
 
         names = iter(self.names or [])
-        while not is_null(key := next(names, None)):
+        while not is_null_like(key := next(names, None)):
             assert key is not None
 
             value = next(names, None)
             if value is None:
                 break
 
-            key = ensure_bytes(cast(PdfHexString | bytes, key))
+            key = into_bytes(cast(PdfHexString | bytes, key))
             yield (key, value)
 
         for kid in self.kids or []:
@@ -81,7 +81,7 @@ class NameTree(Mapping[bytes, PdfObject]):
         if not isinstance(key, (PdfHexString, bytes)):
             return False
 
-        key = ensure_bytes(key)
+        key = into_bytes(key)
         for ret_key, _ in self.walk(key):
             if ret_key == key:
                 return True
@@ -99,7 +99,7 @@ class NumberTree(Mapping[int, PdfObject]):
     @property
     def kids(self) -> list[PdfObject] | None:
         kids = self._data.get("Kids")
-        if is_null(kids):
+        if is_null_like(kids):
             return
 
         return list(cast(PdfArray, kids))
@@ -107,7 +107,7 @@ class NumberTree(Mapping[int, PdfObject]):
     @property
     def nums(self) -> list[PdfObject] | None:
         nums = self._data.get("Nums")
-        if is_null(nums):
+        if is_null_like(nums):
             return
 
         return list(cast(PdfArray, nums))
@@ -115,7 +115,7 @@ class NumberTree(Mapping[int, PdfObject]):
     @property
     def limits(self) -> tuple[int, int] | None:
         limits = self._data.get("Limits")
-        if is_null(limits):
+        if is_null_like(limits):
             return
 
         limits = cast(PdfArray[int], limits)
@@ -126,7 +126,7 @@ class NumberTree(Mapping[int, PdfObject]):
             raise ValueError("kids and nums in number tree are mutually exclusive")
 
         nums = iter(self.nums or [])
-        while not is_null(key := next(nums, None)):
+        while not is_null_like(key := next(nums, None)):
             assert key is not None
 
             value = next(nums, None)

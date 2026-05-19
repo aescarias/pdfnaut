@@ -2,15 +2,14 @@ from typing import Literal, cast
 
 from typing_extensions import Self
 
-from pdfnaut.common.utils import is_null
-from pdfnaut.cos.parser import PdfParser
-from pdfnaut.objects.annotations import AnnotationList
-
 from ..common.dictmodels import dictmodel, field
+from ..cos.helpers import is_null_like
 from ..cos.objects.base import PdfName, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
+from ..cos.parser import PdfParser
 from ..cos.tokenizer import ContentStreamTokenizer
+from .annotations import AnnotationList
 
 TabOrder = Literal["R", "C", "S", "A", "W"]
 
@@ -130,7 +129,7 @@ class Page(PdfDictionary):
     def content_stream(self) -> ContentStreamTokenizer | None:
         """An iterator over the instructions producing the contents of this page."""
         contents = self.get("Contents")
-        if is_null(contents):
+        if is_null_like(contents):
             return
 
         contents = cast("PdfStream | PdfArray[PdfStream]", contents)
@@ -147,7 +146,7 @@ class Page(PdfDictionary):
         """All annotations associated with this page. If a page does not specify
         a list of annotations, this field is none."""
         annots = self.get("Annots")
-        if is_null(annots):
+        if is_null_like(annots):
             return
 
         annots = cast(PdfArray, annots)

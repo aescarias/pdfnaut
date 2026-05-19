@@ -1,43 +1,16 @@
 import zlib
 from base64 import a85decode, a85encode, b16decode, b16encode
-from collections.abc import Generator, Iterable
-from itertools import groupby, islice
+from itertools import groupby
 from math import ceil, floor
-from typing import TYPE_CHECKING, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
+from .common._utils import batched
 from .cos.objects import PdfDictionary, PdfName, PdfReference
 from .cos.tokenizer import WHITESPACE
 from .exceptions import PdfFilterError
 
 if TYPE_CHECKING:
     from .security.standard_handler import StandardSecurityHandler
-
-
-T = TypeVar("T")
-
-
-# itertools recipe
-def batched(iterable: Iterable[T], n: int, *, strict=False) -> Generator[tuple[T, ...], None, None]:
-    """Consumes ``iterable`` and yields batches of `n` elements (where `n` is an
-    integer greater than 1) until the iterator is fully consumed.
-
-    If ``strict`` is True, each batch must include exactly `n` elements, raising a
-    :class:`ValueError` otherwise.
-
-    This function is practically equivalent to :meth:`itertools.batched`.
-
-    Example:
-        batched('ABCDEFG', 3) -> ABC DEF G
-    """
-    if n < 1:
-        raise ValueError("n must be at least one.")
-
-    iterator = iter(iterable)
-    while batch := tuple(islice(iterator, n)):
-        if strict and len(batch) != n:
-            raise ValueError("batched(): incomplete batch.")
-
-        yield batch
 
 
 class PdfFilter(Protocol):

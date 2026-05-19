@@ -6,7 +6,7 @@ from typing import Annotated, cast
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.common.utils import is_null
+from pdfnaut.cos.helpers import is_null_like
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 
@@ -83,7 +83,7 @@ class MarkupAnnotation(Annotation):
         """The annotation that this annotation is in reply to."""
         irt = self.get("IRT")
 
-        if not is_null(irt):
+        if not is_null_like(irt):
             irt = cast(PdfReference, self.data["IRT"])
             return annotation_into(irt.get(), indirect_ref=irt)
 
@@ -93,7 +93,7 @@ class MarkupAnnotation(Annotation):
         in :attr:`.in_reply_to`."""
 
         rt_name = self.get("RT")
-        if is_null(rt_name):
+        if is_null_like(rt_name):
             return
 
         reply_type = cast(PdfName, rt_name).value.decode()
@@ -185,7 +185,7 @@ class LineAnnotation(MarkupAnnotation):
         of coordinates, respectively.
         """
         line_ends = self.get("LE")
-        if is_null(line_ends):
+        if is_null_like(line_ends):
             return (LineEndingStyle.NONE, LineEndingStyle.NONE)
 
         line_ends = cast(PdfArray[PdfName], line_ends)

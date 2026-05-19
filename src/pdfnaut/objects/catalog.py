@@ -3,9 +3,8 @@ from typing import Annotated, Literal, cast
 
 from typing_extensions import Self
 
-from pdfnaut.common.utils import is_null
-
 from ..common.dictmodels import defaultize, dictmodel, field
+from ..cos.helpers import is_null_like
 from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
 
@@ -166,7 +165,7 @@ class ViewerPreferences(PdfDictionary):
     print_page_range: list[int] | None = field(
         default=None,
         encoder=lambda lst: PdfArray(lst) if lst is not None else None,
-        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+        decoder=lambda arr: list(arr) if not is_null_like(arr) else None,
     )
     """The page numbers used to initialize the print dialog box. The array should
     contain an even number of values interpreted as pairs, with each pair specifying
@@ -196,7 +195,7 @@ class ViewerPreferences(PdfDictionary):
         PDF processors and that shall not be overridden by subsequent selections in
         the application user interface."""
         enforced = self.get("Enforce")
-        if is_null(enforced):
+        if is_null_like(enforced):
             return
 
         enforced = cast(PdfArray[PdfName], enforced)

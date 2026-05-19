@@ -5,7 +5,7 @@ from typing import Literal, cast, get_args, overload
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.common.utils import is_null
+from pdfnaut.cos.helpers import is_null_like
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 from pdfnaut.cos.parser import PdfParser
@@ -139,7 +139,7 @@ class Annotation(PdfDictionary):
         "C",
         default=None,
         encoder=lambda lst: PdfArray(lst) if lst is not None else None,
-        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+        decoder=lambda arr: list(arr) if not is_null_like(arr) else None,
     )
     """An array of 0 to 4 numbers in the range 0.0 to 1.0, representing a color used
     for the following purposes:
@@ -261,7 +261,7 @@ class AnnotationBorderStyle(PdfDictionary):
         "D",
         default=None,
         encoder=lambda lst: PdfArray(lst) if lst is not None else None,
-        decoder=lambda arr: list(arr) if not is_null(arr) else None,
+        decoder=lambda arr: list(arr) if not is_null_like(arr) else None,
     )
     """The dash pattern that will be used for the border if the style specified
     is dashed. The array consists of alternating dashes and gaps. The dash phase

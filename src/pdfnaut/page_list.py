@@ -6,7 +6,7 @@ from typing import Any, Iterator, cast, overload
 
 from typing_extensions import Self
 
-from .common.utils import clone_into_document, copy_object
+from .common.copying import clone_into_document, copy_object
 from .cos.objects import PdfArray, PdfDictionary, PdfName, PdfReference
 from .cos.parser import PdfParser
 from .objects.page import Page
