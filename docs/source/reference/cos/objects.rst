@@ -24,16 +24,15 @@ The spec also defines general-purpose data structures built from the basic objec
 
   * ASCII strings.
   * Byte strings: hex strings or literal strings containing binary data.
-  * PDFDocEncoded strings
-  * Text strings: encoded in either PDFDocEncoding, UTF-16BE or UTF-8. The latter was introduced in PDF 2.0
+  * PDFDocEncoded strings.
+  * Text strings: encoded in either PDFDocEncoding, UTF-16BE or UTF-8; the latter of which was introduced in PDF 2.0.
 
 * Dates: implemented via :func:`~pdfnaut.common.dates.encode_iso8824` and :func:`~pdfnaut.common.dates.parse_iso8824`.
+* Name trees and number trees: see :class:`~pdfnaut.cos.objects.trees.NameTree` and :class:`~pdfnaut.cos.objects.trees.NumberTree`.
 * The following data structures do not currently have a dedicated type:
 
   * File specifications
   * Functions
-  * Name trees
-  * Number trees
   * Rectangles
   * Text streams
 
@@ -46,17 +45,28 @@ Base Objects
 .. automodule:: pdfnaut.cos.objects.base
     :members:
 
+Container Objects
+-----------------
+
+.. automodule:: pdfnaut.cos.objects.containers
+    :members:
+
+
 Stream Objects
 --------------
 
 .. automodule:: pdfnaut.cos.objects.stream
     :members:
 
-Container Objects
------------------
 
-.. automodule:: pdfnaut.cos.objects.containers
+Tree Objects
+------------
+
+.. automodule:: pdfnaut.cos.objects.trees
     :members:
+    :undoc-members:
+    :inherited-members:
+    
 
 XRef Objects
 ------------
@@ -65,3 +75,4 @@ XRef Objects
 
 .. automodule:: pdfnaut.cos.objects.xref
     :members:
+    
