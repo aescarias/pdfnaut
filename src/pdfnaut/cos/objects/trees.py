@@ -17,19 +17,13 @@ class _FlatMapping(Generic[_K, _V], MutableMapping[_K, _V]):
     def __init__(self, tree: "_NNTree[_K, _V]") -> None:
         self._tree = tree
 
-    def _items(self) -> PdfArray[PdfObject]:
-        items = self._tree._get_items()
-        if items is None:
-            raise ValueError("tree does not contain item pairs")
-
-        return items
-
     def __getitem__(self, key: _K) -> _V:
         source = self._tree._get_source_items()
         if source is not None:
             return self._tree._into_output_value(source[key])
 
-        for current_key, value in batched(self._items(), 2, strict=True):
+        items = self._tree._get_items() or PdfArray()
+        for current_key, value in batched(items, 2, strict=True):
             if self._tree._into_output_key(current_key) == key:
                 return self._tree._into_output_value(value)
 
@@ -42,12 +36,17 @@ class _FlatMapping(Generic[_K, _V], MutableMapping[_K, _V]):
             self._tree._sync_items_from_source()
             return
 
-        items = self._items()
+        items = self._tree._get_items()
+        if items is None:
+            self._tree._set_items(items := PdfArray())
+
+        # set key if present
         for index, current_key in enumerate(items[::2]):
             if self._tree._into_output_key(current_key) == key:
                 items[2 * index + 1] = self._tree._into_input_value(value)
                 return
 
+        # add key otherwise
         for index in range(0, len(items), 2):
             current_key = items[index]
             if self._tree._into_output_key(current_key) > key:
@@ -68,7 +67,7 @@ class _FlatMapping(Generic[_K, _V], MutableMapping[_K, _V]):
             self._tree._sync_items_from_source()
             return
 
-        items = self._items()
+        items = self._tree._get_items() or PdfArray()
         for index, current_key in enumerate(items[::2]):
             if self._tree._into_output_key(current_key) == key:
                 del items[2 * index : 2 * index + 2]
@@ -82,7 +81,8 @@ class _FlatMapping(Generic[_K, _V], MutableMapping[_K, _V]):
             yield from source
             return
 
-        for key, _ in batched(self._items(), 2, strict=True):
+        items = self._tree._get_items() or PdfArray()
+        for key, _ in batched(items, 2, strict=True):
             yield self._tree._into_output_key(key)
 
     def __len__(self) -> int:
@@ -90,7 +90,8 @@ class _FlatMapping(Generic[_K, _V], MutableMapping[_K, _V]):
         if source is not None:
             return len(source)
 
-        return len(self._items()) // 2
+        items = self._tree._get_items() or PdfArray()
+        return len(items) // 2
 
     def __repr__(self) -> str:
         return repr(self._tree._get_items_map())

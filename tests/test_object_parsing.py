@@ -318,3 +318,15 @@ def test_number_tree_kids_assignment_source_tracked() -> None:
     assert len(tree.kids or []) == 2
     assert tree.kids is not None
     assert tree.kids[1].nums == {1: b"B"}
+
+
+def test_set_item_on_empty_nn_tree() -> None:
+    num_tree = NumberTree()
+    num_tree[0] = b"abc"
+    assert num_tree[0] == b"abc"
+    assert num_tree._raw["Nums"] == PdfArray([0, b"abc"])
+
+    name_tree = NameTree()
+    name_tree[b"abc"] = b"def"
+    assert name_tree[b"abc"] == b"def"
+    assert name_tree._raw["Names"] == PdfArray([b"abc", b"def"])
