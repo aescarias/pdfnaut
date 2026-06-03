@@ -7,6 +7,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Additions
 
+- PDF page labels via `PdfDocument.page_labels`.
 - `LineAnnotation` and `RectangleAnnotation`.
 - `PdfDocument.open_action`.
 - Name trees and number trees.
@@ -40,6 +41,8 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 - Set proper type and enum values to `AnnotationReplyType`.
 - Guarantee that `Annotation` appended to annotation list is correctly mapped to the PDF object store.
+- Fix value of `OutlineItem.color` not being set properly when unspecified.
+- Fix `Destination.page` causing `NameError` due to `Page` usage.
 
 ## [0.12.0] (2026-05-05)
 

@@ -121,6 +121,8 @@ class Destination(PdfArray):
     @property
     def page(self) -> Page:
         """The page the destination jumps to."""
+        from pdfnaut.objects import Page
+
         page_ref = cast(PdfReference, self.data[0])
         return Page.from_dict(page_ref.get(), indirect_ref=page_ref)
 

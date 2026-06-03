@@ -128,7 +128,10 @@ class OutlineItem(PdfDictionary):
 
         self.text = text
         self.flags = flags
-        self.color = color
+
+        if color is not None:
+            self.color = color
+
         self.destination = destination
         self.action = action
 

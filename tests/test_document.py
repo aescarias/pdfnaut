@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from io import BytesIO
 
+import pytest
+
 from pdfnaut import PdfDocument
 from pdfnaut.objects import OutlineItem, Page
 from pdfnaut.objects.destinations import Destination
+from pdfnaut.objects.page_labels import PageLabelRange, PageNumberingStyle
 
 
 def test_get_object() -> None:
@@ -272,3 +275,45 @@ def test_outline_item() -> None:
     assert support.visible_items == 4
     support.close()
     assert support.visible_items == -4 and pdf.outline.visible_items == 11
+
+
+def test_page_labels() -> None:
+    pdf = PdfDocument.new()
+
+    for _ in range(14):
+        page = Page((595, 842))
+        pdf.pages.append(page)
+
+    # page 1-3
+    pdf.page_labels[0] = PageLabelRange(PageNumberingStyle.DECIMAL_ARABIC)
+
+    # page 4-8
+    pdf.page_labels[3] = PageLabelRange(PageNumberingStyle.UPPERCASE_ROMAN, prefix="Annex-")
+
+    # page 9-15
+    pdf.page_labels[8] = PageLabelRange(PageNumberingStyle.LOWERCASE_LETTER, start=10)
+
+    assert list(pdf.page_labels.get_all()) == [
+        "1",
+        "2",
+        "3",
+        "Annex-I",
+        "Annex-II",
+        "Annex-III",
+        "Annex-IV",
+        "Annex-V",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+    ]
+
+    assert pdf.page_labels.get_label_for(0) == "1"
+    assert pdf.page_labels.get_label_for(5) == "Annex-III"
+    assert pdf.page_labels.get_label_for(9) == "k"
+
+    with pytest.raises(IndexError):
+        pdf.page_labels.get_label_for(-1)
+        pdf.page_labels.get_label_for(15)

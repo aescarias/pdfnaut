@@ -6,10 +6,11 @@ from typing import cast
 
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
+from pdfnaut.objects.page_labels import PageLabelManager
 
 from .common import metadata
 from .common.metadata import MetadataCopyDirection
-from .cos.helpers import is_null_like
+from .cos.helpers import ensure, is_null_like
 from .cos.objects import (
     PdfArray,
     PdfDictionary,
@@ -376,6 +377,20 @@ class PdfDocument(PdfParser):
             return
 
         return MarkInfo.from_dict(cast(PdfDictionary, mark_info))
+
+    @property
+    def page_labels(self) -> PageLabelManager:
+        """The page labels for this document, if any."""
+        page_labels = self.catalog.get("PageLabels")
+        if is_null_like(page_labels):
+            page_labels = PdfDictionary()
+
+        page_labels = ensure(page_labels, PdfDictionary)
+        return PageLabelManager(page_labels, pdf=self)
+
+    @page_labels.deleter
+    def page_labels(self) -> None:
+        self.catalog.pop("PageLabels", None)
 
     @property
     def open_action(self) -> DestType | Action | None:
