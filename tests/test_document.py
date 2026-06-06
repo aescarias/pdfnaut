@@ -317,3 +317,6 @@ def test_page_labels() -> None:
     with pytest.raises(IndexError):
         pdf.page_labels.get_label_for(-1)
         pdf.page_labels.get_label_for(15)
+
+    assert list(pdf.page_labels.get_labels_in_range(0)) == ["1", "2", "3"]
+    assert sum(1 for _ in pdf.page_labels.get_ranges()) == 3

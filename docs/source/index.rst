@@ -98,6 +98,7 @@ Reading document information from a PDF is also simple:
    Viewer preferences <guides/viewer-preferences>
    Working with outlines <guides/working-with-outlines>
    Working with pages <guides/working-with-pages>
+   Working with page labels <guides/working-with-page-labels>
 
 .. toctree::
    :maxdepth: 2

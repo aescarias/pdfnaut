@@ -12,5 +12,6 @@ Alongside the basic object types documented in the :ref:`cos objects reference`,
     Destinations <objects/destinations>
     Outlines <objects/outlines>
     Page <objects/page>
+    Page Labels <objects/page_labels>
     Trailer <objects/trailer>
     XMP <objects/xmp>

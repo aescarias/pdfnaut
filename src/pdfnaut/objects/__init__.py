@@ -16,6 +16,7 @@ from .catalog import (
 from .destinations import Destination, DestinationKind
 from .outlines import OutlineItem, OutlineItemFlags
 from .page import Page
+from .page_labels import PageLabelRange, PageLabelTree, PageNumberingStyle
 from .trailer import Info
 from .xmp import XmpMetadata
 
@@ -29,6 +30,9 @@ __all__ = (
     "PageLayout",
     "PageMode",
     "Page",
+    "PageLabelRange",
+    "PageLabelTree",
+    "PageNumberingStyle",
     "Annotation",
     "AnnotationBorderStyle",
     "LinkAnnotation",

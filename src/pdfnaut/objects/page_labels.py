@@ -81,7 +81,7 @@ class PageLabelRange(PdfDictionary):
         return label
 
     def get_label(self, index: int) -> str:
-        """Returns the page label, within this range, corresponding to zero-based
+        """Returns the page label, within this range, corresponding to relative
         page index ``index``."""
 
         number = self.start + index
@@ -101,16 +101,22 @@ class PageLabelRange(PdfDictionary):
         return label
 
 
-class PageLabelManager(NumberTree[PageLabelRange]):
-    """A page label manager for a document."""
+class PageLabelTree(NumberTree[PageLabelRange]):
+    """A page label tree for a document."""
 
     def __init__(self, data: PdfDictionary, *, pdf: "PdfDocument") -> None:
+        """Initializes a page label tree.
+
+        Arguments:
+            data: The :class:`PdfDictionary` object defining the page label tree.
+            pdf: The :class:`PdfDocument` object associated with the page label tree.
+        """
         super().__init__()
         self._raw = data
         self._pdf = pdf
 
     def __repr__(self) -> str:
-        return f"<PageLabelManager {list(k for k, _ in self.walk())}>"
+        return f"<{self.__class__.__name__} {list(k for k, _ in self.walk())}>"
 
     def new(self) -> None:
         """Clears the current page label tree."""
@@ -131,9 +137,27 @@ class PageLabelManager(NumberTree[PageLabelRange]):
         return super()._set_items(items)
 
     def get_label_for(self, page: int) -> str:
-        """Returns the page label corresponding to zero-based page index ``index``."""
+        """Returns the page label corresponding to zero-based page index ``index``.
+
+        Consistent with :meth:`.get_all`, :meth:`.get_label_for` will return the
+        page label in decimal Arabic numbering if the document specifies no page
+        labels.
+
+        Raises:
+            IndexError:
+                the page index is out of bounds.
+
+            ValueError:
+                the document has page labels but does not define them for all
+                pages in the document, as required by the PDF spec.
+        """
+
         if page < 0 or page >= len(self._pdf.pages):
             raise IndexError("page index out of range")
+
+        if not self.items():
+            default_range = PageLabelRange(style=PageNumberingStyle.DECIMAL_ARABIC)
+            return default_range.get_label(page)
 
         for start_index, label_range in reversed(list(self.items())):
             if page >= start_index:
@@ -141,12 +165,21 @@ class PageLabelManager(NumberTree[PageLabelRange]):
 
         raise ValueError(f"no label for page index {page}")
 
-    def get_all(self) -> Generator[str]:
-        """Yields a list of all page labels in the document."""
+    def get_ranges(self) -> Generator[tuple[PageLabelRange, int, int]]:
+        """Yields a list of all page label ranges in the document.
+
+        Yielded are tuples of ``(range, start, end)`` which, in order, include the
+        page labelling range, the start page index (inclusive), and the end page
+        index (exclusive).
+        """
 
         # pairwise where last item is (n, None)
         a, b = tee(self.items())
-        next(b, None)
+
+        first_label = next(b, None)
+        if first_label is None:
+            return
+
         labels = zip_longest(a, b)
 
         for cur_label, next_label in labels:
@@ -159,5 +192,40 @@ class PageLabelManager(NumberTree[PageLabelRange]):
             if end_index == -1:
                 end_index = len(self._pdf.pages)
 
-            for index in range(end_index - start_index):
+            yield (label_range, start_index, end_index)
+
+    def get_all(self) -> Generator[str]:
+        """Yields a list of all page labels in the document.
+
+        :meth:`.get_all` returns a page label for each of the document's pages.
+        If the document does not specify page labels, :meth:`.get_all` will return
+        page labels in decimal Arabic numbering (1, 2, 3, 4, 5, ...).
+        """
+
+        if not self.items():
+            default_range = PageLabelRange(style=PageNumberingStyle.DECIMAL_ARABIC)
+            for page_idx in range(len(self._pdf.pages)):
+                yield default_range.get_label(page_idx)
+
+            return
+
+        for label_range, start, end in self.get_ranges():
+            for index in range(end - start):
                 yield label_range.get_label(index)
+
+    def get_labels_in_range(self, start: int) -> Generator[str]:
+        """Yields a list of all page labels within the page labelling range defined
+        at ``start``.
+
+        Raises :exc:`ValueError` if no page labelling range was defined at ``start``.
+        """
+
+        for label_range, range_start, range_end in self.get_ranges():
+            if range_start != start:
+                continue
+
+            for index in range(range_end - range_start):
+                yield label_range.get_label(index)
+            return
+
+        raise ValueError(f"no page label range defined at {start}")
