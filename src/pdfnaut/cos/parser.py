@@ -149,8 +149,8 @@ class ObjectStream:
     def to_stream(self) -> PdfStream:
         """Returns a :class:`.PdfStream` representing the contents of this object stream."""
 
-        object_string = b""
-        indices = []
+        object_string = bytearray()
+        indices: list[tuple[int, int]] = []
 
         for idx in range(self._n_objects):
             if cached := self.resolved_objects.get(idx):
@@ -174,13 +174,13 @@ class ObjectStream:
             else:
                 new_obj_num = obj_num
 
-            object_string += serialize(writing_object) + b" "
+            object_string.extend(serialize(writing_object) + b" ")
 
             indices.append((new_obj_num, start_offset))
 
-        index_string = b""
+        index_string = bytearray()
         for obj_num, rel_offset in indices:
-            index_string += f"{obj_num} {rel_offset}".encode() + b" "
+            index_string.extend(f"{obj_num} {rel_offset}".encode() + b" ")
 
         objstm_data = self.stream.details | PdfDictionary(
             Type=PdfName(b"ObjStm"),
@@ -189,7 +189,9 @@ class ObjectStream:
             Length=0,  # to be filled in
         )
 
-        return PdfStream.create(index_string + object_string, cast(PdfDictionary, objstm_data))
+        return PdfStream.create(
+            bytes(index_string + object_string), cast(PdfDictionary, objstm_data)
+        )
 
 
 class ObjectMap(UserDict[int, MapObject]):
@@ -388,15 +390,17 @@ class PdfParser:
 
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
-        header = self._tokenizer.parse_comment()
-
         pattern = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
-        if mat := pattern.match(header.value):
-            return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
 
-        # Although not recommended, it is possible for documents to start with
-        # characters different than those of %PDF-n.m. Offsets should be calculated
-        # based on the start of this token rather than the start of the document.
+        if self._tokenizer.matches(b"%"):
+            header = self._tokenizer.parse_comment()
+
+            if mat := pattern.match(header.value):
+                return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
+
+        # Although not recommended, it is possible for documents to start with content
+        # other than %PDF-n.m. Offsets should be calculated based on the start of the
+        # header token rather than the start of the document (offset 0).
         if not self.strict:
             LOGGER.warning("pdf header not at start of document")
             if mat := pattern.search(self._tokenizer.data):
@@ -430,7 +434,7 @@ class PdfParser:
         """Combines all XRef updates in the document into a cross-reference mapping
         that includes all entries."""
         entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
-        hybrid_objnums = []
+        hybrid_objnums: list[int] = []
 
         # from least recent to most recent
         for section in self.updates[::-1]:
@@ -484,7 +488,7 @@ class PdfParser:
             raise PdfParseError("Cannot locate XRef table. 'startxref' offset missing.")
 
         # advance to the startxref offset, we know it's there.
-        self._tokenizer.skip(9)
+        self._tokenizer.match(b"startxref", "expected startxref keyword")
         self._tokenizer.skip_whitespace()
 
         return int(self._tokenizer.parse_numeric())  # startxref
@@ -528,7 +532,7 @@ class PdfParser:
             raise PdfParseError("XRef offset does not point to XRef section.")
 
     def _find_xref_offsets(self) -> list[int]:
-        table_offsets = []
+        table_offsets: list[int] = []
 
         # looks for the start of a xref table
         for mat in re.finditer(rb"(?<!start)xref(\W*)(\d+) (\d+)", self._tokenizer.data):
@@ -554,10 +558,9 @@ class PdfParser:
         The trailer is separate if the XRef table is standard (uncompressed).
         Otherwise it is part of the XRef object.
         """
-        self._tokenizer.skip(7)  # past the 'trailer' keyword
+        self._tokenizer.match(b"trailer", "expected trailer keyword")
         self._tokenizer.skip_whitespace()
 
-        # next token is a dictionary
         return self._tokenizer.parse_dictionary()
 
     def parse_simple_xref(self) -> list[PdfXRefSubsection]:
@@ -567,10 +570,10 @@ class PdfParser:
         If ``startxref`` points to an XRef object, :meth:`.parse_compressed_xref`
         should be called instead.
         """
-        self._tokenizer.skip(4)
+        self._tokenizer.match(b"xref", "expected xref keyword")
         self._tokenizer.skip_whitespace()
 
-        subsections = []
+        subsections: list[PdfXRefSubsection] = []
 
         while not self._tokenizer.done:
             # subsection
@@ -622,7 +625,7 @@ class PdfParser:
         "Cross-reference streams".
         """
         xref_stream = self.parse_indirect_object(InUseXRefEntry(self._tokenizer.position, 0), None)
-        assert isinstance(xref_stream, PdfStream)
+        xref_stream = cast(PdfStream, xref_stream)
 
         contents = BytesIO(xref_stream.decode())
 
@@ -632,7 +635,7 @@ class PdfParser:
             xref_stream.details.get("Index", PdfArray([0, xref_stream.details["Size"]])),
         )
 
-        subsections = []
+        subsections: list[PdfXRefSubsection] = []
 
         for idx in range(0, len(xref_indices), 2):
             subsection = PdfXRefSubsection(
@@ -738,7 +741,9 @@ class PdfParser:
         elif isinstance(pdf_object, bytes):
             return self.security_handler.decrypt_object(self._encryption_key, pdf_object, reference)
         elif isinstance(pdf_object, PdfArray):
-            return PdfArray((self._get_decrypted(obj, reference) for obj in pdf_object.data))
+            return PdfArray(
+                (self._get_decrypted(cast(PdfObject, obj), reference) for obj in pdf_object.data)
+            )
         elif isinstance(pdf_object, PdfDictionary):
             # The Encrypt key does not need decrypting.
             if reference == self.trailer.data["Encrypt"]:
@@ -760,7 +765,7 @@ class PdfParser:
         ``extent`` specifies the amount of bytes the stream is expected to have.
         """
 
-        self._tokenizer.skip(6)  # past the 'stream' keyword
+        self._tokenizer.match(b"stream", "expected stream keyword")
         self._tokenizer.skip_next_eol(no_cr=True)
 
         contents = self._tokenizer.consume(extent)

@@ -11,11 +11,16 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - `LineAnnotation` and `RectangleAnnotation`.
 - `PdfDocument.open_action`.
 - Name trees and number trees.
-- Replace `LinkHighlightMode` literal with enum.
-- Replace `BorderStyle` literal with `BorderStyleType` enum.
+- `PdfTokenizer.match` for matching delimiters/tokens explicitly.
+- `PdfTokenizer.skip_ws_comment` for skipping PDF whitespace and comments.
 
 ### Changes
 
+- Replace uses of byte string concatenation with byte arrays.
+- Explicitly check for start and end tokens in `parse_*` methods of `PdfTokenizer` and `PdfParser`.
+- Error on encountering unclosed tokens such as arrays and literal strings.
+- Replace `LinkHighlightMode` literal with enum.
+- Replace `BorderStyle` literal with `BorderStyleType` enum.
 - Use `BorderStyleType` enum for `AnnotationBorderStyle.style`
 - Add `__str__` method to `AnnotationReplyType` enum.
 - Make `Annotation.contents` and `Annotation.name` optional as per the PDF spec.
@@ -43,6 +48,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - Guarantee that `Annotation` appended to annotation list is correctly mapped to the PDF object store.
 - Fix value of `OutlineItem.color` not being set properly when unspecified.
 - Fix `Destination.page` causing `NameError` due to `Page` usage.
+- Properly check if PDF header comment appears at the start of file.
 
 ## [0.12.0] (2026-05-05)
 

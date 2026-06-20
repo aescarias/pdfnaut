@@ -120,8 +120,7 @@ class ContentStreamTokenizer:
         checking_filters = (b"A85", b"AHx", b"ASCIIHexDecode", b"ASCII85Decode")
 
         if any(fn.value in checking_filters for fn in filter_names):
-            self.tokenizer.skip_whitespace()
-            self.tokenizer.skip_if_comment()
+            self.tokenizer.skip_ws_comment()
 
         # check for PDF 2.0 /L and /Length; use if available, otherwise scan for EI.
         length = mapping.get("L", mapping.get("Length"))
@@ -165,7 +164,18 @@ class PdfTokenizer:
             self.skip()
         raise StopIteration
 
-    # * Scanning
+    def _is_ascii_digit(self, ch: bytes) -> bool:
+        """Returns whether ``ch`` is an ASCII digit (0-9)."""
+        return b"0" <= ch <= b"9"
+
+    def _is_octal_digit(self, ch: bytes) -> bool:
+        """Returns whether ``ch`` is a valid octal digit (0-7)."""
+        return b"0" <= ch <= b"7"
+
+    def _is_hex_digit(self, ch: bytes) -> bool:
+        """Returns whether ``ch`` is a valid hex digit (0-9 then a-f or A-F)."""
+        return bool(ch) and ch in b"0123456789abcdefABCDEF"
+
     @property
     def done(self) -> bool:
         """Whether the parser has reached the end of data."""
@@ -198,6 +208,291 @@ class PdfTokenizer:
     def matches(self, keyword: bytes) -> bool:
         """Checks whether ``keyword`` starts at the current position."""
         return self.peek(len(keyword)) == keyword
+
+    def match(self, keyword: bytes, error: str) -> None:
+        """Attempts to match ``keyword`` at the current position. If no match
+        is found, raises :exc:`PdfParseError` with ``error`` as the error message.
+        """
+        if not self.skip_if_matches(keyword):
+            raise PdfParseError(error)
+
+    def skip_if_matches(self, keyword: bytes) -> bool:
+        """Advances ``len(keyword)`` characters if ``keyword`` starts at the
+        current position. Returns whether the match was successful."""
+        if self.matches(keyword):
+            self.skip(len(keyword))
+            return True
+        return False
+
+    def skip_if_comment(self) -> bool:
+        """Advances through a PDF comment in case one occurs at the current position.
+        Returns whether a comment was skipped."""
+        if self.matches(b"%"):
+            self.parse_comment()
+            return True
+        return False
+
+    def skip_whitespace(self) -> None:
+        """Advances through PDF whitespace."""
+        self.skip_while(lambda ch: ch in WHITESPACE)
+
+    def skip_ws_comment(self) -> None:
+        """Advances through PDF whitespace and comments."""
+        self.skip_whitespace()
+        self.skip_if_comment()
+
+    def skip_next_eol(self, no_cr: bool = False) -> None:
+        """Skips the next EOL marker if matched.
+
+        If ``no_cr`` is True, the carriage return (``\\r``) as is will not be
+        treated as a newline.
+        """
+        matched = self.skip_if_matches(EOL_CRLF)
+        if no_cr and self.matches(EOL_CR):
+            return
+
+        if not matched and self.peek() in EOL_CRLF:
+            self.skip()
+
+    def skip_while(self, callback: Callable[[bytes], bool], *, limit: int = -1) -> int:
+        """Skips while ``callback`` returns True for an input character. If specified,
+        it will only skip ``limit`` characters. Returns how many characters were skipped."""
+        if limit == -1:
+            limit = len(self.data)
+
+        start = self.position
+        while not self.done and callback(self.peek()) and self.position - start < limit:
+            self.position += 1
+        return self.position - start
+
+    def consume_while(self, callback: Callable[[bytes], bool], *, limit: int = -1) -> bytes:
+        """Consumes while ``callback`` returns True for an input character. If specified,
+        it will only consume up to ``limit`` characters."""
+        if limit == -1:
+            limit = len(self.data)
+
+        consumed = bytearray()
+        while not self.done and callback(self.peek()) and len(consumed) < limit:
+            consumed.extend(self.consume())
+
+        return bytes(consumed)
+
+    def get_next_token(self, *, parse_references: bool = True) -> PdfObject | PdfComment | None:
+        """Parses and returns the token at the current position.
+
+        Arguments:
+            parse_references (bool, optional, keyword only):
+                Whether to parse indirect references. This is intended for
+                content streams where indirect references are disallowed.
+        """
+        if self.done:
+            return
+
+        if self.skip_if_matches(b"true"):
+            return True
+        elif self.skip_if_matches(b"false"):
+            return False
+        elif self.skip_if_matches(b"null"):
+            return PdfNull()
+        elif parse_references and (ref := self.try_parse_indirect()):
+            return ref
+        elif self._is_start_of_number():
+            return self.parse_numeric()
+        elif self.matches(b"["):
+            return self.parse_array()
+        elif self.matches(b"/"):
+            return self.parse_name()
+        elif self.matches(b"<<"):
+            return self.parse_dictionary()
+        elif self.matches(b"<"):
+            return self.parse_hex_string()
+        elif self.matches(b"("):
+            return self.parse_literal_string()
+        elif self.matches(b"%"):
+            return self.parse_comment()
+
+    def _is_start_of_number(self) -> bool:
+        """Reports whether the current position is the start of a numeric object."""
+        return self._is_ascii_digit(ch := self.peek()) or (bool(ch) and ch in b".+-")
+
+    def parse_numeric(self) -> int | float:
+        """Parses a numeric object.
+
+        PDF has two types of numbers: integers (40, -30) and real numbers (3.14). The range
+        and precision of these numbers may depend on the machine used to process the PDF.
+        """
+        if not self._is_start_of_number():
+            raise PdfParseError("expected start of number")
+
+        prefix_or_digit = self.consume()  # either a digit, a dot, or a sign prefix
+        number = prefix_or_digit + self.consume_while(
+            lambda ch: self._is_ascii_digit(ch) or ch == b"."
+        )
+
+        # is this a float (a real number)?
+        if b"." in number:
+            return float(number)
+        return int(number)
+
+    def parse_name(self) -> PdfName:
+        """Parses a name -- a uniquely defined atomic symbol introduced with a slash
+        and ending before a delimiter or whitespace."""
+        self.match(b"/", "expected name object")
+
+        atom = bytearray()
+        while not self.done and self.peek() not in DELIMITERS + WHITESPACE:
+            if self.matches(b"#"):
+                # escape sequence matched
+                self.skip()
+
+                atom.append(int(self.consume(2), 16))
+                continue
+
+            atom.extend(self.consume())
+
+        return PdfName(bytes(atom))
+
+    def parse_hex_string(self) -> PdfHexString:
+        """Parses a hexadecimal string. Hexadecimal strings usually include arbitrary binary
+        data. If the sequence is uneven, the last character is assumed to be 0."""
+        self.match(b"<", "expected start of hex string")
+
+        content = bytearray()
+
+        while not self.done and not self.matches(b">"):
+            # whitespace (including comments) is ignored
+            self.skip_ws_comment()
+
+            ch = self.peek()
+            if not self._is_hex_digit(ch) and ch != b">":
+                raise PdfParseError(f"invalid hex digit {ch!r}")
+
+            if ch != b">":
+                content.extend(self.consume())
+
+        self.match(b">", "unterminated hex string")
+
+        # if the last char of the last pair is omitted, it is set to zero
+        if len(content) % 2 != 0:
+            content.extend(b"0")
+
+        return PdfHexString(bytes(content))
+
+    def parse_dictionary(self) -> PdfDictionary:
+        """Parses a dictionary object.
+
+        In a PDF, dictionary keys are name objects and dictionary values are any
+        object or reference. This parser maps name objects to strings in this
+        context.
+        """
+
+        self.match(b"<<", "expected start of dictionary")
+        return self.parse_kv_map_until(b">>")
+
+    def parse_kv_map_until(self, delimiter: bytes) -> PdfDictionary:
+        """Parses from the current position a dictionary-like object,
+        that is, an object composed of keys that are name objects and values
+        that are any object.
+
+        The ``delimiter`` parameter specifies where this dictionary should end.
+        The common ending (and default value) is ">>" for dictionary objects.
+        However, this also accommodates for inline images which have the ID
+        operator that can be used as a delimiter.
+        """
+
+        kv_pairs: list[PdfObject] = []
+
+        while not self.done and not self.matches(delimiter):
+            if (token := self.get_next_token()) is not None and not isinstance(token, PdfComment):
+                kv_pairs.append(cast(PdfObject, token))
+
+            # Only advance when no token matches. The individual object
+            # parsers already advance and this avoids advancing past delimiters.
+            if token is None:
+                self.skip()
+
+        self.match(delimiter, "unterminated key-value mapping")
+
+        return PdfDictionary(
+            {
+                cast(PdfName, kv_pairs[i]).value.decode(): kv_pairs[i + 1]
+                for i in range(0, len(kv_pairs), 2)
+            }
+        )
+
+    def parse_array(self) -> PdfArray:
+        """Parses a PDF array which represents a sequence of heterogeneous objects."""
+        self.match(b"[", "expected start of array")
+
+        items = PdfArray[PdfObject]()
+
+        while not self.done and not self.matches(b"]"):
+            if (token := self.get_next_token()) is not None and not isinstance(token, PdfComment):
+                items.append(cast(PdfObject, token))
+
+            if token is None:
+                self.skip()
+
+        self.match(b"]", "unterminated array literal")
+        return items
+
+    def parse_literal_string(self) -> bytes:
+        """Parses a literal string. Literal strings may be composed entirely of ASCII
+        or may include arbitrary binary data. They may also include escape sequences
+        and octal values (``\\ddd``).
+        """
+        self.match(b"(", "expected start of literal string")
+
+        contents = bytearray()
+        # balanced parentheses do not require escaping
+        paren_depth = 1
+
+        while not self.done and paren_depth >= 1:
+            if self.matches(b"\\"):
+                # Is this a default escape? (Table 3 § 7.3.4.2)
+                escape = STRING_ESCAPE.get(self.peek(2))
+
+                if escape is not None:
+                    contents.extend(escape)
+                    self.skip(2)  # past the escape code
+                    continue
+
+                # Otherwise, match a newline or a \ddd sequence
+                self.skip(1)
+
+                matched = self.skip_if_matches(EOL_CRLF)
+                if not matched and self.peek() in EOL_CRLF:
+                    self.skip()
+                elif self._is_octal_digit(self.peek()):
+                    octal_code = self.consume_while(self._is_octal_digit, limit=3)
+                    # the octal value will be 8 bit at most
+                    contents.append(int(octal_code, 8))
+                    continue
+
+            if self.matches(b"("):
+                paren_depth += 1
+            elif self.matches(b")"):
+                paren_depth -= 1
+
+            # This avoids appending the delimiting paren
+            if paren_depth != 0:
+                contents.extend(self.peek())
+
+            self.skip()
+
+        if paren_depth != 0:
+            raise PdfParseError("unterminated string literal")
+
+        return bytes(contents)
+
+    def parse_comment(self) -> PdfComment:
+        """Parses a PDF comment. Comments have no syntactical meaning."""
+        self.match(b"%", "expected comment")
+
+        line = self.consume_while(lambda ch: ch not in EOL_CRLF)
+        self.skip_whitespace()
+
+        return PdfComment(line)
 
     def try_parse_indirect(self, *, header: bool = False) -> PdfReference | None:
         """Attempts to parse an indirect reference in the form ``[obj] [gen] R``
@@ -233,277 +528,5 @@ class PdfTokenizer:
         reference = PdfReference(maybe_obj_num, maybe_gen_num)
         if self.resolver:
             return reference.with_resolver(self.resolver)
+
         return reference
-
-    def _is_ascii_digit(self, byte: bytes) -> bool:
-        """Returns whether ``byte`` is an ASCII digit (0-9)."""
-        return b"0" <= byte <= b"9"
-
-    def _is_octal_digit(self, byte: bytes) -> bool:
-        """Returns whether ``byte`` is a valid octal digit (0-7)."""
-        return b"0" <= byte <= b"7"
-
-    def _is_hex_digit(self, byte: bytes) -> bool:
-        """Returns whether ``byte`` is a valid hex digit (0-9 then A-F)."""
-        return byte in b"0123456789abcdefABCDEF"
-
-    def skip_if_matches(self, keyword: bytes) -> bool:
-        """Advances ``len(keyword)`` characters if ``keyword`` starts at the current
-        position. Returns whether the match was successful."""
-        if self.matches(keyword):
-            self.skip(len(keyword))
-            return True
-        return False
-
-    def skip_if_comment(self) -> bool:
-        """Advances through a PDF comment in case one occurs at the current position.
-        Returns whether a comment was skipped."""
-        if self.matches(b"%"):
-            self.parse_comment()
-            return True
-        return False
-
-    def skip_whitespace(self) -> None:
-        """Advances through PDF whitespace."""
-        self.skip_while(lambda ch: ch in WHITESPACE)
-
-    def skip_next_eol(self, no_cr: bool = False) -> None:
-        """Skips the next EOL marker if matched. If ``no_cr`` is True, CR (``\\r``) as is
-        will not be treated as a newline."""
-        matched = self.skip_if_matches(EOL_CRLF)
-        if no_cr and self.matches(EOL_CR):
-            return
-
-        if not matched and self.peek() in EOL_CRLF:
-            self.skip()
-
-    def skip_while(self, callback: Callable[[bytes], bool], *, limit: int = -1) -> int:
-        """Skips while ``callback`` returns True for an input character. If specified,
-        it will only skip ``limit`` characters. Returns how many characters were skipped."""
-        if limit == -1:
-            limit = len(self.data)
-
-        start = self.position
-        while not self.done and callback(self.peek()) and self.position - start < limit:
-            self.position += 1
-        return self.position - start
-
-    def consume_while(self, callback: Callable[[bytes], bool], *, limit: int = -1) -> bytes:
-        """Consumes while ``callback`` returns True for an input character. If specified,
-        it will only consume up to ``limit`` characters."""
-        if limit == -1:
-            limit = len(self.data)
-
-        consumed = b""
-        while not self.done and callback(self.peek()) and len(consumed) < limit:
-            consumed += self.consume()
-        return consumed
-
-    def get_next_token(self, *, parse_references: bool = True) -> PdfObject | PdfComment | None:
-        """Parses and returns the token at the current position.
-
-        Arguments:
-            parse_references (bool, optional, keyword only):
-                Whether to parse indirect references. This is intended for
-                content streams where indirect references are disallowed.
-        """
-        if self.done:
-            return
-
-        if self.skip_if_matches(b"true"):
-            return True
-        elif self.skip_if_matches(b"false"):
-            return False
-        elif self.skip_if_matches(b"null"):
-            return PdfNull()
-        elif parse_references and (ref := self.try_parse_indirect()):
-            return ref
-        elif self._is_ascii_digit(self.peek()) or self.peek() in self.peek() in b".+-":
-            return self.parse_numeric()
-        elif self.matches(b"["):
-            return self.parse_array()
-        elif self.matches(b"/"):
-            return self.parse_name()
-        elif self.matches(b"<<"):
-            return self.parse_dictionary()
-        elif self.matches(b"<"):
-            return self.parse_hex_string()
-        elif self.matches(b"("):
-            return self.parse_literal_string()
-        elif self.matches(b"%"):
-            return self.parse_comment()
-
-    def parse_numeric(self) -> int | float:
-        """Parses a numeric object.
-
-        PDF has two types of numbers: integers (40, -30) and real numbers (3.14). The range
-        and precision of these numbers may depend on the machine used to process the PDF.
-        """
-        prefix_or_digit = self.consume()  # either a digit, a dot, or a sign prefix
-        number = prefix_or_digit + self.consume_while(
-            lambda ch: self._is_ascii_digit(ch) or ch == b"."
-        )
-
-        # is this a float (a real number)?
-        if b"." in number:
-            return float(number)
-        return int(number)
-
-    def parse_name(self) -> PdfName:
-        """Parses a name -- a uniquely defined atomic symbol introduced with a slash
-        and ending before a delimiter or whitespace."""
-        self.skip()  # past the /
-
-        atom = b""
-        while not self.done and self.peek() not in DELIMITERS + WHITESPACE:
-            if self.matches(b"#"):
-                # escape sequence matched
-                self.skip()
-
-                atom += int(self.consume(2), 16).to_bytes(1, "little")
-                continue
-
-            atom += self.consume()
-
-        return PdfName(atom)
-
-    def parse_hex_string(self) -> PdfHexString:
-        """Parses a hexadecimal string. Hexadecimal strings usually include arbitrary binary
-        data. If the sequence is uneven, the last character is assumed to be 0."""
-        self.skip()  # adv. past the <
-
-        content: list[bytes] = []
-
-        while not self.done and not self.matches(b">"):
-            # whitespace (including comments) is ignored
-            self.skip_whitespace()
-            self.skip_if_comment()
-
-            if not self._is_hex_digit(ch := self.peek()) and ch != b">":
-                raise PdfParseError(f"invalid hex digit {ch!r}")
-
-            if ch != b">":
-                content.append(self.consume(1))
-
-        self.skip()  # adv. past the >
-
-        # if the last byte of the last pair is omitted, it is zero
-        data = b"".join(content)
-        if len(data) % 2 != 0:
-            data += b"0"
-
-        return PdfHexString(data)
-
-    def parse_dictionary(self) -> PdfDictionary:
-        """Parses a dictionary object.
-
-        In a PDF, dictionary keys are name objects and dictionary values are any
-        object or reference. This parser maps name objects to strings in this
-        context.
-        """
-
-        self.skip(2)  # adv. past the <<
-        return self.parse_kv_map_until(b">>")
-
-    def parse_kv_map_until(self, delimiter: bytes) -> PdfDictionary:
-        """Parses from the current position a dictionary-like object,
-        that is, an object composed of keys that are name objects and values
-        that are any object.
-
-        The ``delimiter`` parameter specifies where this dictionary should end.
-        The common ending (and default value) is ">>" for dictionary objects.
-        However, this also accommodates for inline images which have the ID
-        operator that can be used as a delimiter.
-        """
-
-        kv_pairs: list[PdfObject] = []
-
-        while not self.done and not self.matches(delimiter):
-            if (token := self.get_next_token()) is not None and not isinstance(token, PdfComment):
-                kv_pairs.append(cast(PdfObject, token))
-
-            # Only advance when no token matches. The individual object
-            # parsers already advance and this avoids advancing past delimiters.
-            if token is None:
-                self.skip()
-
-        self.skip(len(delimiter))
-
-        return PdfDictionary(
-            {
-                cast(PdfName, kv_pairs[i]).value.decode(): kv_pairs[i + 1]
-                for i in range(0, len(kv_pairs), 2)
-            }
-        )
-
-    def parse_array(self) -> PdfArray:
-        """Parses a PDF array which represents a sequence of heterogeneous objects."""
-        self.skip()  # past the [
-
-        items = PdfArray[PdfObject]()
-
-        while not self.done and not self.matches(b"]"):
-            if (token := self.get_next_token()) is not None and not isinstance(token, PdfComment):
-                items.append(cast(PdfObject, token))
-
-            if token is None:
-                self.skip()
-
-        self.skip()  # past the ]
-
-        return items
-
-    def parse_literal_string(self) -> bytes:
-        """Parses a literal string. Literal strings may be composed entirely of ASCII
-        or may include arbitrary binary data. They may also include escape sequences
-        and octal values (``\\ddd``).
-        """
-        self.skip()  # past the (
-
-        string = b""
-        # balanced parentheses do not require escaping
-        paren_depth = 1
-
-        while not self.done and paren_depth >= 1:
-            if self.matches(b"\\"):
-                # Is this a default escape? (Table 3 § 7.3.4.2)
-                escape = STRING_ESCAPE.get(self.peek(2))
-
-                if escape is not None:
-                    string += escape
-                    self.skip(2)  # past the escape code
-                    continue
-
-                # Otherwise, match a newline or a \ddd sequence
-                self.skip(1)
-
-                matched = self.skip_if_matches(EOL_CRLF)
-                if not matched and self.peek() in EOL_CRLF:
-                    self.skip()
-                elif self._is_octal_digit(self.peek()):
-                    octal_code = self.consume_while(self._is_octal_digit, limit=3)
-                    # the octal value will be 8 bit at most
-                    string += int(octal_code, 8).to_bytes(1, "little")
-                    continue
-
-            if self.matches(b"("):
-                paren_depth += 1
-            elif self.matches(b")"):
-                paren_depth -= 1
-
-            # This avoids appending the delimiting paren
-            if paren_depth != 0:
-                string += self.peek()
-
-            self.skip()
-
-        return string
-
-    def parse_comment(self) -> PdfComment:
-        """Parses a PDF comment. Comments have no syntactical meaning."""
-        self.skip()  # past the %
-
-        line = self.consume_while(lambda ch: ch not in EOL_CRLF)
-        self.skip_whitespace()
-
-        return PdfComment(line)
