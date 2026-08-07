@@ -18,7 +18,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 - Replace uses of byte string concatenation with byte arrays.
 - Explicitly check for start and end tokens in `parse_*` methods of `PdfTokenizer` and `PdfParser`.
-- Error on encountering unclosed tokens such as arrays and literal strings.
+- Error on encountering unclosed arrays and strings.
 - Replace `LinkHighlightMode` literal with enum.
 - Replace `BorderStyle` literal with `BorderStyleType` enum.
 - Use `BorderStyleType` enum for `AnnotationBorderStyle.style`
@@ -49,6 +49,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - Fix value of `OutlineItem.color` not being set properly when unspecified.
 - Fix `Destination.page` causing `NameError` due to `Page` usage.
 - Properly check if PDF header comment appears at the start of file.
+- Clear `Metadata` key before attempting to remove object reference.
 
 ## [0.12.0] (2026-05-05)
 

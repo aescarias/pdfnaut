@@ -1,4 +1,4 @@
-# Unit tests for parsing a subset of handcrafted and example files.
+# Unit tests for multiple parsing scenarios via a set of PDF documents.
 from __future__ import annotations
 
 import pytest
@@ -9,8 +9,9 @@ from pdfnaut.exceptions import PdfParseError
 
 
 def test_simple_pdf() -> None:
-    """Tests a simple PDF. In this context, "simple" means an unencrypted PDF
-    with no compression and few pages of content."""
+    """Tests a simple PDF: an unencrypted PDF document with no compression applied
+    and a few pages of content."""
+
     with open("tests/docs/sample.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
@@ -27,6 +28,7 @@ def test_simple_pdf() -> None:
 
 def test_invalid_pdfs() -> None:
     """Tests invalid PDF scenarios. The cases included should all fail."""
+
     # "PDF" with no header
     with pytest.raises(PdfParseError):
         parser = PdfParser(b"The content doesn't matter. The header not being here does.")
@@ -41,9 +43,9 @@ def test_invalid_pdfs() -> None:
             parser.get_object((1, 0))
 
 
-def test_pdf_with_incremental() -> None:
-    """Tests whether an incremental PDF is parsed correctly. Basically, whether the
-    correct trailer is provided and whether the XRefs are merged."""
+def test_incremental_pdf() -> None:
+    """Tests incremental PDF parsing by checking whether the correct trailer was
+    selected and whether the cross-reference tables were correctly merged."""
     with open("tests/docs/pdf2-incremental.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()
@@ -53,7 +55,10 @@ def test_pdf_with_incremental() -> None:
 
 
 def test_pdf_with_data_at_start() -> None:
-    """Tests a PDF document that does not start with the %PDF-n.m header."""
+    """Tests a PDF starting with data other than the %PDF-n.m header, which is
+    allowed under strict=False and allowed by the spec since PDF 2.0, though this
+    behavior is discouraged.
+    """
     with open("tests/docs/pdf2-with-data-at-start.pdf", "rb") as data:
         parser = PdfParser(data.read())
         parser.parse()

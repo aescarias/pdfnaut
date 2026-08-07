@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Generator
-from typing import cast
+from collections.abc import Generator, MutableMapping
+from typing import Any, cast
 
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
@@ -184,8 +184,8 @@ class PdfDocument(PdfParser):
             self.objects[metadata_ref.object_number] = xmp.stream
         elif metadata_ref:
             # A metadata object will be removed
-            self.objects.delete(metadata_ref.object_number)
             self.catalog.pop("Metadata", None)
+            self.objects.delete(metadata_ref.object_number)
 
     @property
     def page_tree(self) -> PdfDictionary:
