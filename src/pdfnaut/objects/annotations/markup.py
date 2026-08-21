@@ -6,8 +6,7 @@ from typing import Annotated, cast
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.cos.helpers import is_null_like
-from pdfnaut.cos.objects.base import PdfName, PdfReference
+from pdfnaut.cos.objects.base import PdfName, PdfReference, is_null_like
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 
 from .base import Annotation, AnnotationBorderStyle, AnnotationKind, annotation_into

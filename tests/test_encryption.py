@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from pdfnaut.cos.helpers import into_bytes
-from pdfnaut.cos.objects.base import PdfHexString, PdfReference
+from pdfnaut.cos.objects.base import PdfHexString, PdfReference, into_bytes
 from pdfnaut.cos.objects.containers import PdfDictionary
 from pdfnaut.cos.parser import PdfParser, PermsAcquired
 

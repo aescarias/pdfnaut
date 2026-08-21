@@ -3,15 +3,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from pdfnaut.cos.helpers import ensure
-from pdfnaut.cos.parser import FreeObject
-
+from ..common._utils import ensure
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
+from ..cos.parser import FreeObject
 
 if TYPE_CHECKING:
-    from pdfnaut.cos.parser import PdfParser
+    from ..cos.parser import PdfParser
 
 
 class _PlaceholderType:

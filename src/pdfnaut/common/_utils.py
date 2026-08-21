@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterable
 from itertools import islice
-from typing import TypeVar
+from typing import Any, TypeVar
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ROMAN_NUMERAL_PLACES = {
@@ -22,6 +22,15 @@ ROMAN_NUMERAL_PLACES = {
 }
 
 T = TypeVar("T")
+
+
+def ensure(obj: Any, is_type: type[T]) -> T:
+    """Asserts that an object ``obj`` is of type ``is_type``. Returns the object
+    as is if this is the case; raises :exc:`TypeError` if not."""
+    if not isinstance(obj, is_type):
+        raise TypeError(f"expected type {is_type.__name__}, got {type(obj).__name__}")
+
+    return obj
 
 
 # itertools recipe

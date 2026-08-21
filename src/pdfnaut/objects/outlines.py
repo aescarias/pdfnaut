@@ -8,10 +8,8 @@ from typing import Any, cast, overload
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.cos.helpers import is_null_like
-from pdfnaut.cos.objects import PdfDictionary
-from pdfnaut.cos.objects.base import PdfName, PdfReference
-from pdfnaut.cos.objects.containers import PdfArray
+from pdfnaut.cos.objects.base import PdfName, PdfReference, is_null_like
+from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 from pdfnaut.cos.parser import PdfParser
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination

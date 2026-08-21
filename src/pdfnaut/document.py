@@ -1,25 +1,27 @@
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Generator, MutableMapping
-from typing import Any, cast
+from collections.abc import Generator
+from typing import cast
 
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
 from pdfnaut.objects.page_labels import PageLabelTree
 
 from .common import metadata
+from .common._utils import ensure
 from .common.metadata import MetadataCopyDirection
-from .cos.helpers import ensure, is_null_like
-from .cos.objects import (
-    PdfArray,
-    PdfDictionary,
+from .cos.objects.base import (
     PdfHexString,
     PdfName,
+    PdfObject,
     PdfReference,
-    PdfStream,
+    encode_text_string,
+    is_null_like,
+    parse_text_string,
 )
-from .cos.objects.base import PdfObject, encode_text_string, parse_text_string
+from .cos.objects.containers import PdfArray, PdfDictionary
+from .cos.objects.stream import PdfStream
 from .cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
 from .cos.parser import PdfParser, PermsAcquired
 from .cos.serializer import PdfSerializer

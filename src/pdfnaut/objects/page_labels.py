@@ -5,10 +5,9 @@ from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
 
-from pdfnaut.common._utils import decimal_to_letter, decimal_to_roman
+from pdfnaut.common._utils import decimal_to_letter, decimal_to_roman, ensure
 from pdfnaut.common.dictmodels import dictmodel, field
-from pdfnaut.cos.helpers import ensure, is_null_like
-from pdfnaut.cos.objects.base import PdfName, PdfObject
+from pdfnaut.cos.objects.base import PdfName, PdfObject, is_null_like
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
 from pdfnaut.cos.objects.trees import NumberTree
 

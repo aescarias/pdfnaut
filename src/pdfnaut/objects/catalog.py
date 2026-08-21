@@ -4,8 +4,7 @@ from typing import Annotated, Literal, cast
 from typing_extensions import Self
 
 from ..common.dictmodels import defaultize, dictmodel, field
-from ..cos.helpers import is_null_like
-from ..cos.objects.base import PdfName
+from ..cos.objects.base import PdfName, is_null_like
 from ..cos.objects.containers import PdfArray, PdfDictionary
 
 PageLayout = Literal[

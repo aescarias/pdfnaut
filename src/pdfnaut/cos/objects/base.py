@@ -4,7 +4,7 @@ from binascii import hexlify, unhexlify
 from codecs import BOM_UTF8, BOM_UTF16_BE
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, Union, cast
+from typing import TYPE_CHECKING, Generic, TypeGuard, Union, cast
 
 from typing_extensions import Self, TypeVar
 
@@ -179,3 +179,26 @@ PdfObject = Union[
     PdfNull,
 ]
 ObjectGetter = Callable[[PdfReference], T]
+
+_R = TypeVar("_R")
+BytesLike = PdfHexString | bytes
+
+
+def is_null_like(obj: PdfObject | None) -> TypeGuard[PdfNull | None]:
+    """Reports whether an object ``obj`` is the PDF null type or the Python ``None`` type."""
+    return isinstance(obj, PdfNull) or obj is None
+
+
+def deref(obj: PdfReference[_R] | _R) -> _R:
+    """Resolves and returns an object ``obj`` if it is a reference, otherwise
+    returns it directly."""
+    if isinstance(obj, PdfReference):
+        return obj.get()
+
+    return obj
+
+
+def into_bytes(obj: BytesLike) -> bytes:
+    """Returns the decoded value of ``contents`` if it is an instance of
+    :class:`.PdfHexString`, otherwise returns ``contents`` as is."""
+    return obj.value if isinstance(obj, PdfHexString) else obj

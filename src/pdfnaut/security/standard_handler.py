@@ -1,8 +1,8 @@
 from hashlib import md5
 from typing import Literal
 
-from ..cos.helpers import into_bytes, is_null_like
 from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
+from ..cos.objects.base import into_bytes, is_null_like
 from ..exceptions import MissingCryptProviderError
 from .providers import CRYPT_PROVIDERS, CryptProvider
 

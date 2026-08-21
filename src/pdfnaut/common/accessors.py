@@ -16,12 +16,12 @@ from typing import (
 )
 
 from ..common.dates import encode_iso8824, parse_iso8824
-from ..cos.helpers import is_null_like
 from ..cos.objects.base import (
     PdfHexString,
     PdfName,
     PdfObject,
     encode_text_string,
+    is_null_like,
     parse_text_string,
 )
 from ..cos.objects.containers import PdfDictionary

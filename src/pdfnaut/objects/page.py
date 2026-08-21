@@ -3,8 +3,7 @@ from typing import Literal, cast
 from typing_extensions import Self
 
 from ..common.dictmodels import dictmodel, field
-from ..cos.helpers import is_null_like
-from ..cos.objects.base import PdfName, PdfReference
+from ..cos.objects.base import PdfName, PdfReference, is_null_like
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
 from ..cos.parser import PdfParser

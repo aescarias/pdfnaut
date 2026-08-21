@@ -5,8 +5,7 @@ from typing import Any, Generic, Iterable, SupportsIndex, TypeGuard, cast, overl
 from typing_extensions import Self, TypeVar
 
 from ...common._utils import batched
-from ..helpers import into_bytes, is_null_like
-from .base import PdfHexString, PdfObject
+from .base import PdfHexString, PdfObject, into_bytes, is_null_like
 from .containers import PdfArray, PdfDictionary
 
 _K = TypeVar("_K", bound=PdfObject, default=PdfObject)
