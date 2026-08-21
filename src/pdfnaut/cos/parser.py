@@ -14,7 +14,15 @@ from typing import IO, BinaryIO, TypeVar, cast
 from typing_extensions import TypeAlias
 
 from ..common._utils import get_closest
-from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
+from ..cos.objects.base import (
+    BytesLike,
+    PdfHexString,
+    PdfName,
+    PdfNull,
+    PdfObject,
+    PdfReference,
+    is_null_like,
+)
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
 from ..cos.objects.xref import (
@@ -337,56 +345,55 @@ class PdfParser:
         This is here as a measure to prevent circular reference loops.
         """
 
-    def parse(self, start_xref: int | None = None) -> None:
-        """Parses the entire document.
-
-        It begins by parsing the most recent XRef table and trailer. If this trailer
-        points to a previous XRef, this function is called again with a ``start_xref``
-        offset until no more XRefs are found.
-
-        It also sets up the Standard security handler for use in case the document
-        is encrypted.
-
-        Arguments:
-            start_xref (int, optional):
-                The offset where the most recent XRef can be found. If no offset is
-                provided, this function will attempt to locate one.
-        """
-        # Move to the header
-        self._tokenizer.position = 0
-        self.header_version = self.parse_header()
-
-        # Because the function may be called recursively, we check if this is the first call.
-        if start_xref is None:
-            start_xref = self.lookup_xref_start()
+    def _build_xref_from(self, offset: int) -> None:
+        """Builds the XRef table and trailer starting from the XRef table located
+        at offset ``offset``."""
 
         # Move to the offset where the XRef and trailer are
-        self._tokenizer.position = start_xref
+        self._tokenizer.position = offset
         section = self.parse_xref_and_trailer()
 
+        # Add the incremental update
         self.updates.append(section)
 
-        if "Prev" in section.trailer:
-            # More XRefs were found. Recurse!
-            self._tokenizer.position = 0
-            self.parse(cast(int, section.trailer["Prev"]))
+        # Find more XRefs
+        prev_xref = section.trailer.get("Prev")
+        if not is_null_like(prev_xref):
+            prev_xref = cast(int, prev_xref)
+            self._build_xref_from(prev_xref)
         else:
-            # That's it. Merge them together.
             self.xref = self.get_merged_xrefs()
             self.trailer = self.updates[0].trailer
 
-        # Fills the object store so we can refer to objects now!
+    def parse(self) -> None:
+        """Parses the entire document.
+
+        The parser begins by locating the PDF header, then finding and combining
+        the XRef sections in the document. It finally builds the object store and
+        prepares the standard security handler in case the document requires it.
+        """
+
+        # Move to the header, which SHOULD be at offset 0.
+        self._tokenizer.position = 0
+        self.header_version = self.parse_header()
+
+        # Locate and build the XRef table.
+        self._build_xref_from(self.lookup_xref_start())
+
+        # Fills the object store so we can refer to objects.
         self.objects.fill()
 
-        # Is the document encrypted with a standard security handler?
-        if "Encrypt" in self.trailer:
-            assert "ID" in self.trailer
-            encryption = cast(PdfDictionary, self.trailer["Encrypt"])
+        # Determine if the document uses the standard security handler.
+        encryption = self.trailer.get("Encrypt")
+        if not is_null_like(encryption):
+            ids = cast(PdfArray[BytesLike], self.trailer["ID"])
 
-            if cast(PdfName, encryption["Filter"]).value == b"Standard":
-                self.security_handler = StandardSecurityHandler(
-                    encryption, cast("list[PdfHexString | bytes]", self.trailer["ID"])
-                )
+            encryption = cast(PdfDictionary, encryption)
+            sec_filter = cast(PdfName, encryption["Filter"])
+            if sec_filter.value == b"Standard":
+                self.security_handler = StandardSecurityHandler(encryption, ids)
+            else:
+                LOGGER.warning("document uses unknown security handler %s", sec_filter)
 
     def parse_header(self) -> str:
         """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""

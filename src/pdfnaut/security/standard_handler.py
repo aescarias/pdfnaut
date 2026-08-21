@@ -1,8 +1,8 @@
 from hashlib import md5
 from typing import Literal
 
-from ..cos.objects import PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
-from ..cos.objects.base import into_bytes, is_null_like
+from ..cos.objects import PdfArray, PdfDictionary, PdfHexString, PdfName, PdfReference, PdfStream
+from ..cos.objects.base import BytesLike, into_bytes, is_null_like
 from ..exceptions import MissingCryptProviderError
 from .providers import CRYPT_PROVIDERS, CryptProvider
 
@@ -30,7 +30,7 @@ class StandardSecurityHandler:
     have the permissions specified by the document.
     """
 
-    def __init__(self, encryption: PdfDictionary, ids: list[PdfHexString | bytes]) -> None:
+    def __init__(self, encryption: PdfDictionary, ids: PdfArray[BytesLike]) -> None:
         """
         Arguments:
             encryption (PdfDictionary):
