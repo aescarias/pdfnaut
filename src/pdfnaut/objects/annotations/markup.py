@@ -169,7 +169,9 @@ class LineAnnotation(MarkupAnnotation):
     """The border style of the line annotation, controlling the width and dash
     pattern of the line."""
 
-    line_ending_color: list[float] | None = field("IC", default=None)
+    line_ending_color: list[float] | None = field(
+        "IC", default=None, encoder=PdfArray, decoder=list
+    )
     """The interior color that will be used for the line endings.
 
     The number of elements determines the color space: 0 is no color or transparent,
@@ -243,7 +245,7 @@ class RectangleAnnotation(MarkupAnnotation):
     border_style: AnnotationBorderStyle | None = field("BS", default=None)
     """The border style of the rectangle."""
 
-    interior_color: list[float] | None = field("IC", default=None)
+    interior_color: list[float] | None = field("IC", default=None, encoder=PdfArray, decoder=list)
     """The interior color that will be used for the rectangle.
 
     The number of elements determines the color space: 0 is no color or transparent,

@@ -92,7 +92,7 @@ class OutlineItem(PdfDictionary):
     """The color that shall be used for the outline item text, as an array of RGB
     color components in the range 0 to 1."""
 
-    flags: OutlineItemFlags = field("F", default=OutlineItemFlags.NULL.value)
+    flags: OutlineItemFlags = field("F", default=OutlineItemFlags.NULL)
     """A set of bit flags describing characteristics of the outline item text."""
 
     @classmethod

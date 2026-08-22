@@ -60,12 +60,8 @@ class LinkAnnotation(Annotation):
     )
     """The annotation's highlight mode."""
 
-    quad_points: list[float] | None = field(
-        default=None,
-        encoder=lambda lst: PdfArray(lst) if lst is not None else None,
-        decoder=lambda arr: list(arr) if not is_null_like(arr) else None,
-    )
-    """A sequence of n quadrilaterals, comprised of 8 numbers representing the coordinates
+    quad_points: list[float] | None = field(default=None, encoder=PdfArray, decoder=list)
+    """A sequence of N quadrilaterals, comprised of 8 numbers representing the coordinates
     in default user space that comprise the region in which the link should be activated.
     
     Item order: x1, y1, x2, y2, x3, y3, x4, y4
