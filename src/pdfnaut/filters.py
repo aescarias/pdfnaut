@@ -1,3 +1,5 @@
+import binascii
+import logging
 import zlib
 from base64 import a85decode, a85encode, b16decode, b16encode
 from itertools import groupby
@@ -11,6 +13,9 @@ from .exceptions import PdfFilterError
 
 if TYPE_CHECKING:
     from .security.standard_handler import StandardSecurityHandler
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PdfFilter(Protocol):
@@ -27,15 +32,25 @@ class ASCIIHexFilter(PdfFilter):
     This filter does not take any parameters. ``params`` will be ignored.
     """
 
-    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
-        if contents[-1:] != b">":
-            raise PdfFilterError("ASCIIHex: EOD not at end of stream.")
+    EOD = b">"
 
-        hexdata = bytearray(ch for ch in contents[:-1] if ch not in WHITESPACE)
-        return b16decode(hexdata, casefold=True)
+    def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
+        eod = contents.find(ASCIIHexFilter.EOD)
+        if eod == -1:
+            LOGGER.warning("ASCIIHex: EOD marker not present, verify output")
+            eod = len(contents)
+
+        hex_data = bytearray(ch for ch in contents[:eod] if ch not in WHITESPACE)
+        if len(hex_data) % 2 != 0:
+            hex_data += b"0"
+
+        try:
+            return b16decode(hex_data, casefold=True)
+        except binascii.Error as exc:
+            raise PdfFilterError("ASCIIHex: invalid hex data") from exc
 
     def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
-        return b16encode(contents) + b">"
+        return b16encode(contents) + ASCIIHexFilter.EOD
 
 
 class ASCII85Filter(PdfFilter):

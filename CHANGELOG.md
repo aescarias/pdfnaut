@@ -8,7 +8,11 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 ### Changes
 
 - No longer parse PDF header on every incremental update parse.
-- Emit a warning on encountering an unknown security handler.
+- Emit warning on encountering an unknown security handler.
+- Emit warning on missing EOD marker in `ASCIIHexFilter.decode()`.
+- Ignore data after first EOD marker found in `ASCIIHexFilter.decode()`.
+- Raise `PdfFilterError` when finding an invalid character in `ASCIIHexFilter.decode()`, instead of propagating `binascii.error` as it did previously.
+- Append pad digit when reading odd-length byte sequences in `ASCIIHexFilter.decode()`.
 
 ### Removals
 
