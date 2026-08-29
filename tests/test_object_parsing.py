@@ -99,14 +99,15 @@ def test_hex_string() -> None:
     hex_str = cast(PdfHexString, lexer.get_next_token())
     assert hex_str.raw == b""
 
-    # test that comments are ignored, as required by the PDF spec
-    lexer = PdfTokenizer(b"<%abcdef\nAB>")
-    hex_str = cast(PdfHexString, lexer.get_next_token())
-    assert hex_str.raw == b"AB"
-
     # test that invalid characters raise an exception
     with pytest.raises(PdfParseError):
         lexer = PdfTokenizer(b"<AB XX DE>")
+        lexer.get_next_token()
+
+    # test that comments are not allowed
+    # https://github.com/pdf-association/pdf-issues/issues/731
+    with pytest.raises(PdfParseError):
+        lexer = PdfTokenizer(b"<%abcdef\nAB>")
         lexer.get_next_token()
 
 

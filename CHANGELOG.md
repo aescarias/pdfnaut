@@ -23,6 +23,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 - Fix wrong type hint of the `ids` parameter of `StandardSecurityHandler`.
 - Fix `LineAnnotation.line_ending_color` and `RectangleAnnotation.interior_color` not being usable due to missing field encoder/decoder.
+- Do not allow embedded comments in hex strings. While whitespace is permitted by the spec, comments are not.
 
 ## [0.13.0] (2026-08-07)
 

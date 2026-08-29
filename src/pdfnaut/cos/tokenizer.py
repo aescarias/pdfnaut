@@ -360,8 +360,8 @@ class PdfTokenizer:
         content = bytearray()
 
         while not self.done and not self.matches(b">"):
-            # whitespace (including comments) is ignored
-            self.skip_ws_comment()
+            # whitespace is ignored
+            self.skip_whitespace()
 
             ch = self.peek()
             if not self._is_hex_digit(ch) and ch != b">":
