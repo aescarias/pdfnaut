@@ -10,7 +10,7 @@
 
 pdfnaut aims to become a PDF processor for parsing PDF 2.0 files.
 
-pdfnaut provides a high-level interface for reading and writing PDF documents as described in the [PDF 2.0 specification](https://developer.adobe.com/document-services/docs/assets/5b15559b96303194340b99820d3a70fa/PDF_ISO_32000-2.pdf) for actions such as reading and writing metadata, modifying and inserting pages, creating PDF objects, etc.
+pdfnaut provides a high-level interface for reading and writing PDF documents, as described in the PDF 2.0 specification, for actions such as reading and writing metadata, modifying and inserting pages, creating PDF objects, etc.
 
 ## Installation
 

@@ -2,6 +2,8 @@
 
 Thank you for considering a contribution to pdfnaut. Your efforts help keep this project alive.
 
+In general, pdfnaut aims to implement the PDF 2.0 specification, specifically ISO 32000-2:2020. This specification can be [downloaded free of charge](https://pdfa.org/sponsored-standards/) from the PDF Association website.
+
 ## Reporting Issues
 
 When reporting an issue, please provide a *Minimal Reproducible Example (MRE)*. This should include the simplest way to reproduce the issue (exact steps, ideally) alongside the PDF document being parsed.
@@ -25,7 +27,6 @@ Please make an issue before creating your PR if you want to make a change that m
 
 ### Style Guide
 
-- pdfnaut implements the [PDF 2.0 specification](https://developer.adobe.com/document-services/docs/assets/5b15559b96303194340b99820d3a70fa/PDF_ISO_32000-2.pdf).
 - We use [Ruff](https://docs.astral.sh/ruff/) for code formatting.
 - Docstrings should be written according to the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html#docstrings).
 - Markdown documents are linted through [Markdownlint](https://github.com/DavidAnson/markdownlint).
