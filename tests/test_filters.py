@@ -16,9 +16,11 @@ def test_ascii_hex(caplog) -> None:
     # not much to test, except that the EOD marker is appended
     assert ASCIIHexFilter().encode(b"band") == b"62616E64>"
     assert ASCIIHexFilter().encode(b"GIF89a") == b"474946383961>"
+    assert ASCIIHexFilter().encode(b"") == b">"
 
-    # simple decoding test
+    # simple decoding tests
     assert ASCIIHexFilter().decode(b"50444673>") == b"PDFs"
+    assert ASCIIHexFilter().decode(b">") == b""
 
     # decoder must accept and ignore whitespace
     assert ASCIIHexFilter().decode(b"50\x0044\r\n46 73>") == b"PDFs"

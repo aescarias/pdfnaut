@@ -89,27 +89,31 @@ class RunLengthFilter(PdfFilter):
     This filter does not take any parameters. ``params`` will be ignored.
     """
 
+    EOD = 128
+
     def decode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
-        idx = 0
-        output = bytes()
+        pos = 0
+        output = bytearray()
 
-        while idx < len(contents):
-            lenbyte = contents[idx]
-            idx += 1
+        while pos < len(contents):
+            len_byte = contents[pos]
+            pos += 1
 
-            if 0 <= lenbyte <= 127:
-                output += contents[idx : idx + lenbyte + 1]
-                idx += lenbyte + 1
-            elif 129 <= lenbyte <= 255:
-                output += bytes(contents[idx] for _ in range(257 - lenbyte))
-                idx += 1
-            elif lenbyte == 128:
+            if 0 <= len_byte <= 127:
+                output.extend(contents[pos : pos + len_byte + 1])
+                pos += len_byte + 1
+            elif 129 <= len_byte <= 255:
+                output.extend(contents[pos] for _ in range(257 - len_byte))
+                pos += 1
+            elif len_byte == RunLengthFilter.EOD:
                 break
+        else:
+            LOGGER.warning("RunLength: EOD marker not present, verify output")
 
-        return output
+        return bytes(output)
 
     def _encode_repeat_runs(self, runs: list[bytes]) -> bytes:
-        output = b""
+        output = bytearray()
 
         for run in runs:
             for batch in batched(run, 128):
@@ -121,19 +125,19 @@ class RunLengthFilter(PdfFilter):
                 if batch_len < 2:
                     # 257 - 1 is 256 which wouldn't fit in a byte
                     # so simply use the "copying" method for this batch
-                    byte = (batch_len - 1).to_bytes(1, "big")
+                    len_byte = (batch_len - 1).to_bytes(1, "big")
                     data = b"".join(item.to_bytes(1, "big") for item in batch)
-                    output += byte + data
+                    output.extend(len_byte + data)
                     continue
 
                 # repeat the first char at desire
-                byte = (257 - batch_len).to_bytes(1, "big")
-                output += byte + run[:1]
+                len_byte = (257 - batch_len).to_bytes(1, "big")
+                output.extend(len_byte + run[:1])
 
-        return output
+        return bytes(output)
 
     def _encode_copy_run(self, run: bytes) -> bytes:
-        output = b""
+        output = bytearray()
 
         for batch in batched(run, 128):
             if not batch:
@@ -142,9 +146,9 @@ class RunLengthFilter(PdfFilter):
             length_byte = (len(batch) - 1).to_bytes(1, "big")
             copy_bytes = b"".join(item.to_bytes(1, "big") for item in batch)
 
-            output += length_byte + copy_bytes
+            output.extend(length_byte + copy_bytes)
 
-        return output
+        return bytes(output)
 
     def encode(self, contents: bytes, *, params: PdfDictionary | None = None) -> bytes:
         # perform typical rle first than decode it.
@@ -159,19 +163,19 @@ class RunLengthFilter(PdfFilter):
         # this is the first heuristic that came to mind and it seems to work decently.
         run_length_threshold = sum(length for length, _ in runs) / len(runs)
 
-        final_output = b""
+        final_output = bytearray()
 
         for run_length, runs in runs_by_len:
             if run_length > run_length_threshold:
                 # above this threshold we use the "repeating" method
-                final_output += self._encode_repeat_runs(runs)
+                final_output.extend(self._encode_repeat_runs(runs))
             else:
                 # below this threshold, use the "copying" method
                 # merge the runs first though
-                final_output += self._encode_copy_run(b"".join(runs))
+                final_output.extend(self._encode_copy_run(b"".join(runs)))
 
-        final_output += b"\x80"
-        return final_output
+        final_output.append(RunLengthFilter.EOD)
+        return bytes(final_output)
 
 
 class FlateFilter(PdfFilter):
