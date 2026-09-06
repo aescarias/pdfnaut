@@ -7,17 +7,20 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Changes
 
+- Make name objects, hex strings, and comments immutable.
 - No longer parse PDF header on every incremental update parse.
 - Emit warning on encountering an unknown security handler.
-- Emit warning on missing EOD marker in `ASCIIHexFilter.decode()`.
+- Emit warning on missing EOD marker in `ASCIIHexFilter.decode()` and `RunLengthFilter.decode()`.
 - Ignore data after first EOD marker found in `ASCIIHexFilter.decode()`.
 - Raise `PdfFilterError` when finding an invalid character in `ASCIIHexFilter.decode()`, instead of propagating `binascii.error` as it did previously.
 - Append pad digit when reading odd-length byte sequences in `ASCIIHexFilter.decode()`.
+- Use byte arrays in `RunLengthFilter`.
 
 ### Removals
 
 - `start_xref` parameter in `PdfParser.parse`. The `parse()` function was rewritten so as to no longe use this parameter.
 - `cos.helpers` module. Removed due to circular import issues. Its functions were moved to other modules: `deref`, `into_bytes`, and `is_null_like` were moved to the `cos.objects.base` module; `ensure` is now an internal function.
+- `PdfName` can no longer be generic.
 
 ### Fixes
 

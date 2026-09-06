@@ -14,8 +14,6 @@ if TYPE_CHECKING:
     from .containers import PdfArray, PdfDictionary
     from .stream import PdfStream
 
-T = TypeVar("T", default=bytes)
-
 
 class PdfNull:
     """A PDF 'null' object, distinct from all other PDF objects (see ISO 32000-2:2020
@@ -28,7 +26,7 @@ class PdfNull:
         return False
 
 
-@dataclass
+@dataclass(frozen=True)
 class PdfComment:
     """A comment introduced by the presence of the percent sign (``%``) outside a string or
     inside a content stream. Comments have no syntactical meaning and shall be interpreted as
@@ -38,19 +36,23 @@ class PdfComment:
     """The value of this comment."""
 
 
-@dataclass(order=True)
-class PdfName(Generic[T]):
+@dataclass(frozen=True, order=True)
+class PdfName:
     """An atomic symbol uniquely defined by a sequence of 8-bit characters
     (see ISO 32000-2:2020 § 7.3.5 "Name Objects")."""
 
-    value: T
+    value: bytes
     """The value of this name."""
 
-    def __hash__(self) -> int:
-        return hash((self.__class__, self.value))
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.value!r})"
+
+    def __str__(self) -> str:
+        # UTF-8 can generally be assumed for name objects.
+        return "/" + self.value.decode("utf-8", errors="replace")
 
 
-@dataclass(order=True)
+@dataclass(frozen=True, order=True)
 class PdfHexString:
     """A string of characters encoded in hexadecimal useful for including arbitrary
     binary data in a PDF (see ISO 32000-2:2020 § 7.3.4.3 "Hexadecimal Strings")."""
@@ -68,11 +70,11 @@ class PdfHexString:
         """The decoded value of the hex string."""
         return unhexlify(self.raw)
 
-    def __hash__(self) -> int:
-        return hash((self.__class__, self.raw))
+    def __bytes__(self) -> bytes:
+        return self.value
 
 
-T = TypeVar("T")
+T = TypeVar("T", bound="PdfObject")
 
 
 @dataclass
@@ -180,7 +182,7 @@ PdfObject = Union[
 ]
 ObjectGetter = Callable[[PdfReference], T]
 
-_R = TypeVar("_R")
+_R = TypeVar("_R", bound=PdfObject)
 BytesLike = PdfHexString | bytes
 
 
