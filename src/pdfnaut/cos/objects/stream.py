@@ -57,7 +57,7 @@ class PdfStream:
             if filt.value == b"Crypt" and self._crypt_params.get("Handler"):
                 params.update(self._crypt_params)
 
-            output = SUPPORTED_FILTERS[filt.value]().decode(self.raw, params=params)
+            output = SUPPORTED_FILTERS[filt.value]().decode(output, params=params)
 
         return output
 
