@@ -232,7 +232,8 @@ def select_png_optimum_filter(
     and a score is obtained by the sum of the absolute values of these bytes.
 
     The filter producing the lowest score is determined to be the optimum filter
-    for this row.
+    for this row. If multiple filters produce the same score, the first candidate
+    is chosen.
 
     Arguments:
         row:

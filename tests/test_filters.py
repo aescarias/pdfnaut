@@ -9,6 +9,7 @@ from pdfnaut import PdfParser
 from pdfnaut.cos.objects import PdfStream
 from pdfnaut.exceptions import PdfFilterError
 from pdfnaut.filters import ASCII85Filter, ASCIIHexFilter, FlateFilter, RunLengthFilter
+from pdfnaut.filters._predictors import PNGPredictor, apply_png_prediction, undo_png_prediction
 
 
 def test_ascii_hex(caplog) -> None:
@@ -70,3 +71,36 @@ def test_rle() -> None:
 
             input_image.seek(0)
             assert RunLengthFilter().encode(input_image.read()) == output.read()
+
+
+def test_png_predictors():
+    # PNG None
+    raw_data = bytearray([10, 20, 30, 15, 25, 35, 20, 30, 40])
+    decode_params = {"columns": 3, "colors": 1, "bpc": 8}
+
+    encoded = apply_png_prediction(raw_data, PNGPredictor.NONE, **decode_params)
+    assert encoded == bytearray([0, 10, 20, 30, 0, 15, 25, 35, 0, 20, 30, 40])
+
+    decoded = undo_png_prediction(encoded, **decode_params)
+    assert decoded == raw_data
+
+    # PNG Sub (round-trip)
+    encoded = apply_png_prediction(raw_data, PNGPredictor.SUB, **decode_params)
+    assert encoded == bytearray([1, 10, 10, 10, 1, 15, 10, 10, 1, 20, 10, 10])
+
+    decoded = undo_png_prediction(encoded, **decode_params)
+    assert decoded == raw_data
+
+    # PNG Paeth (round-trip)
+    encoded = apply_png_prediction(raw_data, PNGPredictor.PAETH, **decode_params)
+    assert encoded == bytearray([4, 10, 10, 10, 4, 5, 5, 5, 4, 5, 5, 5])
+
+    decoded = undo_png_prediction(encoded, **decode_params)
+    assert decoded == raw_data
+
+    # PNG Optimum
+    encoded = apply_png_prediction(raw_data, PNGPredictor.OPTIMUM, **decode_params)
+    assert encoded == bytearray([1, 10, 10, 10, 2, 5, 5, 5, 2, 5, 5, 5])
+
+    decoded = undo_png_prediction(encoded, **decode_params)
+    assert decoded == raw_data
