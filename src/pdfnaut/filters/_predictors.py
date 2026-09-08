@@ -204,16 +204,56 @@ def apply_png_prediction(
     previous = bytearray(row_length)
     output = bytearray()
 
-    # TODO: Paeth is currently used in place of an optimum selection algorithm.
-    if predictor == PNGPredictor.OPTIMUM:
-        predictor = PNGPredictor.PAETH
-
     for r in range(0, len(to_filter), row_length):
         row = to_filter[r : r + row_length]
 
-        encoded = process_png_row(row, "filter", predictor, previous, sample_length)
-        output.extend([predictor, *encoded])
+        if predictor == PNGPredictor.OPTIMUM:
+            optimum, encoded = select_png_optimum_filter(row, previous, sample_length)
+            output.extend([optimum, *encoded])
+        else:
+            encoded = process_png_row(row, "filter", predictor, previous, sample_length)
+            output.extend([predictor, *encoded])
 
         previous = row.copy()
 
     return output
+
+
+def select_png_optimum_filter(
+    row: bytearray, previous: bytearray, sample_length: int
+) -> tuple[PNGPredictor, bytearray]:
+    """Selects the PNG optimum filter to apply to a particular row. Returns a
+    tuple containing in order the predictor chosen and the filtered row.
+
+    The optimum filter for a row is determined by applying each PNG filter to the
+    row and evaluating the resulting row using the heuristic documented in section
+    12.7 "Filter selection" of the PNG specification, known as the minimum sum of
+    absolute differences, where each filtered byte is treated as a signed integer
+    and a score is obtained by the sum of the absolute values of these bytes.
+
+    The filter producing the lowest score is determined to be the optimum filter
+    for this row.
+
+    Arguments:
+        row:
+            The row to be filtered.
+
+        previous:
+            The previous row or scan line.
+
+        sample_length:
+            The length in bytes of each sample within the current and previous
+            PNG rows.
+    """
+
+    candidates: dict[PNGPredictor, bytearray] = {}
+    diff_sums: dict[PNGPredictor, int] = {}
+
+    for predictor in PNGPredictor:
+        if predictor == PNGPredictor.OPTIMUM:
+            continue
+
+        candidates[predictor] = process_png_row(row, "filter", predictor, previous, sample_length)
+        diff_sums[predictor] = sum(b if b < 128 else 256 - b for b in candidates[predictor])
+
+    return min(candidates.items(), key=lambda it: diff_sums[it[0]])

@@ -5,6 +5,10 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ## [unreleased]
 
+### Additions
+
+- Stream encoding using predictor 15 (PNG optimum).
+
 ### Changes
 
 - Make name objects, hex strings, and comments immutable.
