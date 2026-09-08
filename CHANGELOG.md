@@ -18,7 +18,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Removals
 
-- `start_xref` parameter in `PdfParser.parse`. The `parse()` function was rewritten so as to no longe use this parameter.
+- `start_xref` parameter in `PdfParser.parse`. The `parse()` function was rewritten to no longer require this parameter.
 - `cos.helpers` module. Removed due to circular import issues. Its functions were moved to other modules: `deref`, `into_bytes`, and `is_null_like` were moved to the `cos.objects.base` module; `ensure` is now an internal function.
 - `PdfName` can no longer be generic.
 

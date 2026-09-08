@@ -1,3 +1,5 @@
+"""Implementation of the Crypt filter."""
+
 from typing import TYPE_CHECKING, cast
 
 from ..cos.objects import PdfDictionary, PdfName, PdfReference
