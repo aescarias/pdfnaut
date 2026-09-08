@@ -92,13 +92,18 @@ def process_png_row(
     if predictor == PNGPredictor.OPTIMUM:
         raise ValueError("predictor cannot be optimum")
 
-    row = bytearray(row)
+    output_row = bytearray(row)
 
     for b in range(len(row)):
         # in Figure 19 of the PNG spec: cur_byte is x, byte_left is a,
         # byte_up is b, and byte_up_left is c
-        cur_byte = row[b]
-        byte_left = row[b - sample_length] if b >= sample_length else 0
+        if mode == "filter":
+            cur_byte = row[b]
+            byte_left = row[b - sample_length] if b >= sample_length else 0
+        else:
+            cur_byte = output_row[b]
+            byte_left = output_row[b - sample_length] if b >= sample_length else 0
+
         byte_up = previous[b]
         byte_up_left = previous[b - sample_length] if b >= sample_length else 0
 
@@ -115,9 +120,9 @@ def process_png_row(
             paeth = predict_paeth(byte_left, byte_up, byte_up_left)
             byte = cur_byte - paeth if mode == "filter" else cur_byte + paeth
 
-        row[b] = byte % 256 if predictor != PNGPredictor.NONE else byte
+        output_row[b] = byte % 256 if predictor != PNGPredictor.NONE else byte
 
-    return row
+    return output_row
 
 
 def undo_png_prediction(filtered: bytearray, *, columns: int, colors: int, bpc: int) -> bytearray:
