@@ -7,6 +7,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Additions
 
+- Pass-through read/write of image stream filters `DCTDecode` (JPEG), `JPXDecode` (JPEG 2000), `CCITTFaxDecode`, and `JBIG2Decode`.
 - Stream encoding using predictor 15 (PNG optimum).
 
 ### Changes
