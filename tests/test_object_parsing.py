@@ -15,7 +15,7 @@ from pdfnaut.cos.objects import (
     PdfNull,
     PdfReference,
 )
-from pdfnaut.cos.objects.base import PdfOperator
+from pdfnaut.cos.objects.base import PdfInlineImage, PdfOperator
 from pdfnaut.cos.objects.trees import NameTree, NumberTree
 from pdfnaut.cos.tokenizer import ContentStreamTokenizer, PdfTokenizer
 from pdfnaut.exceptions import PdfParseError
@@ -181,19 +181,12 @@ E,8rmAS?!uA7]d(AoD]4Bl.9kAH~>
 EI              % End inline image object
     """)
 
-    operator = list(lexer)
-
-    assert operator[0].name == b"EI"
-    assert operator[0].args[0].details == PdfDictionary(
-        {
-            "W": 17,
-            "H": 17,
-            "CS": PdfName(b"RGB"),
-            "BPC": 8,
-            "F": PdfArray([PdfName(b"A85")]),
-        }
-    )
-    assert operator[0].args[0].raw == b"E,8rmAS?!uA7]d(AoD]4Bl.9kAH~>\n"
+    assert list(lexer) == [
+        PdfInlineImage(
+            PdfDictionary(W=17, H=17, CS=PdfName(b"RGB"), BPC=8, F=PdfArray([PdfName(b"A85")])),
+            b"E,8rmAS?!uA7]d(AoD]4Bl.9kAH~>\n",
+        )
+    ]
 
 
 def test_number_tree() -> None:

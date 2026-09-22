@@ -12,6 +12,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Changes
 
+- Emit inline images separately from PDF content stream operators.
 - Make name objects, hex strings, and comments immutable.
 - No longer parse PDF header on every incremental update parse.
 - Emit warning on encountering an unknown security handler.

@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import cast
 
+from pdfnaut.cos.objects.base import Operand
 from pdfnaut.exceptions import PdfParseError
 
 from .objects import (
@@ -37,8 +38,11 @@ STRING_ESCAPE = {
 }
 
 
+ContentStreamItem = PdfOperator | PdfInlineImage
+
+
 class ContentStreamTokenizer:
-    """A tokenizer designed to consume the contents within a content stream.
+    """A tokenizer designed to consume a content stream and produce PDF operators.
 
     This tokenizer relies on :class:`PdfTokenizer` to parse common tokens
     but has special handling for the operators inside a content stream.
@@ -51,31 +55,32 @@ class ContentStreamTokenizer:
     def __iter__(self):
         return self
 
-    def __next__(self) -> PdfOperator:
+    def __next__(self) -> ContentStreamItem:
         while not self.tokenizer.done:
             if (operator := self.get_next_token()) is not None and isinstance(
-                operator, PdfOperator
+                operator, ContentStreamItem
             ):
                 return operator
 
         raise StopIteration
 
-    def get_next_token(self) -> PdfOperator | PdfComment | None:
+    def get_next_token(self) -> ContentStreamItem | PdfComment | None:
         """Consumes the next token.
 
-        The return value is either a :class:`.PdfOperator` or a :class:`.PdfComment`,
-        in case a token was consumed, or ``None``, if the end of data has been reached.
+        The return value is either a :class:`.PdfOperator`, a :class:`.PdfInlineImage`,
+        or a :class:`.PdfComment`, in case a token was consumed, or ``None``, if the end
+        of data has been reached.
         """
         if self.tokenizer.done:
             return
 
-        operands: list[PdfObject] = []
+        operands: list[Operand] = []
         while not self.tokenizer.done:
             if (tok := self.tokenizer.get_next_token(parse_references=False)) is not None:
                 if isinstance(tok, PdfComment):
                     return tok
 
-                operands.append(tok)
+                operands.append(cast(Operand, tok))
                 continue
             elif (pk := self.tokenizer.peek()).isalpha() or pk in b"'\"":
                 name = self.tokenizer.consume_while(lambda ch: ch not in DELIMITERS + WHITESPACE)
@@ -89,14 +94,11 @@ class ContentStreamTokenizer:
 
             self.tokenizer.skip()
 
-    def parse_inline_image(self) -> PdfOperator:
-        """Parses an inline image.
+    def parse_inline_image(self) -> PdfInlineImage:
+        """Parses and returns an inline image (see :class:`.PdfInlineImage`).
 
-        Inline images are an alternative to image XObjects designed for embedding
+        Inline images are an alternative to image XObjects, designed for embedding
         small images in a content stream.
-
-        Returns an operator ``EI`` (for "end image") with a :class:`.PdfInlineImage`
-        as its first and only operand.
         """
         mapping = self.tokenizer.parse_kv_map_until(b"ID")
 
@@ -133,7 +135,8 @@ class ContentStreamTokenizer:
         else:
             image_data = self.tokenizer.consume_while(lambda _: self.tokenizer.peek(2) != b"EI")
 
-        return PdfOperator(self.tokenizer.consume(2), [PdfInlineImage(mapping, image_data)])
+        self.tokenizer.consume(2)  # consume the "EI" operator
+        return PdfInlineImage(mapping, image_data)
 
 
 class PdfTokenizer:

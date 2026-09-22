@@ -48,6 +48,10 @@ def test_ascii_85() -> None:
     assert ASCII85Filter().decode(b":ddco~>") == b"PDFs"
     assert ASCII85Filter().encode(b"band") == b"@UX.b~>"
 
+    # empty string
+    assert ASCII85Filter().encode(b"") == b"~>"
+    assert ASCII85Filter().decode(b"~>") == b""
+
 
 def test_flate() -> None:
     # No predictor

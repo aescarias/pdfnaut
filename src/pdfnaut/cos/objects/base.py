@@ -110,6 +110,11 @@ class PdfReference(Generic[T]):
         return f"{self.object_number} {self.generation} R"
 
 
+Operand = Union[
+    bool, int, float, bytes, "PdfArray", "PdfDictionary", PdfHexString, PdfName, PdfNull
+]
+
+
 @dataclass
 class PdfOperator:
     """A PDF operator within a content stream (see ISO 32000-2:2020 § 7.8.2 "Content streams")."""
@@ -117,8 +122,8 @@ class PdfOperator:
     name: bytes
     """The name of this operator."""
 
-    args: list[PdfObject] | list[PdfInlineImage]
-    """The arguments or operands provided to this operator."""
+    args: list[Operand]
+    """The arguments provided to this operator."""
 
 
 # TODO: convert this into a PdfStream-like class
