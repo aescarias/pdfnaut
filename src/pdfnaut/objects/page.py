@@ -3,11 +3,11 @@ from typing import Literal, cast
 from typing_extensions import Self
 
 from ..common.dictmodels import dictmodel, field
+from ..cos.cstm_parser import ContentStreamParser
 from ..cos.objects.base import PdfName, PdfReference, is_null_like
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
 from ..cos.parser import PdfParser
-from ..cos.tokenizer import ContentStreamTokenizer
 from .annotations import AnnotationList
 
 TabOrder = Literal["R", "C", "S", "A", "W"]
@@ -125,7 +125,7 @@ class Page(PdfDictionary):
         return f"<{self.__class__.__name__} mediabox={self.mediabox!r} rotation={self.rotation!r}>"
 
     @property
-    def content_stream(self) -> ContentStreamTokenizer | None:
+    def content_stream(self) -> ContentStreamParser | None:
         """An iterator over the instructions producing the contents of this page."""
         contents = self.get("Contents")
         if is_null_like(contents):
@@ -136,9 +136,9 @@ class Page(PdfDictionary):
         if isinstance(contents, PdfArray):
             # when Contents is an array, it shall be concatenated into a single
             # content stream with at least one whitespace character in between.
-            return ContentStreamTokenizer(b"\n".join(stm.decode() for stm in contents))
+            return ContentStreamParser(b"\n".join(stm.decode() for stm in contents))
 
-        return ContentStreamTokenizer(contents.decode())
+        return ContentStreamParser(contents.decode())
 
     @property
     def annotations(self) -> AnnotationList | None:

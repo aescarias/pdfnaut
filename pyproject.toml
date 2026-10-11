@@ -27,8 +27,8 @@ pythonVersion = "3.10"
 homepage = "https://github.com/aescarias/pdfnaut"
 
 [project.optional-dependencies]
-dev = ["isort", "pytest", "pytest-cov", "ruff", "tox"]
-docs = ["Sphinx", "sphinx-copybutton", "sphinx-design", "furo"]
+dev = ["isort >= 9.0", "pytest >= 7.0", "pytest-cov >= 7.0", "ruff >= 0.17.0", "tox >= 4.0"]
+docs = ["Sphinx >= 7.2", "sphinx-copybutton >= 0.5.2", "sphinx-design >= 0.7.0", "furo >= 2025.12.19"]
 
 [tool.ruff]
 target-version = "py310"
@@ -49,5 +49,5 @@ pythonpath = ["."]
 version = { attr = "pdfnaut.__version__" }
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools >= 80"]
 build-backend = "setuptools.build_meta"

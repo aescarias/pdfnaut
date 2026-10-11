@@ -10,8 +10,8 @@ import binascii
 import logging
 from base64 import a85decode, a85encode, b16decode, b16encode
 
+from ..cos.lexer import WHITESPACE
 from ..cos.objects import PdfDictionary
-from ..cos.tokenizer import WHITESPACE
 from ..exceptions import PdfFilterError
 from ._base import PdfFilter
 

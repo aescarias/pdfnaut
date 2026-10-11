@@ -7,12 +7,18 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Additions
 
+- New lexer/parser model in replacement of `PdfTokenizer`: `PdfLexer` and `PdfObjectParser`. This separate lexical analysis from PDF object parsing.
+- New content stream parser `ContentStreamParser` in replacement of `ContentStreamTokenizer`. The new parser emits inline images separately from PDF content stream operators.
 - Pass-through read/write of image stream filters `DCTDecode` (JPEG), `JPXDecode` (JPEG 2000), `CCITTFaxDecode`, and `JBIG2Decode`.
 - Stream encoding using predictor 15 (PNG optimum).
+- Reject directly adjacent numbers with sign prefixes.
+- Reject invalid escape sequences in name objects.
+- Reject duplicate or invalid keys in dictionaries.
+- Reject invalid object identifiers such as `-1 0 R`.
+- Normalize newlines in literal strings to `\n`.
 
 ### Changes
 
-- Emit inline images separately from PDF content stream operators.
 - Make name objects, hex strings, and comments immutable.
 - No longer parse PDF header on every incremental update parse.
 - Emit warning on encountering an unknown security handler.
@@ -24,6 +30,8 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Removals
 
+- `PdfTokenizer`. This tokenizer has been replaced by `PdfLexer` and `PdfObjectParser`.
+- `ContentStreamTokenizer`. This tokenizer has been replaced by `ContentStreamParser`.
 - `start_xref` parameter in `PdfParser.parse`. The `parse()` function was rewritten to no longer require this parameter.
 - `cos.helpers` module. Removed due to circular import issues. Its functions were moved to other modules: `deref`, `into_bytes`, and `is_null_like` were moved to the `cos.objects.base` module; `ensure` is now an internal function.
 - `PdfName` can no longer be generic.

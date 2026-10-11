@@ -75,7 +75,9 @@ Reading document information from a PDF is also simple:
    :caption: API Reference
    :hidden:
 
-   PDF Tokenizer <reference/cos/tokenizer>
+   PDF Lexer <reference/cos/lexer>
+   PDF Object Parser <reference/cos/object_parser>
+   PDF Content Stream Parser <reference/cos/cstm_parser>
    PDF Parser <reference/cos/parser>
    PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>

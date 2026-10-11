@@ -14,7 +14,7 @@ from ..cos.objects.xref import (
     PdfXRefSubsection,
 )
 from ..exceptions import PdfWriteError
-from .tokenizer import STRING_ESCAPE
+from .lexer import ESCAPE_MAP
 
 
 def serialize_comment(comment: PdfComment) -> bytes:
@@ -31,14 +31,14 @@ def serialize_bool(boolean: bool) -> bytes:
 
 def serialize_literal_string(byte_str: bytes, *, keep_ascii: bool = False) -> bytes:
     output = bytearray()
-    escape = {v: k for k, v in STRING_ESCAPE.items()}
+    escape = {v: k for k, v in ESCAPE_MAP.items()}
 
     for char in byte_str:
         char = char.to_bytes(1, "big")
 
         if (esc := escape.get(char)) is not None:
             # character needs to be escaped
-            output += esc
+            output += b"\\" + esc
         elif keep_ascii and not char.isascii():
             # octal \ddd notation
             output += rf"\{ord(char):0>3o}".encode()
