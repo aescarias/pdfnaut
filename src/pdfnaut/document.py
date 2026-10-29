@@ -159,6 +159,10 @@ class PdfDocument:
         return self._reader.get_object(reference, cache)
 
     def decrypt(self, password: str) -> PermsAcquired:
+        """Decrypts this document by providing ``password`` to the standard security
+        handler. Returns a :class:`PermsAcquired` value, specifying the permissions
+        acquired by ``password``.
+        """
         self.access_level = self._reader.decrypt(password)
         return self.access_level
 

@@ -78,7 +78,8 @@ Reading document information from a PDF is also simple:
    PDF Lexer <reference/cos/lexer>
    PDF Object Parser <reference/cos/object_parser>
    PDF Content Stream Parser <reference/cos/cstm_parser>
-   PDF Parser <reference/cos/parser>
+   PDF Reader <reference/cos/reader>
+   PDF Writer <reference/cos/writer>
    PDF Serializer <reference/cos/serializer>
    PDF Document <reference/document>
    PDF Objects <reference/objects>
