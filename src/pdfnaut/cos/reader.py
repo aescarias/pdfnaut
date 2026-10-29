@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import hashlib
 import logging
+import mmap
 import re
 from collections import UserDict
-from datetime import time
 from enum import IntEnum
 from functools import partial
-from io import BufferedIOBase, BytesIO
+from io import BytesIO
 from pathlib import Path
-from typing import IO, BinaryIO, TypeVar, cast
+from typing import BinaryIO, TypeVar, cast
 
-from typing_extensions import TypeAlias
+from typing_extensions import Buffer, Self, TypeAlias
 
 from ..common._utils import get_closest
 from ..cos.objects.base import (
@@ -37,26 +36,8 @@ from ..exceptions import PdfParseError
 from ..security.standard_handler import StandardSecurityHandler
 from .lexer import PdfLexer, TokenType
 from .object_parser import PdfObjectParser
-from .serializer import PdfSerializer, serialize
 
 LOGGER = logging.getLogger(__name__)
-
-
-def generate_file_id(filename: str, content_size: int) -> PdfHexString:
-    """Generates a file identifier using ``filename`` and ``content_size`` as
-    described in ISO 32000-2:2020 § 14.4 "File identifiers".
-
-    File identifiers are values that uniquely separate a revision of a document
-    from another. The file identifier is generated using the same information
-    specified in the standard, that is, the current time, the file path and
-    the file size in bytes.
-    """
-
-    id_digest = hashlib.md5(time().isoformat("auto").encode())
-    id_digest.update(filename.encode())
-    id_digest.update(str(content_size).encode())
-
-    return PdfHexString(id_digest.hexdigest().encode())
 
 
 class PermsAcquired(IntEnum):
@@ -82,10 +63,10 @@ class ObjectStream:
     """A mapping of object numbers to PDF objects representing an object stream
     (see ISO 32000-2:2020 § 7.5.7 "Object Streams")."""
 
-    def __init__(self, pdf: PdfParser, stream: PdfStream, stream_objnum: int) -> None:
+    def __init__(self, pdf: PdfReader, stream: PdfStream, stream_objnum: int) -> None:
         """
         Arguments:
-            pdf (PdfParser):
+            pdf (PdfReader):
                 The PDF parser or document to which this object stream belongs.
 
             stream (PdfStream):
@@ -156,53 +137,6 @@ class ObjectStream:
 
         return resolved
 
-    def to_stream(self) -> PdfStream:
-        """Returns a :class:`.PdfStream` representing the contents of this object stream."""
-
-        object_string = bytearray()
-        indices: list[tuple[int, int]] = []
-
-        for idx in range(self._n_objects):
-            if cached := self.resolved_objects.get(idx):
-                writing_object = cached
-            else:
-                writing_object = self.get_object(idx, cache=False)
-
-            obj_num, _ = self.index_pairs[idx]
-            entry = self.pdf.xref.get((obj_num, 0))
-
-            start_offset = len(object_string)
-
-            if entry is None:
-                new_obj_num = self.pdf.objects.add(writing_object).object_number
-
-                # guarantee that the pdf processor doesn't write a new object
-                # but rather uses the one from the object stream
-                self.pdf.xref[(new_obj_num, 0)] = CompressedXRefEntry(
-                    self.stream_objnum, start_offset
-                )
-            else:
-                new_obj_num = obj_num
-
-            object_string.extend(serialize(writing_object) + b" ")
-
-            indices.append((new_obj_num, start_offset))
-
-        index_string = bytearray()
-        for obj_num, rel_offset in indices:
-            index_string.extend(f"{obj_num} {rel_offset}".encode() + b" ")
-
-        objstm_data = self.stream.details | PdfDictionary(
-            Type=PdfName(b"ObjStm"),
-            N=len(indices),
-            First=len(index_string),
-            Length=0,  # to be filled in
-        )
-
-        return PdfStream.create(
-            bytes(index_string + object_string), cast(PdfDictionary, objstm_data)
-        )
-
 
 class ObjectMap(UserDict[int, MapObject]):
     """A mapping of object numbers to either object references, in-use objects or free objects.
@@ -214,7 +148,7 @@ class ObjectMap(UserDict[int, MapObject]):
     Free objects are indicated with the :class:`.FreeObject` class.
     """
 
-    def __init__(self, pdf: PdfParser) -> None:
+    def __init__(self, pdf: PdfReader) -> None:
         super().__init__()
 
         self._pdf = pdf
@@ -276,25 +210,29 @@ class ObjectMap(UserDict[int, MapObject]):
         return value
 
 
-class PdfParser:
-    """A parser that can completely parse a PDF document.
+class PdfReader:
+    """The low-level PDF document reader."""
 
-    It consumes the PDF's cross-reference tables and trailers. It merges the tables
-    into a single one and provides an interface to individually parse each indirect
-    object using :class:`~pdfnaut.cos.lexer.PdfLexer`.
+    def __init__(self, source: Buffer | BinaryIO | str | Path, *, strict: bool = False) -> None:
+        """Initializes a PDF reader.
 
-    Arguments:
-        data (bytes):
-            The document to be processed.
+        Args:
+            source:
+                The document to read. May be either a bytes object, a seekable
+                binary file-like object, a string (representing a path),
+                or a :class:`pathlib.Path` object.
 
-        strict (bool, optional, keyword only):
-            Whether to warn or fail on issues caused by non-spec-compliance.
-            Defaults to False.
-    """
+            strict:
+                Whether to read the document without attempting to perform repairs
+                or fix issues caused by spec deviations (default is False).
+        """
 
-    def __init__(self, data: bytes, *, strict: bool = False) -> None:
         self.strict = strict
-        self._lexer = PdfLexer(data)
+
+        self._source = source
+        self._setup_reader()
+
+        self._lexer = PdfLexer(self._view)
         self._object_reader = PdfObjectParser(self._lexer, resolver=self.get_object)
 
         #   object number: object stream
@@ -347,45 +285,100 @@ class PdfParser:
         This is here as a measure to prevent circular reference loops.
         """
 
-    def _build_xref_from(self, offset: int) -> None:
-        """Builds the XRef table and trailer starting from the XRef table located
-        at offset ``offset``."""
+        self._parse()
 
-        # Move to the offset where the XRef and trailer are
-        self._lexer.seek(offset)
-        section = self.parse_xref_and_trailer()
+    def _setup_reader(self) -> None:
+        self._file_obj: BinaryIO | None = None
+        self._mmap: mmap.mmap | None = None
+        self._view: memoryview
+        self._owns_source: bool = False
 
-        # Add the incremental update
-        self.updates.append(section)
+        if isinstance(self._source, BytesIO):
+            self._file_obj = self._source
+            self._view = self._source.getbuffer()
+            return
 
-        # Find more XRefs
-        prev_xref = section.trailer.get("Prev")
-        if not is_null_like(prev_xref):
-            prev_xref = cast(int, prev_xref)
-            self._build_xref_from(prev_xref)
+        if isinstance(self._source, Buffer):
+            self._view = memoryview(self._source)
+            return
+
+        if isinstance(self._source, (str, Path)):
+            self._file_obj = open(self._source, "rb")
+            self._owns_source = True
         else:
-            self.xref = self.get_merged_xrefs()
-            self.trailer = self.updates[0].trailer
+            self._file_obj = self._source
 
-    def parse(self) -> None:
+        try:
+            try:
+                self._mmap = mmap.mmap(self._file_obj.fileno(), 0, access=mmap.ACCESS_READ)
+                self._view = memoryview(self._mmap)
+            except ValueError:
+                LOGGER.warning(
+                    "mmap not supported on %r, loading document into memory", self._source
+                )
+
+                pos = self._file_obj.tell()
+                try:
+                    self._file_obj.seek(0)
+                    contents = self._file_obj.read()
+                finally:
+                    self._file_obj.seek(pos)
+
+                self._view = memoryview(contents)
+        except Exception as exc:
+            self._cleanup_reader()
+            raise exc
+
+    def _cleanup_reader(self) -> None:
+        self._view.release()
+
+        if self._mmap is not None:
+            self._mmap.close()
+
+        if self._file_obj is not None and self._owns_source:
+            self._file_obj.close()
+
+    def close(self) -> None:
+        self._cleanup_reader()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc_args) -> bool:
+        self.close()
+        return False
+
+    def _parse(self) -> None:
         """Parses the entire document.
 
         The parser begins by locating the PDF header, then finding and combining
-        the XRef sections in the document. It finally builds the object store and
-        prepares the standard security handler in case the document requires it.
+        the cross-reference sections in the document. It finally builds the object
+        store and prepares the security handler for encrypted documents.
         """
 
-        # Move to the header, which SHOULD be at offset 0.
-        self._lexer.seek(0)
-        self.header_version = self.parse_header()
+        # step 1: read the header
+        header, offset = self._locate_header()
+        self.header_version = header.removeprefix(b"%PDF-").decode("ascii")
+        if offset != 0:
+            original_view = self._view
+            self._view = original_view[offset:]
+            self._lexer._view = self._view
+            original_view.release()
 
-        # Locate and build the XRef table.
-        self._build_xref_from(self.lookup_xref_start())
+        # step 2: get the most recent startxref
+        startxrefs = list(re.finditer(b"startxref", self._view))
+        if not startxrefs:
+            # TODO: trigger xref rebuild when not in strict mode
+            raise PdfParseError("could not locate xref table because startxref is missing")
 
-        # Fills the object store so we can refer to objects.
+        # step 3: read the xref table
+        startxref = self._get_startxref(startxrefs[-1].start())
+        self._build_xref_table(startxref)
+
+        # step 4: fill the object store so we can refer to objects.
         self.objects.fill()
 
-        # Determine if the document uses the standard security handler.
+        # step 5: check if the document uses the standard security handler.
         encryption = self.trailer.get("Encrypt")
         if not is_null_like(encryption):
             ids = cast(PdfArray[BytesLike], self.trailer["ID"])
@@ -397,29 +390,76 @@ class PdfParser:
             else:
                 LOGGER.warning("document uses unknown security handler %s", sec_filter)
 
-    def parse_header(self) -> str:
-        """Parses the %PDF-n.m header that is expected to be at the start of a PDF file."""
-        pattern = re.compile(rb"PDF-(?P<major>\d+).(?P<minor>\d+)")
+    def _locate_header(self) -> tuple[bytes, int]:
+        """Locates the PDF header in ``view`` returning the header value (%PDF-n.m)
+        and its absolute byte offset, from which the rest of the byte offsets shall
+        be calculated."""
 
-        if self._lexer.matches(b"%"):
-            header = self._lexer._read_comment().value
+        # The PDF header SHOULD be at position 0; however, arbitrary data may precede
+        # the header in some cases. Previous specs did not allow this explicitly.
+        # The PDF 2.0 specification does have this provision, but does not specify the
+        # maximum length of the arbitrary data, so in theory, the whole document should
+        # be scanned.
 
-            if mat := pattern.match(header):
-                return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
+        # %PDF-n.m where n is major version and m is minor version
+        header = re.search(rb"%PDF-\d+\.\d+", self._view)
+        if header is None:
+            raise PdfParseError("could not locate PDF header")
 
-        # Although not recommended, it is possible for documents to start with content
-        # other than %PDF-n.m. Offsets should be calculated based on the start of the
-        # header token rather than the start of the document (offset 0).
-        if not self.strict:
-            LOGGER.warning("pdf header not at start of document")
-            if mat := pattern.search(self._lexer._view):
-                if self._lexer._view[mat.start() - 1] == 37:  # %
-                    self._lexer._view = self._lexer._view[mat.start() - 1 :]
-                    return f"{mat.group('major').decode()}.{mat.group('minor').decode()}"
+        header_text = header.group()
+        header_offset = header.start()
 
-        raise PdfParseError("expected PDF header at start of file.")
+        if header_offset != 0 and self.strict:
+            raise PdfParseError("PDF header not at offset 0")
 
-    def build_xref_map(
+        return (header_text, header_offset)
+
+    def _get_startxref(self, offset: int) -> int:
+        """Gets the startxref offset, pointing to an xref section."""
+
+        self._lexer.seek(offset)
+
+        # § 7.5.5 - An incremental update (or document) ends with three lines:
+        # "startxref", the offset to the xref table and trailer, and "%%EOF".
+        keyword = self._lexer.consume(9)
+        if keyword != b"startxref":
+            raise ValueError("offset must point to startxref")
+
+        self._lexer.skip_whitespace()
+
+        # read the startxref integer
+        xref_start = bytearray()
+        while (ch := self._lexer.peek()) and ch in b"0123456789":
+            xref_start += self._lexer.consume()
+
+        xref_start = int(xref_start)
+        self._lexer.skip_whitespace()
+
+        # read the EOF
+        eof = self._lexer.consume(5)
+        if eof != b"%%EOF":
+            if self.strict:
+                raise PdfParseError("expected EOF marker")
+
+            LOGGER.warning("expected EOF marker after startxref")
+
+        return xref_start
+
+    def _build_xref_table(self, offset: int) -> None:
+        """Recursively builds the PDF cross-reference table, starting from ``offset``."""
+        self._lexer.seek(offset)
+
+        section = self._parse_xref_section()
+        self.updates.append(section)
+
+        prev = section.trailer.get("Prev")
+        if not is_null_like(prev):
+            self._build_xref_table(cast(int, prev))
+        else:
+            self.xref = self._get_merged_xrefs()
+            self.trailer = self.updates[0].trailer
+
+    def _build_xref_mapping(
         self, subsections: list[PdfXRefSubsection]
     ) -> dict[tuple[int, int], PdfXRefEntry]:
         """Creates a dictionary mapping references to XRef entries in the document."""
@@ -432,14 +472,14 @@ class PdfParser:
                 elif isinstance(entry, InUseXRefEntry):
                     gen = entry.generation
                 else:
-                    # compressed entries are assumed 0
+                    # compressed entries assume a generation of 0.
                     gen = 0
 
                 entry_map[(idx, gen)] = entry
 
         return entry_map
 
-    def get_merged_xrefs(self) -> dict[tuple[int, int], PdfXRefEntry]:
+    def _get_merged_xrefs(self) -> dict[tuple[int, int], PdfXRefEntry]:
         """Combines all XRef updates in the document into a cross-reference mapping
         that includes all entries."""
         entry_map: dict[tuple[int, int], PdfXRefEntry] = {}
@@ -447,14 +487,14 @@ class PdfParser:
 
         # from least recent to most recent
         for section in self.updates[::-1]:
-            update_map = self.build_xref_map(section.subsections)
+            update_map = self._build_xref_mapping(section.subsections)
 
             # if the document is a hybrid-reference file, append any hidden objects.
             if "XRefStm" in section.trailer:
                 self._lexer.seek(cast(int, section.trailer["XRefStm"]))
 
-                xrefstm = self.parse_compressed_xref()
-                hybrid_map = self.build_xref_map(xrefstm.subsections)
+                xrefstm = self._parse_compressed_xref()
+                hybrid_map = self._build_xref_mapping(xrefstm.subsections)
 
                 for (obj, gen), hybrid_entry in hybrid_map.items():
                     update_entry = update_map.get((obj, gen))
@@ -479,48 +519,20 @@ class PdfParser:
 
         return entry_map
 
-    def lookup_xref_start(self) -> int:
-        """Scans through the PDF until it finds the XRef offset then returns it."""
-        contents = bytearray()
+    def _parse_xref_section(self) -> PdfXRefSection:
+        """Parses the cross-reference section and the PDF trailer included."""
 
-        # The PDF spec tells us we need to parse from the end of the file
-        # and the XRef comes first
-        self._lexer.seek(-1, 2)
-
-        while self._lexer._pos > 0:
-            contents.insert(0, self._lexer.peek()[0])
-            if contents.startswith(b"startxref"):
-                break
-
-            self._lexer._pos -= 1
-
-        if not contents.startswith(b"startxref"):
-            print(contents)
-            raise PdfParseError("Cannot locate XRef table. 'startxref' offset missing.")
-
-        # advance to the startxref offset, we know it's there.
-        self._lexer.match(b"startxref", "expected startxref keyword")
-        self._lexer.skip_whitespace()
-
-        return cast(int, self._object_reader.next_object())  # startxref
-
-    def parse_xref_and_trailer(self) -> PdfXRefSection:
-        """Parses both the cross-reference table and the PDF trailer.
-
-        PDFs may include a typical uncompressed XRef table (and hence separate XRefs and
-        trailers) or an XRef stream that combines both.
-        """
         start_offset = self._lexer.tell()
 
         if self._lexer.matches(b"xref"):
-            xref = self.parse_simple_xref()
+            xref = self._parse_simple_xref()
             self._lexer.skip_whitespace()
-            trailer = self.parse_simple_trailer()
+            trailer = self._parse_simple_trailer()
 
             return PdfXRefSection(xref, trailer)
         elif self._try_parse_object_header() is not None:
             self._lexer.seek(start_offset)
-            return self.parse_compressed_xref()
+            return self._parse_compressed_xref()
         elif not self.strict:
             LOGGER.warning("did not find xref table at offset %d", self._lexer.tell())
 
@@ -530,7 +542,7 @@ class PdfParser:
 
             # get the xref table nearest to our offset
             self._lexer.seek(get_closest(table_offsets, target))
-            section = self.parse_xref_and_trailer()
+            section = self._parse_xref_section()
 
             # make sure the user can see our corrections
             if "Prev" in section.trailer:
@@ -600,7 +612,7 @@ class PdfParser:
 
         return sorted(table_offsets)
 
-    def parse_simple_trailer(self) -> PdfDictionary:
+    def _parse_simple_trailer(self) -> PdfDictionary:
         """Parses the PDF's standard trailer which is used to quickly locate other
         cross reference tables and special objects.
 
@@ -616,7 +628,7 @@ class PdfParser:
 
         return trailer
 
-    def parse_simple_xref(self) -> list[PdfXRefSubsection]:
+    def _parse_simple_xref(self) -> list[PdfXRefSubsection]:
         """Parses a standard, uncompressed XRef table of the format described in
         ISO 32000-2:2020 § 7.5.4 "Cross-Reference table".
 
@@ -670,12 +682,12 @@ class PdfParser:
 
         return subsections
 
-    def parse_compressed_xref(self) -> PdfXRefSection:
+    def _parse_compressed_xref(self) -> PdfXRefSection:
         """Parses a compressed cross-reference stream which includes both the XRef table
         and information from the PDF trailer as described in ISO 32000-2:2020 § 7.5.8
         "Cross-reference streams".
         """
-        xref_stream = self.parse_indirect_object(InUseXRefEntry(self._lexer.tell(), 0), None)
+        xref_stream = self._parse_indirect_object(InUseXRefEntry(self._lexer.tell(), 0), None)
         xref_stream = cast(PdfStream, xref_stream)
 
         contents = BytesIO(xref_stream.decode())
@@ -717,7 +729,7 @@ class PdfParser:
 
         return PdfXRefSection(subsections, xref_stream.details)
 
-    def parse_indirect_object(
+    def _parse_indirect_object(
         self, xref_entry: InUseXRefEntry, reference: PdfReference | None
     ) -> PdfObject:
         """Parses an indirect object not within an object stream, or basically, an object
@@ -746,7 +758,7 @@ class PdfParser:
             if not isinstance(length, int):
                 raise PdfParseError("Length entry of stream extent not an integer")
 
-            item = PdfStream(extent, self.parse_stream(xref_entry, length))
+            item = PdfStream(extent, self._parse_stream(xref_entry, length))
         else:
             item = cast(PdfObject, contents)
 
@@ -809,7 +821,7 @@ class PdfParser:
         # Why would a number be encrypted?
         return pdf_object
 
-    def parse_stream(self, xref_entry: InUseXRefEntry, extent: int) -> bytes:
+    def _parse_stream(self, xref_entry: InUseXRefEntry, extent: int) -> bytes:
         """Parses the contents of a PDF stream at ``xref_entry``.
 
         ``extent`` specifies the amount of bytes the stream is expected to have.
@@ -901,7 +913,7 @@ class PdfParser:
             return PdfNull()
 
         if isinstance(root_entry, InUseXRefEntry):
-            obj = self.parse_indirect_object(root_entry, reference)
+            obj = self._parse_indirect_object(root_entry, reference)
 
             if not cache:
                 self._hot_references.remove(reference)
@@ -923,7 +935,7 @@ class PdfParser:
             if cache and root_entry.objstm_number not in self.objects.unresolved:
                 objstm = self.objects[root_entry.objstm_number]
             else:
-                objstm = self.parse_indirect_object(
+                objstm = self._parse_indirect_object(
                     objstm_entry,
                     PdfReference(*objstm_ref).with_resolver(partial(self.get_object, cache=False)),
                 )
@@ -987,143 +999,3 @@ class PdfParser:
             return PermsAcquired.USER
 
         return PermsAcquired.NONE
-
-    def save(self, filepath: str | Path | IO[bytes]) -> None:
-        """Saves the contents of this parser to ``filepath``.
-
-        ``filepath`` may be either a string containing a path, a :class:`pathlib.Path`
-        instance, or a byte stream (that is, any class implementing :class:`IO[bytes]`).
-        """
-
-        builder = PdfSerializer()
-        builder.write_header("2.0")
-
-        rows: list[tuple[int, PdfXRefEntry]] = []
-
-        use_compressed = False
-        update_freelist = False
-
-        for obj_num in self.objects:
-            ref_tup = self.objects.initial_reference_map.get(obj_num)
-
-            # Object is new
-            if ref_tup is None:
-                resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])
-                if isinstance(resolved, ObjectStream):
-                    resolved = resolved.to_stream()
-
-                if isinstance(resolved, FreeObject):
-                    rows.append((obj_num, FreeXRefEntry(-1, 0)))
-                    update_freelist = True
-                else:
-                    offset = builder.write_object((obj_num, 0), resolved)
-                    rows.append((obj_num, InUseXRefEntry(offset, 0)))
-
-                continue
-
-            # Object is modified or left intact
-            entry = self.xref[ref_tup]
-            if isinstance(entry, FreeXRefEntry):
-                resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])
-                if isinstance(resolved, ObjectStream):
-                    resolved = resolved.to_stream()
-
-                # Free entry left unmodified or can no longer be used
-                if isinstance(resolved, FreeObject) or entry.gen_if_used_again >= 65535:
-                    rows.append(
-                        (
-                            obj_num,
-                            FreeXRefEntry(entry.next_free_object, entry.gen_if_used_again),
-                        )
-                    )
-                    continue
-
-                # Free entry now in use
-                offset = builder.write_object((obj_num, entry.gen_if_used_again), resolved)
-                rows.append((obj_num, InUseXRefEntry(offset, entry.gen_if_used_again)))
-                update_freelist = True
-            elif isinstance(entry, InUseXRefEntry):
-                resolved = self._objstm_cache.get(obj_num, self.objects[obj_num])
-                if isinstance(resolved, ObjectStream):
-                    resolved = resolved.to_stream()
-
-                # In use object freed
-                if isinstance(resolved, FreeObject):
-                    rows.append((obj_num, FreeXRefEntry(-1, entry.generation + 1)))
-                    update_freelist = True
-                    continue
-
-                # In use object either modified or left intact
-                offset = builder.write_object(ref_tup, resolved)
-                rows.append((obj_num, InUseXRefEntry(offset, entry.generation)))
-            elif isinstance(entry, CompressedXRefEntry):
-                use_compressed = True
-                rows.append(
-                    (
-                        obj_num,
-                        CompressedXRefEntry(entry.objstm_number, entry.index_within),
-                    )
-                )
-
-        if update_freelist:
-            # let's first get the members of the freelist
-            freelist_members = [
-                idx for idx, (_, entry) in enumerate(rows) if isinstance(entry, FreeXRefEntry)
-            ]
-
-            for freelist_idx, xref_idx in enumerate(freelist_members):
-                obj_num, entry = rows[xref_idx]
-                assert isinstance(entry, FreeXRefEntry)
-
-                if freelist_idx + 1 < len(freelist_members):
-                    entry.next_free_object = rows[freelist_members[freelist_idx + 1]][0]
-                else:
-                    entry.next_free_object = 0
-
-                rows[xref_idx] = (obj_num, entry)
-
-        xref_section = builder.generate_xref_section(rows)
-
-        new_trailer = PdfDictionary(
-            {
-                "Size": len(self.build_xref_map(xref_section)),
-                "Root": self.trailer.data["Root"],
-            }
-        )
-
-        if "Info" in self.trailer.data:
-            new_trailer.data["Info"] = self.trailer.data["Info"]
-
-        if isinstance(filepath, BinaryIO):
-            filename = filepath.name
-        elif isinstance(filepath, BufferedIOBase):
-            filename = ""  # no filename
-        else:
-            filename = str(filepath)
-
-        if "ID" in self.trailer.data:
-            ids = cast(PdfArray["PdfHexString | bytes"], self.trailer.data["ID"])
-
-            new_trailer.data["ID"] = PdfArray(
-                [ids[0], generate_file_id(filename, builder.content.tell())]
-            )
-        else:
-            new_id = generate_file_id(filename, builder.content.tell())
-            new_trailer.data["ID"] = PdfArray([new_id, new_id])
-
-        if use_compressed:
-            startxref = builder.write_compressed_xref_section(
-                PdfXRefSection(xref_section, new_trailer)
-            )
-            builder.write_trailer(None, startxref)
-        else:
-            startxref = builder.write_standard_xref_section(xref_section)
-            builder.write_trailer(new_trailer, startxref)
-
-        builder.write_eof()
-
-        if isinstance(filepath, (str, Path)):
-            with open(filepath, "wb") as output_fp:
-                output_fp.write(builder.content.getbuffer())
-        else:
-            filepath.write(builder.content.getbuffer())

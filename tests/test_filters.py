@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 
-from pdfnaut import PdfParser
+from pdfnaut.cos import PdfReader
 from pdfnaut.cos.objects import PdfStream
 from pdfnaut.exceptions import PdfFilterError
 from pdfnaut.filters import ASCII85Filter, ASCIIHexFilter, FlateFilter, RunLengthFilter
@@ -61,10 +61,7 @@ def test_flate() -> None:
 
 
 def test_rle() -> None:
-    with open("tests/docs/river-rle-image.pdf", "rb") as fp:
-        pdf = PdfParser(fp.read())
-        pdf.parse()
-
+    with PdfReader("tests/docs/river-rle-image.pdf") as pdf:
         rle_stream = cast(PdfStream, pdf.get_object((3, 0)))
 
         with (

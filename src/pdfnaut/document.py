@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pathlib
 from collections.abc import Generator
-from typing import cast
+from typing import IO, cast
+
+from typing_extensions import Self
 
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
@@ -22,9 +24,15 @@ from .cos.objects.base import (
 )
 from .cos.objects.containers import PdfArray, PdfDictionary
 from .cos.objects.stream import PdfStream
-from .cos.objects.xref import FreeXRefEntry, InUseXRefEntry, PdfXRefEntry
-from .cos.parser import PdfParser, PermsAcquired
+from .cos.objects.xref import (
+    FreeXRefEntry,
+    InUseXRefEntry,
+    PdfXRefEntry,
+    PdfXRefSection,
+)
+from .cos.reader import MapObject, ObjectMap, PdfReader, PermsAcquired
 from .cos.serializer import PdfSerializer
+from .cos.writer import PdfWriter
 from .objects.catalog import (
     ExtensionMap,
     MarkInfo,
@@ -38,13 +46,15 @@ from .objects.page import Page
 from .objects.trailer import Info
 from .objects.xmp import XmpMetadata
 from .page_list import PageList, flatten_pages
+from .security.standard_handler import StandardSecurityHandler
 
 
-class PdfDocument(PdfParser):
+class PdfDocument:
     """A PDF document that can be read and written to.
 
-    In essence, it is a high-level wrapper around :class:`~.PdfParser` intended for
-    PDF users who want to work with a document via high-level interfaces.
+    In essence, it is a high-level wrapper around :class:`~.PdfReader` and
+    :class:`~.PdfWriter` intended for PDF users who want to work with a document
+    via high-level interfaces.
     """
 
     @classmethod
@@ -84,9 +94,7 @@ class PdfDocument(PdfParser):
         return PdfDocument(builder.content.getvalue())
 
     def __init__(self, data: bytes, *, strict: bool = False) -> None:
-        super().__init__(data, strict=strict)
-
-        self.parse()
+        self._reader = PdfReader(data, strict=strict)
 
         self.access_level = PermsAcquired.OWNER
         """The current access level of the document. It may be either of the values in
@@ -103,6 +111,70 @@ class PdfDocument(PdfParser):
             self.access_level = self.decrypt("")
 
         self._page_list: PageList | None = None
+
+    @property
+    def reader(self) -> PdfReader:
+        """The low-level reader managing this document's PDF objects."""
+        return self._reader
+
+    @property
+    def objects(self) -> ObjectMap:
+        """The document's low-level object store."""
+        return self._reader.objects
+
+    @property
+    def trailer(self) -> PdfDictionary:
+        """The document's most recent PDF trailer."""
+        return self._reader.trailer
+
+    @property
+    def xref(self) -> dict[tuple[int, int], PdfXRefEntry]:
+        """The document's merged cross-reference table."""
+        return self._reader.xref
+
+    @property
+    def updates(self) -> list[PdfXRefSection]:
+        """The document's incremental cross-reference sections."""
+        return self._reader.updates
+
+    @property
+    def header_version(self) -> str:
+        """The PDF version specified by the file header."""
+        return self._reader.header_version
+
+    @property
+    def strict(self) -> bool:
+        """Whether the reader uses strict parsing."""
+        return self._reader.strict
+
+    @property
+    def security_handler(self) -> StandardSecurityHandler | None:
+        """The security handler for this document, if it is encrypted."""
+        return self._reader.security_handler
+
+    def get_object(
+        self, reference: PdfReference | tuple[int, int], cache: bool = True
+    ) -> MapObject:
+        """Resolves a low-level indirect object reference."""
+        return self._reader.get_object(reference, cache)
+
+    def decrypt(self, password: str) -> PermsAcquired:
+        self.access_level = self._reader.decrypt(password)
+        return self.access_level
+
+    def save(self, filepath: str | pathlib.Path | IO[bytes]) -> None:
+        """Writes this document to a new PDF file."""
+        PdfWriter(self._reader).save(filepath)
+
+    def close(self) -> None:
+        """Releases resources owned by the underlying reader."""
+        self._reader.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc_args: object) -> bool:
+        return self._reader.__exit__(*_exc_args)
 
     @property
     def has_encryption(self) -> bool:
@@ -217,7 +289,7 @@ class PdfDocument(PdfParser):
 
         outline = cast(PdfDictionary, self.catalog["Outlines"])
         outline_ref = cast(PdfReference, self.catalog.data["Outlines"])
-        return OutlineTree(self, outline, outline_ref)
+        return OutlineTree(self._reader, outline, outline_ref)
 
     @outline.deleter
     def outline(self) -> None:
@@ -233,14 +305,10 @@ class PdfDocument(PdfParser):
         outline_ref = self.objects.add(outline)
         self.catalog["Outlines"] = outline_ref
 
-    def decrypt(self, password: str) -> PermsAcquired:
-        self.access_level = super().decrypt(password)
-        return self.access_level
-
     @property
     def flattened_pages(self) -> Generator[Page, None, None]:
         """A generator suitable for iterating over the pages of a PDF."""
-        return flatten_pages(self.page_tree, pdf=self)
+        return flatten_pages(self.page_tree, pdf=self._reader)
 
     @property
     def page_layout(self) -> PageLayout:
@@ -335,7 +403,9 @@ class PdfDocument(PdfParser):
 
         if self._page_list is None:
             self._page_list = PageList(
-                self, self.page_tree, cast(PdfReference, self.catalog.data["Pages"])
+                self._reader,
+                self.page_tree,
+                cast(PdfReference, self.catalog.data["Pages"]),
             )
 
         return self._page_list

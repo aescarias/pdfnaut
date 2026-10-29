@@ -7,7 +7,7 @@ from typing_extensions import Self
 from pdfnaut.common.dictmodels import dictmodel, field
 from pdfnaut.cos.objects.base import PdfName, PdfReference
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
-from pdfnaut.cos.parser import PdfParser
+from pdfnaut.cos.reader import PdfReader
 from pdfnaut.exceptions import PdfParseError, PdfWriteError
 
 MarkupAnnotationKind = Literal[
@@ -267,7 +267,7 @@ class AnnotationList(MutableSequence[Annotation]):
     """A mutable sequence representing the list of annotations (the ``Annots`` key)
     in a page object."""
 
-    def __init__(self, array: PdfArray, pdf: PdfParser | None = None) -> None:
+    def __init__(self, array: PdfArray, pdf: PdfReader | None = None) -> None:
         self.pdf = pdf
         self.array = array
 

@@ -10,7 +10,7 @@ from typing_extensions import Self
 from pdfnaut.common.dictmodels import dictmodel, field
 from pdfnaut.cos.objects.base import PdfName, PdfReference, is_null_like
 from pdfnaut.cos.objects.containers import PdfArray, PdfDictionary
-from pdfnaut.cos.parser import PdfParser
+from pdfnaut.cos.reader import PdfReader
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
 
@@ -100,7 +100,7 @@ class OutlineItem(PdfDictionary):
         cls,
         mapping: PdfDictionary,
         *,
-        pdf: PdfParser | None = None,
+        pdf: PdfReader | None = None,
         indirect_ref: PdfReference | None = None,
     ) -> Self:
         item = cls("", pdf=pdf, indirect_ref=indirect_ref)
@@ -116,7 +116,7 @@ class OutlineItem(PdfDictionary):
         action: Action | None = None,
         color: list[float] | None = None,
         *,
-        pdf: PdfParser | None = None,
+        pdf: PdfReader | None = None,
         indirect_ref: PdfReference | None = None,
     ) -> None:
         super().__init__()
@@ -272,7 +272,7 @@ class OutlineTree(PdfDictionary):
 
     def __init__(
         self,
-        pdf: PdfParser,
+        pdf: PdfReader,
         tree: PdfDictionary,
         tree_ref: PdfReference,
     ) -> None:
@@ -337,7 +337,7 @@ class OutlineList(MutableSequence[OutlineItem]):
 
     def __init__(
         self,
-        pdf: PdfParser,
+        pdf: PdfReader,
         parent: OutlineItem | OutlineTree,
     ) -> None:
         super().__init__()

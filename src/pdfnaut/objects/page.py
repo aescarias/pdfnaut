@@ -7,7 +7,7 @@ from ..cos.cstm_parser import ContentStreamParser
 from ..cos.objects.base import PdfName, PdfReference, is_null_like
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
-from ..cos.parser import PdfParser
+from ..cos.reader import PdfReader
 from .annotations import AnnotationList
 
 TabOrder = Literal["R", "C", "S", "A", "W"]
@@ -23,7 +23,7 @@ class Page(PdfDictionary):
             be printed or displayed. Values shall be provided in multiples of
             1/72 of an inch (points).
 
-        pdf (PdfParser, optional):
+        pdf (PdfReader, optional):
             The PDF document that this page belongs to.
 
             In typical usage, this value need not be specified.
@@ -98,7 +98,7 @@ class Page(PdfDictionary):
     def from_dict(
         cls,
         mapping: PdfDictionary,
-        pdf: PdfParser | None = None,
+        pdf: PdfReader | None = None,
         indirect_ref: PdfReference | None = None,
     ) -> Self:
         dictionary = cls(size=(0, 0), pdf=pdf, indirect_ref=indirect_ref)
@@ -110,7 +110,7 @@ class Page(PdfDictionary):
         self,
         size: tuple[float, float],
         *,
-        pdf: PdfParser | None = None,
+        pdf: PdfReader | None = None,
         indirect_ref: PdfReference | None = None,
     ) -> None:
         super().__init__()

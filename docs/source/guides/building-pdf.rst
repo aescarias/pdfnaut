@@ -1,6 +1,10 @@
 Building a PDF from scratch
 ===========================
 
+.. note::
+
+    The following guide documents the low-level PDF writing process. Unless you are working with PDF internals, use :class:`PdfDocument`. 
+
 pdfnaut provides a low-level interface for building new PDF documents called :class:`~pdfnaut.cos.serializer.PdfSerializer`. The serializer provides all functions needed to create a new document.
 
 Writing the PDF Header

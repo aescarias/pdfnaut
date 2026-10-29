@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from pdfnaut.cos import PdfParser
+from pdfnaut.cos import PdfReader
 from pdfnaut.cos.objects import PdfStream
 from pdfnaut.exceptions import PdfParseError
 
@@ -12,14 +12,11 @@ def test_simple_pdf() -> None:
     """Tests a simple PDF: an unencrypted PDF document with no compression applied
     and a few pages of content."""
 
-    with open("tests/docs/sample.pdf", "rb") as data:
-        parser = PdfParser(data.read())
-        parser.parse()
+    with PdfReader("tests/docs/sample.pdf") as reader:
+        assert len(reader.xref) == reader.trailer["Size"]
 
-        assert len(parser.xref) == parser.trailer["Size"]
-
-        catalog = parser.trailer["Root"]
-        metadata = parser.trailer["Info"]
+        catalog = reader.trailer["Root"]
+        metadata = reader.trailer["Info"]
         assert catalog is not None and metadata is not None
 
         first_page = catalog["Pages"]["Kids"][0]
@@ -31,27 +28,20 @@ def test_invalid_pdfs() -> None:
 
     # "PDF" with no header
     with pytest.raises(PdfParseError):
-        parser = PdfParser(b"The content doesn't matter. The header not being here does.")
-        parser.parse()
+        PdfReader(b"The content doesn't matter. The header not being here does.")
 
     # PDF with an invalid \\Length in stream
     with pytest.raises(PdfParseError):
-        with open("tests/docs/pdf-with-bad-stream.pdf", "rb") as data:
-            parser = PdfParser(data.read())
-            parser.parse()
-
-            parser.get_object((1, 0))
+        with PdfReader("tests/docs/pdf-with-bad-stream.pdf") as reader:
+            reader.get_object((1, 0))
 
 
 def test_incremental_pdf() -> None:
     """Tests incremental PDF parsing by checking whether the correct trailer was
     selected and whether the cross-reference tables were correctly merged."""
-    with open("tests/docs/pdf2-incremental.pdf", "rb") as data:
-        parser = PdfParser(data.read())
-        parser.parse()
-
-        assert len(parser.updates) == 2
-        assert parser.trailer["Size"] == len(parser.xref)
+    with PdfReader("tests/docs/pdf2-incremental.pdf") as reader:
+        assert len(reader.updates) == 2
+        assert reader.trailer["Size"] == len(reader.xref)
 
 
 def test_pdf_with_data_at_start() -> None:
@@ -59,20 +49,15 @@ def test_pdf_with_data_at_start() -> None:
     allowed under strict=False and allowed by the spec since PDF 2.0, though this
     behavior is discouraged.
     """
-    with open("tests/docs/pdf2-with-data-at-start.pdf", "rb") as data:
-        parser = PdfParser(data.read())
-        parser.parse()
-
-        assert parser.trailer["Root"]["Type"].value == b"Catalog"
+    with PdfReader("tests/docs/pdf2-with-data-at-start.pdf") as reader:
+        assert reader.header_version == "2.0"
+        assert reader.trailer["Root"]["Type"].value == b"Catalog"
 
 
 def test_pdf_with_xref_stream() -> None:
     """Tests a PDF document with a compressed XRef stream"""
-    with open("tests/docs/compressed-xref.pdf", "rb") as data:
-        parser = PdfParser(data.read())
-        parser.parse()
-
-        catalog = parser.trailer["Root"]
+    with PdfReader("tests/docs/compressed-xref.pdf") as reader:
+        catalog = reader.trailer["Root"]
         first_page = catalog["Pages"]["Kids"][0]
         stream = first_page["Contents"].decode()
 
@@ -84,13 +69,8 @@ def test_pdf_with_strict_mode() -> None:
     open with strict=True and asserts that pdfnaut will correct it otherwise."""
 
     with pytest.raises(PdfParseError):
-        with open("tests/docs/random-annots.pdf", "rb") as data:
-            parser = PdfParser(data.read(), strict=True)
-            parser.parse()
+        PdfReader("tests/docs/random-annots.pdf", strict=True)
 
-    with open("tests/docs/random-annots.pdf", "rb") as data:
-        parser = PdfParser(data.read(), strict=False)
-        parser.parse()
-
-        catalog = parser.trailer["Root"]
+    with PdfReader("tests/docs/random-annots.pdf", strict=False) as reader:
+        catalog = reader.trailer["Root"]
         assert catalog["Type"].value == b"Catalog"

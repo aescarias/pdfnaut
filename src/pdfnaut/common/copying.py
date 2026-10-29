@@ -7,10 +7,10 @@ from ..common._utils import ensure
 from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
-from ..cos.parser import FreeObject
+from ..cos.reader import FreeObject
 
 if TYPE_CHECKING:
-    from ..cos.parser import PdfParser
+    from ..cos.reader import PdfReader
 
 
 class _PlaceholderType:
@@ -73,7 +73,7 @@ def copy_object(obj: PdfObject) -> PdfObject:
 
 
 def clone_into_document(
-    dest: PdfParser, root: PdfObject, *, ignore_keys: list[str] | None = None
+    dest: PdfReader, root: PdfObject, *, ignore_keys: list[str] | None = None
 ) -> PdfObject:
     """Clones an object ``root`` and its contents into document ``dest``. Returns
     the cloned object.

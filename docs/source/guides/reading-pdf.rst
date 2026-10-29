@@ -1,50 +1,60 @@
 Reading a PDF
 =============
 
+.. note::
+
+    The following guide documents the low-level PDF reader class. Unless you are inspecting the internals, use :class:`PdfDocument`.
+    
 PDFs are, in essence, conformed of objects and references. To locate an object, a PDF file includes a cross-reference table specifying the offset of objects in the document.
 
 Opening a PDF
 -------------
 
-To read a PDF with pdfnaut, use the :class:`~pdfnaut.cos.parser.PdfParser` class which accepts a ``bytes`` string with the contents of your file.
+To read a PDF with pdfnaut, use :class:`~pdfnaut.cos.reader.PdfReader`. It accepts a file path, a binary stream, or the document contents as ``bytes``. The reader parses the cross-reference data and trailer during construction.
 
 .. code-block:: python
 
-    import pdfnaut
+    from pdfnaut import PdfReader
 
-    with open("document.pdf", "rb") as fp:
-        pdf = pdfnaut.PdfParser(fp.read())
-        pdf.parse()
+    with PdfReader("document.pdf") as pdf:
+        ...
 
-:meth:`~pdfnaut.cos.parser.PdfParser.parse` is responsible for processing the cross-reference table and the trailer in the PDF. These are needed to retrieve objects inside the document. 
+The reader processes the cross-reference data and trailer when it is initialized.
+
+.. warning::
+
+    When providing a filename or file-backed object to :class:`PdfReader`, you must close :class:`PdfReader` to release file handles and resources when finished. This can be done by using :class:`PdfReader` as a context manager (recommended) or by calling :meth:`PdfReader.close` after you are done with the PDF document.
+
+    When providing a file-backed object, :meth:`PdfReader.close` will only release the internal resources used by the reader. It will not close the provided object. this allows you to continue using the file object for other operations in your program.
+
 
 Inspecting objects
 ------------------
 
-The next set of steps will depend on the document being processed. To inspect the objects included in the PDF before going further, iterate over the :attr:`~pdfnaut.cos.parser.PdfParser.xref` attribute in :class:`~pdfnaut.cos.parser.PdfParser` as follows:
+To inspect the objects included in a PDF before going further, iterate over the :attr:`~pdfnaut.cos.reader.PdfReader.xref` attribute in :class:`~pdfnaut.cos.reader.PdfReader` as follows. The following example should print all objects in a PDF document:
 
 .. code-block:: python
 
-    for reference, entry in parser.xref.items():
+    for reference, entry in pdf.xref.items():
         if isinstance(entry, FreeXRefEntry):
             continue
 
         print(pdf.get_object(reference))
 
 
-Because the XRef table can also include "free" or unused entries, we avoid iterating over them. Then we provide the reference to :meth:`~pdfnaut.cos.parser.PdfParser.get_object`. This should print all the objects in the PDF.
+Because the XRef table can include "free" entries, we skip them using the :meth:`isinstance` check. The reference of the object is then provided to :meth:`~pdfnaut.cos.reader.PdfReader.get_object` so it is resolved into a PDF object. 
 
-Another option is to directly iterate over the object store at :attr:`~PdfParser.objects`. The object store will automatically resolve the items and return them to you.
+Another option is to directly iterate over the object store (:attr:`~pdfnaut.cos.reader.PdfReader.objects`). The object store will automatically resolve the PDF objects, so calling ``get_object()`` is unnecessary.
 
 .. code-block:: python
 
-    for pdf_object in parser.objects.values():
-        if isinstance(entry, FreeObject):
+    for pdf_object in pdf.objects.values():
+        if isinstance(pdf_object, FreeObject):
             continue
 
         print(pdf_object)
 
-Note that we check for :class:`.FreeObject` rather than :class:`.FreeXRefEntry`. This is simply an abstraction used by the object store to indicate free entries. 
+Note that we check for :class:`~pdfnaut.cos.reader.FreeObject` rather than :class:`.FreeXRefEntry`. This is the abstraction used by the object store to represent free entries.
 
 Traversing a document
 ---------------------
@@ -66,7 +76,7 @@ Two items of note can be found: *Outlines* and *Pages*.
 
 .. note::
 
-    To avoid wrapping each dictionary or array index call with :meth:`~pdfnaut.cos.parser.PdfParser.get_object`, pdfnaut and other PDF libraries will automatically resolve these references when indexing. If you are interested in the actual references, both :class:`~pdfnaut.cos.objects.containers.PdfArray` and :class:`~pdfnaut.cos.objects.containers.PdfDictionary` have a ``data`` attribute containing the raw object.
+    To avoid wrapping each dictionary or array index call with :meth:`~pdfnaut.cos.reader.PdfReader.get_object`, pdfnaut and other PDF libraries will automatically resolve these references when indexing. If you are interested in the actual references, both :class:`~pdfnaut.cos.objects.containers.PdfArray` and :class:`~pdfnaut.cos.objects.containers.PdfDictionary` have a ``data`` attribute containing the raw object.
 
 .. code-block:: python
 
@@ -113,3 +123,13 @@ We find ourselves with a stream. The contents of pages are defined in streams kn
     The stream above is abridged for demonstration purposes. Only a portion of its contents is shown.
 
 A content stream is comprised of operators and operands (operands being specified first). In this case, the renderer would write "A Simple PDF File" at the position defined by the Td operands and applying the font specified in the Tf operands (``/F1`` is a name in our Resources dictionary which in our case points to Helvetica).
+
+Writing a copy
+--------------
+
+To write a copy of the PDF document, you use :class:`.PdfWriter`. The PDF writer takes the reader's object store and serializes it into a new PDF document.
+
+.. code-block:: python
+
+    with pdfnaut.PdfReader("document.pdf") as pdf:
+        pdfnaut.PdfWriter(pdf).save("copy.pdf")

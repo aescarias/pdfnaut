@@ -5,11 +5,12 @@ pdfnaut is a Python library for reading and writing PDFs.
 from __future__ import annotations
 
 from .common.metadata import MetadataCopyDirection
-from .cos import PdfLexer, PdfObjectParser, PdfParser, PdfSerializer
+from .cos import PdfLexer, PdfObjectParser, PdfReader, PdfSerializer, PdfWriter
 from .document import PdfDocument
 
 __all__ = (
-    "PdfParser",
+    "PdfReader",
+    "PdfWriter",
     "PdfLexer",
     "PdfObjectParser",
     "PdfSerializer",

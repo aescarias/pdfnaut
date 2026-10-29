@@ -8,12 +8,12 @@ from typing_extensions import Self
 
 from .common.copying import clone_into_document, copy_object
 from .cos.objects import PdfArray, PdfDictionary, PdfName, PdfReference
-from .cos.parser import PdfParser
+from .cos.reader import PdfReader
 from .objects.page import Page
 
 
 def flatten_pages(
-    root: PdfDictionary, *, pdf: PdfParser | None = None
+    root: PdfDictionary, *, pdf: PdfReader | None = None
 ) -> Generator[Page, None, None]:
     """Yields all :class:`.Page` objects within ``root`` and its descendants."""
 
@@ -39,7 +39,7 @@ class PageList(MutableSequence[Page]):
 
     def __init__(
         self,
-        pdf: PdfParser,
+        pdf: PdfReader,
         root_tree: PdfDictionary,
         root_tree_ref: PdfReference,
     ) -> None:
