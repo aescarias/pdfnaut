@@ -10,6 +10,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 - New lexer/parser model in replacement of `PdfTokenizer`: `PdfLexer` and `PdfObjectParser`. This separate lexical analysis from PDF object parsing.
 - New content stream parser `ContentStreamParser` in replacement of `ContentStreamTokenizer`. The new parser emits inline images separately from PDF content stream operators.
 - Pass-through read/write of image stream filters `DCTDecode` (JPEG), `JPXDecode` (JPEG 2000), `CCITTFaxDecode`, and `JBIG2Decode`.
+- Keyword-only argument support in dictmodels.
 - Stream encoding using predictor 15 (PNG optimum).
 - Reject directly adjacent numbers with sign prefixes.
 - Reject invalid escape sequences in name objects.

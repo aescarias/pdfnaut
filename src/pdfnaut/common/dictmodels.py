@@ -27,6 +27,7 @@ class Field:
         init: bool | None = None,
         repr_: bool | None = None,
         metadata: dict[str, Any] | None = None,
+        kw_only: bool = False,
     ) -> None:
         # To be filled in later
         self.name: str | None = None
@@ -40,6 +41,7 @@ class Field:
         self.init = init
         self.repr_ = repr_
         self.metadata = metadata
+        self.kw_only = kw_only
 
     @property
     def key(self) -> str:
@@ -65,6 +67,7 @@ def field(
     init: bool | None = None,
     repr_: bool | None = None,
     metadata: dict[str, Any] | None = None,
+    kw_only: bool = False,
 ) -> Any:
     """Defines a field in a dictmodel.
 
@@ -98,6 +101,10 @@ def field(
             If not specified, it defaults to the value of the ``repr_`` argument
             in the dictmodel.
 
+        kw_only (bool, optional):
+            Whether this field must be passed as a keyword argument to the
+            generated constructor.
+
         metadata (dict[str, Any], optional):
             Additional metadata for this field which may be used by the accessor.
 
@@ -109,7 +116,7 @@ def field(
         are only honored if the field type is not itself already handled by an accessor;
         otherwise, it is ignored.
     """
-    return Field(key, default, default_factory, encoder, decoder, init, repr_, metadata)
+    return Field(key, default, default_factory, encoder, decoder, init, repr_, metadata, kw_only)
 
 
 T = TypeVar("T")
@@ -204,14 +211,17 @@ def create_accessors(cls, *, parent_init: bool = True, parent_repr: bool = True)
 
 
 @dataclass_transform(field_specifiers=(field,))
-def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = True):
+def dictmodel(
+    _cls: type[_T] | None = None, *, init: bool = True, repr_: bool = True, kw_only: bool = False
+):
     def wrapper(cls: type[_T]) -> type[_T]:
         if not issubclass(cls, PdfDictionary):
             raise TypeError("cls must be a subclass of PdfDictionary")
 
         accessors = create_accessors(cls, parent_init=init, parent_repr=repr_)
 
-        init_args = ["self"]
+        positional_init_args = ["self"]
+        kw_only_init_args: list[str] = []
         default_map: dict[str, Any] = {}
 
         for accessor in accessors:
@@ -229,14 +239,22 @@ def dictmodel(_cls: type[_T] | None = None, *, init: bool = True, repr_: bool = 
                 default_map[accessor.field.name] = accessor.field.default
                 init_arg_string += f" = _dflt[{accessor.field.name!r}]"
 
-            init_args.append(init_arg_string)
+            if kw_only or accessor.field.kw_only:
+                kw_only_init_args.append(init_arg_string)
+            else:
+                positional_init_args.append(init_arg_string)
+
+        if kw_only_init_args:
+            positional_init_args.append("*")
+
+        init_args = positional_init_args + kw_only_init_args
 
         required_subcls_args: list[str] = []
         for acc in getattr(cls, "__accessors__", []):
             if not acc.field.init:
                 continue
 
-            if acc.field.default is not MISSING:
+            if acc.field.default is not MISSING or acc.field.kw_only:
                 required_subcls_args.append(f"{acc.field.name}={acc.field.name}")
             else:
                 required_subcls_args.append(acc.field.name)

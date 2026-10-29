@@ -1,6 +1,7 @@
 from enum import IntEnum
 from typing import Literal, Union
 
+import pytest
 from typing_extensions import Self
 
 from pdfnaut.common.dictmodels import dictmodel, field
@@ -37,6 +38,35 @@ def test_dictmodel_with_defaults() -> None:
 
     scheme["St"] = 10
     assert scheme.start == 10
+
+
+def test_dictmodel_keyword_only_field() -> None:
+    @dictmodel
+    class Config(PdfDictionary):
+        name: str
+        enabled: bool = field(default=True, kw_only=True)
+
+    config = Config("viewer", enabled=False)
+
+    assert config.data == {"Name": b"viewer", "Enabled": False}
+    assert config.enabled is False
+
+    with pytest.raises(TypeError):
+        getattr(Config, "__init__")(config, "viewer", False)
+
+
+def test_dictmodel_inherited_keyword_only_field() -> None:
+    @dictmodel
+    class BaseConfig(PdfDictionary):
+        name: str = field(kw_only=True)
+
+    @dictmodel
+    class ViewerConfig(BaseConfig):
+        enabled: bool
+
+    config = ViewerConfig(True, name="viewer")
+
+    assert config.data == {"Name": b"viewer", "Enabled": True}
 
 
 def test_dictmodel_default_factory() -> None:

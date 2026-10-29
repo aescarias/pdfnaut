@@ -135,7 +135,6 @@ class PdfLexer:
             contents: An object supporting the buffer protocol, such as
                 :class:`bytes` or :class:`memoryview`.
         """
-        self._contents = contents
         self._view: memoryview[int] = (
             contents if isinstance(contents, memoryview) else memoryview(contents)
         )
