@@ -4,9 +4,6 @@
 
 from __future__ import annotations
 
-from pdfnaut.cos import PdfReader
-from pdfnaut.cos.lexer import PdfLexer
-from pdfnaut.cos.object_parser import PdfObjectParser
 from pdfnaut.cos.objects import (
     FreeXRefEntry,
     InUseXRefEntry,

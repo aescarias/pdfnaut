@@ -338,6 +338,22 @@ class PdfReader:
         if self._file_obj is not None and self._owns_source:
             self._file_obj.close()
 
+    @property
+    def closed(self) -> bool:
+        try:
+            _ = self._view[0]
+            return False
+        except ValueError:
+            pass
+
+        if self._mmap is not None and not self._mmap.closed:
+            return False
+
+        if self._file_obj is not None and self._owns_source:
+            return self._file_obj.closed
+
+        return True
+
     def close(self) -> None:
         self._cleanup_reader()
 

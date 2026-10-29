@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pathlib
 from collections.abc import Generator
-from typing import IO, cast
+from typing import IO, BinaryIO, cast
 
-from typing_extensions import Self
+from typing_extensions import Buffer, Self
 
 from pdfnaut.objects.actions import Action, action_into
 from pdfnaut.objects.destinations import Destination, DestType, NamedDestination
@@ -168,7 +168,13 @@ class PdfDocument:
 
     def save(self, filepath: str | pathlib.Path | IO[bytes]) -> None:
         """Writes this document to a new PDF file."""
-        PdfWriter(self._reader).save(filepath)
+        writer = PdfWriter(self._reader)
+        writer.save(filepath)
+
+    @property
+    def closed(self) -> bool:
+        """Reports whether the document is closed."""
+        return self._reader.closed
 
     def close(self) -> None:
         """Releases resources owned by the underlying reader."""

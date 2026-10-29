@@ -7,6 +7,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Additions
 
+- `PdfDocument` is now usable as a context manager.
 - New lexer/parser model in replacement of `PdfTokenizer`: `PdfLexer` and `PdfObjectParser`. This separates lexical analysis from PDF object parsing.
 - New reader/writer model in replacement of `PdfParser`: `PdfReader` and `PdfWriter`. This separates PDF document reading from PDF writing.
 - New content stream parser `ContentStreamParser` in replacement of `ContentStreamTokenizer`. The new parser emits inline images separately from PDF content stream operators.
