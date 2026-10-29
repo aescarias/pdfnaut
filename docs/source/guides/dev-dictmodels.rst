@@ -2,13 +2,11 @@ Dictionary Models and Accessors
 ===============================
 
 .. note::
-    This is a technical document referring to internal functionality in pdfnaut. It is mostly relevant to users wishing to contribute to or extend pdfnaut's functionality.
+    This is a technical document regarding internal functionality in pdfnaut. It is mostly relevant to users wanting to contribute to or extend pdfnaut's functionality.
 
-Most structures in PDFs are represented as dictionary objects that may be accessed and modified. These structures can generally be mapped to Python classes fairly well.
+A PDF document is essentially a collection of dictionary objects. These objects range from pages to annotations and outline items. One of the goals of pdfnaut is provide idiomatic data models for each dictionary object, which avoids unnecessarily exposing PDF object internals to users.
 
-Because the information in these dictionaries is low level, pdfnaut strives to map this information into more idiomatic forms. To do this, *descriptors* are employed which allow us to implement custom behaviors on attribute access and modification. This is mostly useful when transforming values from one type to another.
-
-pdfnaut 0.9 introduced the concept of **dictionary models** (or dictmodels, for short) which aims to abstract the underlying dictionary into a dataclass-like structure. Dictmodels are constructed using the :func:`~pdfnaut.common.dictmodels.dictmodel` decorator. An example of a dictmodel is shown below:
+Dictionary models (or dictmodels) are the backing mechanism behind many of these data models. A dictmodel provides a dataclass-like interface for mapping PDF objects to Python objects, which reduces the boilerplate required to do so. An example of a dictmodel is shown below:
 
 .. code-block:: python
 
@@ -18,73 +16,90 @@ pdfnaut 0.9 introduced the concept of **dictionary models** (or dictmodels, for 
         text: str
         date: datetime.datetime
         name: Literal[...]
-        optional: ... | None
+        optional: ... | None = None
 
-Dictionary models are intended to reduces the boilerplate needed to map PDF objects to Python objects.
 
-Understanding Accessors
------------------------
+Understanding Dictmodels
+------------------------
 
-Each key in a dictionary is represented in a dictmodel by an **accessor**. An accessor is responsible for handling type conversions between the object type stored in PDF and the idiomatically equivalent type in Python. These are implemented using the descriptor protocol.
+Dictionary models work by mapping field values to their corresponding PDF object types. This is achieved by using descriptors to control attribute access. These descriptors are referred to internally as **accessors**, because they are responsible for handling access and type conversions between the PDF object type and the Python object type.
 
-4 accessors are currently defined:
+pdfnaut defines the following accessors:
 
-- :class:`.StandardAccessor` is the base accessor, which handles types that do not require special mapping such as numbers and booleans.
-- :class:`.NameAccessor` maps name objects to Python strings.
-- :class:`.DateAccessor` maps date values stored in text strings to Python :class:`datetime.datetime` objects.
+- :class:`.StandardAccessor` is the base accessor. The accessor handles types with transparent mapping between PDF and Python, such as numbers, booleans, and other PDF objects without conversion to their Python counterparts.
+- :class:`.NameAccessor` maps PDF name objects to Python strings.
+- :class:`.DateAccessor` maps PDF dates (stored as strings) to Python :class:`datetime.datetime` objects.
 - :class:`.TextStringAccessor` maps PDF text strings to Python strings.
+- :class:`.ModelAccessor` maps PDF dictionaries to other dictmodels.
+- :class:`.TransformAccessor` is an special kind of accessor allowing user-defined mapping functions: the encoder, which handles Python to PDF mapping; and the decoder, which handles PDF to Python mapping.
 
-The accessor used for each member of the dictmodel will depend on the type specified:
+The accessor used for each member of the dictmodel will depend on the type specified in the field:
 
-- The types :class:`int`, :class:`float`, and :class:`bool` use the standard accessor. :class:`.PdfDictionary` and :class:`.PdfArray` also currently use this accessor although they will receive their own special accessors in the future.
-- The :class:`str` type is automatically mapped to a text string accessor. It is also possible to map a string to a name accessor by specifying the :class:`Annotated[str, "name"]` form.
-- Literal types defined using :class:`typing.Literal` are mapped to name accessors.
-- :class:`datetime.datetime` objects are mapped to date accessors.
+- Fields storing integers, floats, and booleans use the standard accessor. If the field type is a PDF object type, it will also use the standard accessor.
+- Fields with a :class:`typing.Literal` type use the name accessor. PDF names may also be mapped to Python strings by using `Annotated[str, "name"]` as the field type.
+- Fields with the :class:`datetime.datetime` type are mapped to date accessors.
+- Fields with the string type (:class:`str`) use the text string accessor.
+- Fields where the type is another dictmodel use the model accessor.
+- Fields specifying an encoder and decoder use the transform accessor.
 
-Do note that not all types map to an accessor. For example, user-defined classes cannot currently be mapped to an accessor and must be handled separately.
+It shall be noted that :class:`StandardAccessor` is the default accessor used if none of the types above are satisfied. ``T | None`` unions (for optional fields) will use the accessor according to the type ``T``. 
+
+Each field name in a dictmodel is automatically mapped to a corresponding title-cased key in the underlying dictionary. This means that a dictmodel field named ``base_version`` will access the underlying PDF dictionary using the key ``BaseVersion``. This behavior may be modified by passing a ``key`` argument to the :func:`~pdfnaut.common.dictmodels.field` function.
 
 Using Dictmodels
 ----------------
 
-Dictionary models can be created using the :func:`~pdfnaut.common.dictmodels.dictmodel` decorator. A dictmodel must be built on a class inheriting from :class:`.PdfDictionary`.
+Dictionary models can be created using the :func:`~pdfnaut.common.dictmodels.dictmodel` decorator. Dictmodels must operate on subclasses of :class:`.PdfDictionary`.
 
-Similar to Python data classes, the ``@dictmodel`` decorator takes two arguments ``init`` and ``repr`` which control whether to build an initializer and a string representation, respectively. These values may also be specified on a per-field basis.
+Similar to Python data classes, the ``@dictmodel`` decorator takes three arguments:
 
-Each member name in a dictmodel is automatically mapped to a corresponding title-cased key in the underlying dictionary. This means that a dictmodel member named ``base_version`` would access the underlying PDF dictionary using the key ``BaseVersion``. 
+- ``init`` which controls whether to build an initializer.
+- ``repr`` which controls whether to build a user-friendly string representation.
+- ``kw_only`` which controls whether fields in the dictmodel are keyword-only.
 
-This behavior may be modified by specifying the ``key`` argument in the :func:`~pdfnaut.common.dictmodels.field` function.
-
-Creating a standard accessor can be done by simply defining the name of the field and its type:
-
-.. code-block:: python
-
-    @dictmodel
-    class MyModel(PdfDictionary):
-        number: int
-
-A name accessor using a literal type can be defined as follows:
-
-.. code-block:: python
-
-    Value = Literal["X", "Y", "Z"]
-
-    @dictmodel
-    class MyModel(PdfDictionary):
-        value: Value
-
-A generic name accessor is defined using the Annotated form:
+The following shows an example of a dictmodel ``Point`` with three fields ``x``, ``y``, and ``z``:
 
 .. code-block:: python
 
     @dictmodel
-    class MyModel(PdfDictionary):
-        value: Annotated[str, "name"]
+    class Point(PdfDictionary):
+        x: float
+        y: float
+        z: float | None = None
 
-A date accessor is simply defined using the :class:`datetime.datetime` type:
+
+An instance of a dictmodel can be built as usually done with other classes. When printed, it should provide a developer-friendly representation of the object.
 
 .. code-block:: python
 
-    @dictmodel
-    class MyModel(PdfDictionary):
-        value: datetime.datetime
+    >>> point = Point(1, 2)
+    >>> point
+    Point(x=1, y=2)    
 
+
+.. note::
+
+    You may notice that, unlike dataclasses, the repr output by the ``Point`` dictmodel does not include the ``z`` field. This is because dictmodels intentionally exclude fields with default values from the ``__repr__`` output.
+
+
+The underlying dictionary can be read using the ``data`` attribute:
+
+.. code-block:: python
+
+    >>> point = Point(1, 2)
+    >>> point.data
+    {"X": 1, "Y": 2}    
+
+
+Notice not only the title-case names applied by the dictmodel, but also the lack of the ``Z`` field, since fields with default values are not written to the underlying dictionary to save space.
+
+Because dictmodels inherit from :class:`PdfDictionary`, common dictionary operations should also work on dictmodels. Changes to the underlying dictionary are reflected by the dictmodel. Note however that these assume raw PDF objects and so do not perform any form of transformation as done with fields.
+
+.. code-block:: python
+
+    >>> point = Point(1, 2)
+    >>> point["Z"] = 3
+    >>> point.data
+    {"X": 1, "Y": 2, "Z": 3}
+    >>> point
+    Point(x=1, y=2, z=3)   
