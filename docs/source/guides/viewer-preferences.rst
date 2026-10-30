@@ -8,8 +8,9 @@ Accessing the viewer preferences can be done by using the :attr:`.PdfDocument.vi
 .. code-block:: python
     
     from pdfnaut import PdfDocument
-    pdf = PdfDocument.from_filename("sample.pdf")
-    print(pdf.viewer_preferences)  # ViewerPreferences(display_doc_title=True)
+    
+    with PdfDocument("sample.pdf") as pdf:
+        print(pdf.viewer_preferences)  # ViewerPreferences(display_doc_title=True)
 
 The :class:`.ViewerPreferences` class includes a list of all available viewer preferences. They can be grouped as follows:
 
@@ -24,8 +25,8 @@ Preferences may be modified via their attribute. Setting them to ``None`` remove
 .. code-block:: python
 
     from pdfnaut import PdfDocument
-    pdf = PdfDocument.from_filename("sample.pdf")
-    
+
+    pdf = PdfDocument("sample.pdf")
     pdf.viewer_preferences.center_window = True
 
 To remove the viewer preferences dictionary entirely, you can set :attr:`.PdfDocument.viewer_preferences` to None.
@@ -38,11 +39,10 @@ Adding viewer preferences to a document can be done by creating an instance of :
     from pdfnaut import PdfDocument
     from pdfnaut.objects import ViewerPreferences
 
-    pdf = PdfDocument.from_filename("sample.pdf")
+    with PdfDocument("sample.pdf") as pdf:
+        pdf.viewer_preferences = ViewerPreferences(display_doc_title=True)
 
-    pdf.viewer_preferences = ViewerPreferences(display_doc_title=True)
-
-    pdf.save("view-prefs-sample.pdf")
+        pdf.save("view-prefs-sample.pdf")
 
 
 Page Mode and Page Layout

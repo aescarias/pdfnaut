@@ -46,10 +46,9 @@ pdfnaut provides its core API via the :class:`~pdfnaut.document.PdfDocument` cla
    
    from pdfnaut import PdfDocument
 
-   pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-   
-   for operator in pdf.pages[0].content_stream:
-      print(operator)
+   with PdfDocument("tests/docs/sample.pdf") as pdf:
+      for operator in pdf.pages[0].content_stream:
+         print(operator)
 
 Reading document information from a PDF is also simple:
 
@@ -57,9 +56,9 @@ Reading document information from a PDF is also simple:
    
    from pdfnaut import PdfDocument
 
-   pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-   print(pdf.doc_info.title)
-   print(pdf.doc_info.author)
+   with PdfDocument("tests/docs/sample.pdf") as pdf:
+      print(pdf.doc_info.title)
+      print(pdf.doc_info.author)
 
 
 .. toctree::

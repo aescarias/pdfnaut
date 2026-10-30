@@ -22,6 +22,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Changes
 
+- The `PdfDocument` constructor now accepts buffer objects (`bytes`, `bytearray`, and `memoryview`), as well as filenames and file-like objects.
 - Make name objects, hex strings, and comments immutable.
 - No longer parse PDF header on every incremental update parse.
 - Emit warning on encountering an unknown security handler.
@@ -33,6 +34,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 ### Removals
 
+- `PdfDocument.from_filename`. Filenames are now allowed in the `PdfDocument` constructor, so a separate class method is no longer needed.
 - `PdfTokenizer`. This tokenizer has been replaced by `PdfLexer` and `PdfObjectParser`.
 - `ContentStreamTokenizer`. This tokenizer has been replaced by `ContentStreamParser`.
 - `start_xref` parameter in `PdfParser.parse`. The `parse()` function was rewritten to no longer require this parameter.

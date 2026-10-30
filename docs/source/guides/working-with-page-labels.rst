@@ -9,8 +9,8 @@ The :attr:`.PdfDocument.page_labels` property allows accessing the page label tr
 
     from pdfnaut import PdfDocument
 
-    pdf = PdfDocument.from_filename(r"ISO_32000-2_sponsored-ec2.pdf")
-    print(pdf.page_labels) # <PageLabelTree [0, 2, 15, 1003]>
+    with PdfDocument(r"ISO_32000-2_sponsored-ec2.pdf") as pdf:
+        print(pdf.page_labels) # <PageLabelTree [0, 2, 15, 1003]>
 
 The page label tree is provided as a mapping-like structure. This means that you can perform actions such as adding, setting, or removing page labels from the document.
 
@@ -86,11 +86,11 @@ If the document does not define any page labels, these methods will return page 
 
     from pdfnaut import PdfDocument
 
-    pdf = PdfDocument.from_filename(r"ISO_32000-2_sponsored-ec2.pdf")
-    print(pdf.page_labels) # <PageLabelTree [0, 2, 15, 1003]>
+    with PdfDocument.from_filename(r"ISO_32000-2_sponsored-ec2.pdf") as pdf:
+        print(pdf.page_labels) # <PageLabelTree [0, 2, 15, 1003]>
 
-    print(list(pdf.page_labels.get_all())) # ['Cover-A', 'Cover-B', 'i', 'ii', 'iii', ...]
-    print(pdf.page_labels.get_label_for(25)) # 11
+        print(list(pdf.page_labels.get_all())) # ['Cover-A', 'Cover-B', 'i', 'ii', 'iii', ...]
+        print(pdf.page_labels.get_label_for(25)) # 11
 
 Aside from indexing :attr:`.PdfDocument.page_labels` to access the page labelling ranges, two convenience methods are provided to get the labels within a labelling range and get a list of all labelling ranges. These methods are :meth:`.PageLabelTree.get_labels_in_range` and :meth:`.PageLabelTree.get_ranges`, respectively.
 

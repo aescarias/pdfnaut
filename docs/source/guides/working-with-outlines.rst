@@ -9,8 +9,8 @@ To access the document outline, you can use the :attr:`.PdfDocument.outline` pro
     
     from pdfnaut import PdfDocument
 
-    pdf = PdfDocument.from_filename("sample.pdf")
-    print(pdf.outline)
+    with PdfDocument("sample.pdf") as pdf:
+        print(pdf.outline)
 
 :attr:`.PdfDocument.outline` contains the document outline tree which has pointers to the first and last outline item. To get the sequence of outline items included in the document, use ``pdf.outline.children``.
 

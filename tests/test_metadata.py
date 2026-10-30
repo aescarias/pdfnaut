@@ -10,176 +10,169 @@ from pdfnaut.objects.xmp import XmpMetadata
 
 
 def test_docinfo_read() -> None:
-    pdf = PdfDocument.from_filename(r"tests\docs\sample.pdf")
-
-    assert pdf.doc_info is not None
-
-    assert pdf.doc_info.creator == "Rave (http://www.nevrona.com/rave)"
-
-    assert pdf.doc_info.creation_date == datetime.datetime(
-        2006, 3, 1, 7, 28, 26, tzinfo=datetime.timezone.utc
-    )
+    with PdfDocument(r"tests\docs\sample.pdf") as pdf:
+        assert pdf.doc_info is not None
+        assert pdf.doc_info.creator == "Rave (http://www.nevrona.com/rave)"
+        assert pdf.doc_info.creation_date == datetime.datetime(
+            2006, 3, 1, 7, 28, 26, tzinfo=datetime.timezone.utc
+        )
 
 
 def test_docinfo_write() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\sample.pdf")
-    assert original_pdf.doc_info is not None
+    fp = BytesIO()
 
     # we don't need the microsecond since iso 8824 doesn't support them
     modify_date = datetime.datetime(2025, 3, 2, 15, 51, 0, tzinfo=datetime.timezone.utc)
 
-    original_pdf.doc_info.title = "Sample PDF file"
-    original_pdf.doc_info.modify_date = modify_date
+    with PdfDocument(r"tests\docs\sample.pdf") as original_pdf:
+        assert original_pdf.doc_info is not None
 
-    original_pdf.save((fp := BytesIO()))
+        original_pdf.doc_info.title = "Sample PDF file"
+        original_pdf.doc_info.modify_date = modify_date
 
-    fp.seek(0)
+        original_pdf.save(fp)
 
-    edited_pdf = PdfDocument(fp.read())
-    assert edited_pdf.doc_info is not None
+    with PdfDocument(fp) as edited_pdf:
+        assert edited_pdf.doc_info is not None
 
-    assert edited_pdf.doc_info.title == "Sample PDF file"
-    assert edited_pdf.doc_info.modify_date == modify_date
+        assert edited_pdf.doc_info.title == "Sample PDF file"
+        assert edited_pdf.doc_info.modify_date == modify_date
 
 
 def test_docinfo_remove() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\sample.pdf")
-    assert original_pdf.doc_info is not None
+    fp = BytesIO()
+    with PdfDocument(r"tests\docs\sample.pdf") as original_pdf:
+        assert original_pdf.doc_info is not None
 
-    # test removal of attribute
-    del original_pdf.doc_info.producer
-    assert original_pdf.doc_info.producer is None
+        # test removal of attribute
+        del original_pdf.doc_info.producer
+        assert original_pdf.doc_info.producer is None
 
-    # then remove the doc info completely
-    original_pdf.doc_info = None
-    original_pdf.save((fp := BytesIO()))
-
-    fp.seek(0)
+        # then remove the doc info completely
+        original_pdf.doc_info = None
+        original_pdf.save(fp)
 
     # check that removal was done
-    edited_pdf = PdfDocument(fp.read())
-    assert edited_pdf.doc_info is None
+    with PdfDocument(fp) as edited_pdf:
+        assert edited_pdf.doc_info is None
 
 
 def test_xmp_read() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+    with PdfDocument(r"tests\docs\pdf2-incremental.pdf") as original_pdf:
+        assert original_pdf.xmp_info is not None
 
-    assert original_pdf.xmp_info is not None
+        # Text property
+        assert (
+            original_pdf.xmp_info.pdf_producer == "Datalogics - example producer program name here"
+        )
 
-    # Text property
-    assert original_pdf.xmp_info.pdf_producer == "Datalogics - example producer program name here"
+        # Date property
+        assert original_pdf.xmp_info.xmp_create_date == datetime.datetime(
+            2017, 5, 24, 10, 30, 11, tzinfo=datetime.timezone.utc
+        )
 
-    # Date property
-    assert original_pdf.xmp_info.xmp_create_date == datetime.datetime(
-        2017, 5, 24, 10, 30, 11, tzinfo=datetime.timezone.utc
-    )
+        # Language alternate property
+        assert original_pdf.xmp_info.dc_title == {"x-default": "A simple PDF 2.0 example file"}
 
-    # Language alternate property
-    assert original_pdf.xmp_info.dc_title == {"x-default": "A simple PDF 2.0 example file"}
-
-    # List property
-    assert original_pdf.xmp_info.dc_creator == ["Datalogics Incorporated"]
+        # List property
+        assert original_pdf.xmp_info.dc_creator == ["Datalogics Incorporated"]
 
 
 def test_xmp_write() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\river-rle-image.pdf")
-
-    original_pdf.xmp_info = XmpMetadata()
-
-    # Text property
-    original_pdf.xmp_info.pdf_producer = f"pdfnaut {pdfnaut.__version__}"
-
-    # Date property
+    fp = BytesIO()
     dt = datetime.datetime(2025, 7, 14, 0, 0, 47, 125681, tzinfo=datetime.timezone.utc)
 
-    original_pdf.xmp_info.xmp_create_date = dt
-    original_pdf.xmp_info.xmp_modify_date = dt
+    with PdfDocument(r"tests\docs\river-rle-image.pdf") as original_pdf:
+        original_pdf.xmp_info = XmpMetadata()
 
-    # Language alternate property
-    original_pdf.xmp_info.dc_title = {"x-default": "The Tetons and the Snake River"}
+        # Text property
+        original_pdf.xmp_info.pdf_producer = f"pdfnaut {pdfnaut.__version__}"
 
-    # List property
-    original_pdf.xmp_info.dc_creator = ["Ansel Adams"]
+        # Date property
+        original_pdf.xmp_info.xmp_create_date = dt
+        original_pdf.xmp_info.xmp_modify_date = dt
 
-    original_pdf.save((fp := BytesIO()))
+        # Language alternate property
+        original_pdf.xmp_info.dc_title = {"x-default": "The Tetons and the Snake River"}
 
-    fp.seek(0)
+        # List property
+        original_pdf.xmp_info.dc_creator = ["Ansel Adams"]
 
-    edited_pdf = PdfDocument(fp.read())
-    assert edited_pdf.xmp_info is not None
+        original_pdf.save(fp)
 
-    assert edited_pdf.xmp_info.pdf_producer == f"pdfnaut {pdfnaut.__version__}"
-    assert edited_pdf.xmp_info.xmp_create_date == dt
-    assert edited_pdf.xmp_info.xmp_modify_date == dt
-    assert edited_pdf.xmp_info.dc_title == {"x-default": "The Tetons and the Snake River"}
-    assert edited_pdf.xmp_info.dc_creator == ["Ansel Adams"]
+    with PdfDocument(fp) as edited_pdf:
+        assert edited_pdf.xmp_info is not None
+
+        assert edited_pdf.xmp_info.pdf_producer == f"pdfnaut {pdfnaut.__version__}"
+        assert edited_pdf.xmp_info.xmp_create_date == dt
+        assert edited_pdf.xmp_info.xmp_modify_date == dt
+        assert edited_pdf.xmp_info.dc_title == {"x-default": "The Tetons and the Snake River"}
+        assert edited_pdf.xmp_info.dc_creator == ["Ansel Adams"]
 
 
 def test_xmp_remove() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
-    assert original_pdf.xmp_info is not None
+    fp = BytesIO()
+    with PdfDocument(r"tests\docs\pdf2-incremental.pdf") as original_pdf:
+        assert original_pdf.xmp_info is not None
 
-    # test removal of attribute first
-    del original_pdf.xmp_info.pdf_keywords
-    assert original_pdf.xmp_info.pdf_keywords is None
+        # test removal of attribute first
+        del original_pdf.xmp_info.pdf_keywords
+        assert original_pdf.xmp_info.pdf_keywords is None
 
-    # then completely remove the xmp metadata
-    original_pdf.xmp_info = None
+        # then completely remove the xmp metadata
+        original_pdf.xmp_info = None
 
-    # check that removal was done
-    original_pdf.save((fp := BytesIO()))
+        # check that removal was done
+        original_pdf.save(fp)
 
-    fp.seek(0)
-
-    edited_pdf = PdfDocument(fp.read())
-    assert edited_pdf.xmp_info is None
+    with PdfDocument(fp) as edited_pdf:
+        assert edited_pdf.xmp_info is None
 
 
 def test_copy_metadata() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
+    with PdfDocument(r"tests\docs\pdf2-incremental.pdf") as pdf:
+        assert pdf.doc_info is None
+        assert pdf.xmp_info is not None
+        pdf.copy_metadata(MetadataCopyDirection.XMP_TO_DOC_INFO)
 
-    assert original_pdf.doc_info is None
-    assert original_pdf.xmp_info is not None
-    original_pdf.copy_metadata(MetadataCopyDirection.XMP_TO_DOC_INFO)
-
-    assert original_pdf.doc_info is not None
-    assert original_pdf.doc_info.title == "A simple PDF 2.0 example file"
-    assert original_pdf.doc_info.author == "Datalogics Incorporated"
-    assert (
-        original_pdf.doc_info.subject
-        == "Demonstration of a simple PDF 2.0 file, including comments related to "
-        "differences from earlier PDF revisions and helpful hints about PDF."
-    )
-    assert original_pdf.doc_info.keywords == "PDF 2.0 sample example"
-    assert original_pdf.doc_info.creator == "Datalogics - example creator tool name here"
-    assert original_pdf.doc_info.producer == "Datalogics - example producer program name here"
-    assert original_pdf.doc_info.creation_date == datetime.datetime(
-        2017, 5, 24, 10, 30, 11, tzinfo=datetime.timezone.utc
-    )
-    assert original_pdf.doc_info.modify_date == datetime.datetime(
-        2017, 7, 11, 7, 55, 11, tzinfo=datetime.timezone.utc
-    )
+        assert pdf.doc_info is not None
+        assert pdf.doc_info.title == "A simple PDF 2.0 example file"
+        assert pdf.doc_info.author == "Datalogics Incorporated"
+        assert (
+            pdf.doc_info.subject
+            == "Demonstration of a simple PDF 2.0 file, including comments related to "
+            "differences from earlier PDF revisions and helpful hints about PDF."
+        )
+        assert pdf.doc_info.keywords == "PDF 2.0 sample example"
+        assert pdf.doc_info.creator == "Datalogics - example creator tool name here"
+        assert pdf.doc_info.producer == "Datalogics - example producer program name here"
+        assert pdf.doc_info.creation_date == datetime.datetime(
+            2017, 5, 24, 10, 30, 11, tzinfo=datetime.timezone.utc
+        )
+        assert pdf.doc_info.modify_date == datetime.datetime(
+            2017, 7, 11, 7, 55, 11, tzinfo=datetime.timezone.utc
+        )
 
 
 def test_viewer_preferences() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\wikipedia-xmp.pdf")
+    with PdfDocument(r"tests\docs\wikipedia-xmp.pdf") as pdf:
+        assert pdf.viewer_preferences is not None
 
-    assert original_pdf.viewer_preferences is not None
-
-    # boolean set in document
-    assert original_pdf.viewer_preferences.display_doc_title
-    # default value being string for name accessor
-    assert original_pdf.viewer_preferences.direction == "L2R"
-    # default value being None for name accessor
-    assert original_pdf.viewer_preferences.duplex is None
+        # boolean set in document
+        assert pdf.viewer_preferences.display_doc_title
+        # default value being string for name field
+        assert pdf.viewer_preferences.direction == "L2R"
+        # default value being None for name field
+        assert pdf.viewer_preferences.duplex is None
 
 
 def test_viewer_preferences_save() -> None:
-    original_pdf = PdfDocument.from_filename(r"tests\docs\pdf2-incremental.pdf")
-    original_pdf.viewer_preferences = ViewerPreferences()
-    original_pdf.save(fp := BytesIO())
-    fp.seek(0)
+    fp = BytesIO()
 
-    edited_pdf = PdfDocument(fp.read())
-    assert edited_pdf.viewer_preferences
-    assert not edited_pdf.viewer_preferences.display_doc_title
+    with PdfDocument(r"tests\docs\pdf2-incremental.pdf") as original_pdf:
+        original_pdf.viewer_preferences = ViewerPreferences()
+        original_pdf.save(fp)
+
+    with PdfDocument(fp) as edited_pdf:
+        assert edited_pdf.viewer_preferences
+        assert not edited_pdf.viewer_preferences.display_doc_title

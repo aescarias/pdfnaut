@@ -29,9 +29,9 @@ Example 1: Accessing the content stream of a page
 ```python
 from pdfnaut import PdfDocument
 
-pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-for operator in pdf.pages[0].content_stream:
-    print(operator)
+with PdfDocument("tests/docs/sample.pdf") as pdf:
+    for operator in pdf.pages[0].content_stream:
+        print(operator)
 ```
 
 Example 2: Reading document information
@@ -39,9 +39,9 @@ Example 2: Reading document information
 ```py
 from pdfnaut import PdfDocument
 
-pdf = PdfDocument.from_filename("tests/docs/sample.pdf")
-print(pdf.doc_info.title)
-print(pdf.doc_info.author)
+with PdfDocument("tests/docs/sample.pdf") as pdf:
+    print(pdf.doc_info.title)
+    print(pdf.doc_info.author)
 ```
 
 For more examples on what pdfnaut can do, see the [`examples` directory](https://github.com/aescarias/pdfnaut/tree/main/examples) in the repository or see the guides in the [documentation](https://pdfnaut.readthedocs.io/en/latest).

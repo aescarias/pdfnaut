@@ -23,12 +23,12 @@ Note that the DocInfo dictionary and all of its fields are optional (may be ``No
     
     from pdfnaut import PdfDocument
     
-    pdf = PdfDocument.from_filename("./tests/docs/sample.pdf")
-    # It is possible for a document to not have DocInfo
-    assert pdf.doc_info is not None, "No document information available."
-    
-    print(pdf.doc_info.title) # None
-    print(pdf.doc_info.producer) # Nevrona Designs
+    with PdfDocument("./tests/docs/sample.pdf") as pdf:
+        # It is possible for a document to not have DocInfo
+        assert pdf.doc_info is not None, "No document information available."
+        
+        print(pdf.doc_info.title) # None
+        print(pdf.doc_info.producer) # Nevrona Designs
 
 
 Reading XMP metadata
@@ -40,13 +40,13 @@ Document-level XMP metadata can be accessed using the :attr:`.PdfDocument.xmp_in
     
     from pdfnaut import PdfDocument
     
-    doc = PdfDocument.from_filename("./tests/docs/pdf2-incremental.pdf")
-    # It is possible for a document to not have XMP metadata
-    assert doc.xmp_info is not None, "No document XMP metadata available."
-    
-    print(doc.xmp_info.dc_title["x-default"]) # A simple PDF 2.0 example file
-    print(doc.xmp_info.xmp_create_date) # 2017-05-24 10:30:11+00:00
-    print(doc.xmp_info.dc_creator)  # ["Datalogics Incorporated"]
+    with PdfDocument("./tests/docs/pdf2-incremental.pdf") as pdf:
+        # It is possible for a document to not have XMP metadata
+        assert doc.xmp_info is not None, "No document XMP metadata available."
+        
+        print(doc.xmp_info.dc_title["x-default"]) # A simple PDF 2.0 example file
+        print(doc.xmp_info.xmp_create_date) # 2017-05-24 10:30:11+00:00
+        print(doc.xmp_info.dc_creator)  # ["Datalogics Incorporated"]
 
 
 Writing document information
@@ -61,15 +61,15 @@ Adding or modifying document information can be done by modifying the respective
     from pdfnaut import PdfDocument
     from pdfnaut.objects.trailer import Info
     
-    pdf = PdfDocument.from_filename("./tests/docs/sample.pdf")
-    if pdf.doc_info is None:
-        # Creates a new DocInfo dictionary if not specified.
-        pdf.doc_info = Info()
-    
-    pdf.doc_info.title = "Sample PDF file"
-    pdf.doc_info.modify_date = datetime.datetime.now()
+    with PdfDocument("./tests/docs/sample.pdf") as pdf:
+        if pdf.doc_info is None:
+            # Creates a new DocInfo dictionary if not specified.
+            pdf.doc_info = Info()
+        
+        pdf.doc_info.title = "Sample PDF file"
+        pdf.doc_info.modify_date = datetime.datetime.now()
 
-    pdf.save("new-sample.pdf")
+        pdf.save("new-sample.pdf")
 
 If you want to remove the DocInfo dictionary, simply set the ``doc_info`` attribute to None.
 
@@ -77,10 +77,9 @@ If you want to remove the DocInfo dictionary, simply set the ``doc_info`` attrib
 
     from pdfnaut import PdfDocument
 
-    pdf = PdfDocument.from_filename("./tests/docs/sample.pdf")
-    pdf.doc_info = None
-    
-    pdf.save("new-sample.pdf")
+    with PdfDocument("./tests/docs/sample.pdf") as pdf:
+        pdf.doc_info = None
+        pdf.save("new-sample.pdf")
 
 This is also the case if you want to remove fields from the DocInfo dictionary. Setting a field to ``None`` or using ``del`` on the field will remove it.
 
@@ -97,26 +96,25 @@ Adding or modifying XMP metadata can be modified in a similar manner to modifyin
     from pdfnaut import PdfDocument
     from pdfnaut.objects.xmp import XmpMetadata
     
-    pdf = PdfDocument.from_filename("./tests/docs/sample.pdf")
-    if pdf.xmp_info is None:
-        # Creates a new XMP metadata object if not specified.
-        pdf.xmp_info = XmpMetadata()
-    
-    pdf.xmp_info.dc_title = "Sample PDF file"
-    pdf.xmp_info.xmp_modify_date = datetime.datetime.now()
+    with PdfDocument("./tests/docs/sample.pdf") as pdf:
+        if pdf.xmp_info is None:
+            # Creates a new XMP metadata object if not specified.
+            pdf.xmp_info = XmpMetadata()
+        
+        pdf.xmp_info.dc_title = "Sample PDF file"
+        pdf.xmp_info.xmp_modify_date = datetime.datetime.now()
 
-    pdf.save("new-sample.pdf")
+        pdf.save("new-sample.pdf")
 
 If you want to remove the document-level XMP metadata, simply set the ``xmp_info`` attribute to None.
 
 .. code-block:: python
 
     from pdfnaut import PdfDocument
-
-    doc = PdfDocument.from_filename("./tests/docs/sample.pdf")
-    doc.xmp_info = None
     
-    doc.save("new-sample.pdf")
+    with PdfDocument("./tests/docs/sample.pdf") as pdf:
+        pdf.xmp_info = None
+        pdf.save("new-sample.pdf")
 
 Removing a field can be done by setting it to ``None`` or by using ``del``.
 
@@ -132,13 +130,12 @@ As mentioned earlier, a PDF supports two types of metadata: DocInfo and XMP. Bot
 
     from pdfnaut import MetadataCopyDirection, PdfDocument
     
-    pdf = PdfDocument.from_filename(r"tests/docs/pdf2-incremental.pdf")
+    with PdfDocument(r"tests/docs/pdf2-incremental.pdf") as pdf:
+        print(pdf.doc_info)  # None
+        print(pdf.xmp_info)  # <XmpMetadata pdf_producer="Datalogics" [...]>
 
-    print(pdf.doc_info)  # None
-    print(pdf.xmp_info)  # <XmpMetadata pdf_producer="Datalogics" [...]>
-
-    pdf.copy_metadata(MetadataCopyDirection.XMP_TO_DOC_INFO)
-    print(pdf.doc_info)  # Info(producer="Datalogics", ...)
+        pdf.copy_metadata(MetadataCopyDirection.XMP_TO_DOC_INFO)
+        print(pdf.doc_info)  # Info(producer="Datalogics", ...)
 
 Because the structure of the DocInfo dictionary and XMP differ, the mappings described in ISO 32000-2:2020 (PDF 2.0) § 14.3.3 are used. Note that not all metadata fields in XMP can be copied to DocInfo and vice versa. Only the standard properties are mapped.
 
@@ -165,6 +162,3 @@ Because the structure of the DocInfo dictionary and XMP differ, the mappings des
 .. [#f1] Some fields do not have equivalents in the DocInfo dictionary, hence they cannot be mapped.
 .. [#f2] ``dc:title`` and ``dc:description`` are language-alternate properties, meaning they store a mapping of language names to text strings. When copying from XMP to DocInfo, the ``x-default`` key of the property is copied (or the first available entry otherwise).
 .. [#f3] ``dc:creator`` is an array of text strings. When copying from XMP to DocInfo, the value of ``Author`` will be the concatenation of the values of ``dc:creator``, separated by semicolons.
-
-
-

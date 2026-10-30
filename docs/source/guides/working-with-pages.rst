@@ -14,9 +14,9 @@ Direct access to the page tree is possible via :attr:`.PdfDocument.page_tree`. H
 
     from pdfnaut import PdfDocument
 
-    pdf = PdfDocument.from_filename(r"tests/docs/usenix-example-paper.pdf")
-    print(pdf.pages)     # [<Page ...>, <Page ...>, ...]
-    print(pdf.pages[0])  # <Page mediabox=[0, 0, 612, 792] rotation=0>
+    with PdfDocument(r"tests/docs/usenix-example-paper.pdf") as pdf:
+        print(pdf.pages)     # [<Page ...>, <Page ...>, ...]
+        print(pdf.pages[0])  # <Page mediabox=[0, 0, 612, 792] rotation=0>
 
 The page list mostly behaves like any other Python sequence and so operations commonly performed on those should work identically on a page list.
 
@@ -35,8 +35,7 @@ As the :class:`.Page` object inherits from a :class:`.PdfDictionary`, you can mo
     from pdfnaut import PdfDocument
     from pdfnaut.cos.objects import PdfArray
 
-    pdf = PdfDocument.from_filename(r"tests/docs/usenix-example-paper.pdf")
-
+    pdf = PdfDocument(r"tests/docs/usenix-example-paper.pdf")
     pdf.pages[0]["CropBox"] = PdfArray([10, 10, 200, 200])
 
 In this example, the ``CropBox`` property is modified so that a visual crop starting at position (10, 10) and ending at position (200, 200) takes place.
@@ -45,7 +44,7 @@ For common properties such as the page cropbox, you can use the available attrib
 
 .. code-block:: python
 
-    pdf.pages[0].cropbox = PdfArray([10, 10, 200, 200])
+    pdf.pages[0].cropbox = [10, 10, 200, 200]
 
 This performs the same action as in the previous example.
 
@@ -62,8 +61,7 @@ To insert pages into a PDF, you can use the :meth:`.PageList.append` and :meth:`
     from pdfnaut import PdfDocument
     from pdfnaut.objects import Page
 
-    pdf = PdfDocument.from_filename(r"tests/docs/usenix-example-paper.pdf")
-
+    pdf = PdfDocument(r"tests/docs/usenix-example-paper.pdf")
     pdf.pages.append(Page(size=(595, 842)))
 
 In the above example, a blank A4-size page is added to the end of the document.
@@ -74,8 +72,8 @@ You may also insert pages from a different document.
 
     from pdfnaut import PdfDocument
 
-    pdf1 = PdfDocument.from_filename(r"tests/docs/usenix-example-paper.pdf")
-    pdf2 = PdfDocument.from_filename(r"tests/docs/pdf2-incremental-pdf")
+    pdf1 = PdfDocument(r"tests/docs/usenix-example-paper.pdf")
+    pdf2 = PdfDocument(r"tests/docs/pdf2-incremental-pdf")
 
     pdf1.pages.insert(2, pdf2.pages[0])
 
@@ -98,8 +96,7 @@ pdfnaut also allows removing pages via the :meth:`.PageList.pop` method.
     from pdfnaut import PdfDocument
     from pdfnaut.objects import Page
 
-    pdf = PdfDocument.from_filename(r"tests/docs/usenix-example-paper.pdf")
-
+    pdf = PdfDocument(r"tests/docs/usenix-example-paper.pdf")
     pdf.pages.pop(0)
 
 In the above example, this pops the first page in the document.

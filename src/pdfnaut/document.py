@@ -58,12 +58,6 @@ class PdfDocument:
     """
 
     @classmethod
-    def from_filename(cls, path: str | pathlib.Path, *, strict: bool = False) -> PdfDocument:
-        """Loads a PDF document from a file ``path``."""
-        with open(path, "rb") as fp:
-            return PdfDocument(fp.read(), strict=strict)
-
-    @classmethod
     def new(cls) -> PdfDocument:
         """Creates a blank PDF document."""
 
@@ -93,8 +87,10 @@ class PdfDocument:
 
         return PdfDocument(builder.content.getvalue())
 
-    def __init__(self, data: bytes, *, strict: bool = False) -> None:
-        self._reader = PdfReader(data, strict=strict)
+    def __init__(
+        self, source: Buffer | BinaryIO | str | pathlib.Path, *, strict: bool = False
+    ) -> None:
+        self._reader = PdfReader(source, strict=strict)
 
         self.access_level = PermsAcquired.OWNER
         """The current access level of the document. It may be either of the values in
