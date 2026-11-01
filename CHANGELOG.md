@@ -24,6 +24,7 @@ This is the changelog for pdfnaut. Versions follow the scheme specified in the [
 
 - The `PdfDocument` constructor now accepts buffer objects (`bytes`, `bytearray`, and `memoryview`), as well as filenames and file-like objects.
 - Make name objects, hex strings, and comments immutable.
+- Make the `ViewerPreferences` constructor keyword-only
 - No longer parse PDF header on every incremental update parse.
 - Emit warning on encountering an unknown security handler.
 - Emit warning on missing EOD marker in `ASCIIHexFilter.decode()` and `RunLengthFilter.decode()`.

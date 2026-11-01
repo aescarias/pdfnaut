@@ -4,7 +4,7 @@ from typing import Annotated, Literal, cast
 from typing_extensions import Self
 
 from ..common.dictmodels import defaultize, dictmodel, field
-from ..cos.objects.base import PdfName, is_null_like
+from ..cos.objects.base import PdfName
 from ..cos.objects.containers import PdfArray, PdfDictionary
 
 PageLayout = Literal[
@@ -27,40 +27,49 @@ class UserAccessPermissions(enum.IntFlag):
     for details.
     """
 
-    # bits 0 and 1 are reserved and should be 0.
+    # bits 0 and 1 are reserved and must be 0.
 
     PRINT = 1 << 2
-    """For security revision 2 or greater, Print the document. If the document uses 
-    revision 3 or greater, print quality may be influenced by :attr:`.FAITHFUL_PRINT`."""
+    """For security revision 2 or greater, print the document. 
+    
+    If the document uses revision 3 or greater, print quality may be 
+    influenced by :attr:`.FAITHFUL_PRINT`."""
 
     MODIFY = 1 << 3
-    """Modify the contents of the document. May be influenced by :attr:`.MANAGE_ANNOTATIONS`, 
-    :attr:`.FILL_FORM_FIELDS`, and :attr:`.ASSEMBLE_DOCUMENT`."""
+    """Modify the contents of the document. 
+    
+    May be influenced by :attr:`.MANAGE_ANNOTATIONS`, :attr:`.FILL_FORM_FIELDS`, 
+    and :attr:`.ASSEMBLE_DOCUMENT`."""
 
     COPY_CONTENT = 1 << 4
-    """Copy or extract text and graphics. Assistive technology should assume this bit
-    as set for its purposes, as per :attr:`.ACCESSIBILITY`."""
+    """Copy or otherwise extract text and graphics from the document.
+
+    May be influenced by :attr:`.ACCESSIBILITY` in older PDF versions. PDF 2.0
+    assumes this bit as flag for the purposes of assistive technology."""
 
     MANAGE_ANNOTATIONS = 1 << 5
-    """Add or modify text annotations, fill interactive form fields and, depending 
-    on whether :attr:`.MODIFY` is set, create and modify form fields."""
+    """Add or modify text annotations, fill in interactive form fields, and
+    depending on whether :attr:`.MODIFY` is also set, create and modify form 
+    fields (including signature fields)."""
 
-    # bits 6 and 7 are reversed and should be 1.
+    # bits 6 and 7 are reversed and must be 1.
 
     FILL_FORM_FIELDS = 1 << 8
-    """For security revision 3 or greater, fill existing interactive form 
+    """For security revision 3 or greater, fill in existing interactive form 
     fields, even if :attr:`.MANAGE_ANNOTATIONS` is clear."""
 
     ACCESSIBILITY = 1 << 9
-    """(deprecated in PDF 2.0) Extract content for the purposes of accessibility.
+    """(deprecated in PDF 2.0) Extract content for the purposes of assistive
+    technology.
     
-    This bit should always be set for compatibility with processors supporting 
-    earlier specifications.
+    This bit should always be set, for compatibility with PDF processors 
+    supporting earlier versions of the standard.
     """
 
     ASSEMBLE_DOCUMENT = 1 << 10
-    """For security revision 3 or greater, assemble the document (i.e. insert, rotate, 
-    and delete pages, create outlines, etc.), even if :attr:`.MODIFY` is clear."""
+    """For security revision 3 or greater, assemble the document (i.e. insert,
+    rotate, or delete pages, as well as create document outline items or
+    thumbnail images), even if :attr:`.MODIFY` is clear."""
 
     FAITHFUL_PRINT = 1 << 11  # revision 3+
     """For security revision 3 or greater, print the document in such a way that a 
@@ -73,109 +82,141 @@ class UserAccessPermissions(enum.IntFlag):
     # bits 12-31 are reserved and must be 1.
 
 
-@dictmodel
+@dictmodel(kw_only=True)
 class ViewerPreferences(PdfDictionary):
     """The viewer preferences dictionary specifying the way a PDF viewer shall
     display a document on the screen.
 
-    See § 12.2, "Viewer preferences" for details.
+    See ISO 32000-2:2020 § 12.2 "Viewer preferences" for details.
     """
 
-    hide_toolbar: bool = field(default=False)
+    hide_toolbar: bool = False
     """Whether to hide the interactive PDF processor's toolbars when the document is active."""
 
-    hide_menubar: bool = field(default=False)
+    hide_menubar: bool = False
     """Whether to hide the interactive PDF processor's menubar when the document is active."""
 
-    hide_window_ui: bool = field("HideWindowUI", default=False)
-    """Whether to hide UI elements in the document's window (such as scroll bars or
-    navigation controls), leaving only the document's contents displayed."""
+    hide_window_ui: bool = field("HideWindowUI", kw_only=True, default=False)
+    """Whether to hide UI elements in the document's window, such as scroll bars or
+    navigation controls, leaving only the document's contents displayed."""
 
-    fit_window: bool = field(default=False)
-    """Whether to resize the document's window to fit the size of the page."""
+    fit_window: bool = False
+    """Whether to resize the document's window to fit the size of the first displayed page."""
 
-    center_window: bool = field(default=False)
+    center_window: bool = False
     """Whether to center the document's window position on the screen."""
 
-    display_doc_title: bool = field(default=False)
-    """(PDF 1.4) Whether the document's window title should display the title described in 
-    the document's metadata. If False, the title bar should instead display the name of the 
-    PDF file containing the document."""
+    display_doc_title: bool = False
+    """(PDF 1.4) Whether the document's window title should display the title described
+    in the document's XMP metadata. If false, the title bar should instead display
+    the name of the PDF file containing the document."""
 
-    non_full_screen_page_mode: NonFSPageMode = field(default="UseNone")
-    """The document's page mode displayed when exiting full-screen mode. This property is only
-    relevant if the PageMode entry in the catalog is set to 'FullScreen' and should be ignored
-    otherwise. Accepted values are 'UseNone', 'UseOutlines', 'UseThumbs', and 'UseOC'."""
+    non_full_screen_page_mode: NonFSPageMode = "UseNone"
+    """The document page mode displayed when exiting full-screen mode. 
+    
+    This property is only relevant if the document catalog specifies "FullScreen"
+    as its page mode and should be ignored otherwise.
 
-    direction: TextDirection = field(default="L2R")
-    """The predominant logical content order for text. Either 'L2R' (left to right, default)
-    or 'R2L' (right to left). This is effectively a display hint and has no direct effect
-    on the contents of the document."""
+    Accepted values are 'UseNone', 'UseOutlines', 'UseThumbs', and 'UseOC'."""
 
-    view_area: PageBoundary = field(default="CropBox")
-    """(deprecated in PDF 2.0) The name of the page boundary representing the area of a page
-    that shall be displayed when viewing the document on the screen. The value should be the
-    key of the relevant page boundary in a page object. If no such boundary is defined,
-    the default value ('CropBox') is used.
+    direction: TextDirection = "L2R"
+    """The predominant logical content order for text. 
+    
+    Accepted values are 'L2R' (left to right, default) or 'R2L' (right to left). 
+    
+    This property serves as a display hint and has no direct effect on the 
+    contents of the document."""
 
+    view_area: PageBoundary = "CropBox"
+    """(deprecated in PDF 2.0) The name of the page boundary representing the area 
+    of a page that shall be displayed when viewing the document on the screen. 
+    
+    The value should be the key of the relevant page boundary in a page object. 
+    If no such boundary is defined, the default value 'CropBox' is used.
+    
     Accepted values are 'CropBox', 'MediaBox', 'BleedBox', 'TrimBox', and 'ArtBox'.
+        
+    This preference, alongside the others specifying a page boundary as their 
+    value, is intended for use by prepress applications that interpret and 
+    manipulate page boundaries.
     """
 
-    view_clip: PageBoundary = field(default="CropBox")
+    view_clip: PageBoundary = "CropBox"
     """(deprecated in PDF 2.0) The name of the page boundary representing to which the
     contents of a page shall be clipped when viewing the document. Similar to ViewArea,
-    the value should be the key of the relevant page boundary in a page object.
-    """
+    the value should be the key of the relevant page boundary in a page object."""
 
-    print_area: PageBoundary = field(default="CropBox")
+    print_area: PageBoundary = "CropBox"
     """(deprecated in PDF 2.0) The name of the page boundary representing the area of a
     page that shall be rendered when printing the document. Similar to ViewArea, the value
     should be the key of the relevant page boundary in a page object."""
 
-    print_clip: PageBoundary = field(default="CropBox")
+    print_clip: PageBoundary = "CropBox"
     """(deprecated in PDF 2.0) The name of the page boundary representing to which the
     contents of a page shall be clipped when printing the document. Similar to ViewArea,
     the value should be the key of the relevant page boundary in a page object."""
 
-    print_scaling: PrintScalingMode = field(default="AppDefault")
+    print_scaling: PrintScalingMode = "AppDefault"
     """The page scaling option to select when a print dialog is displayed for this document.
 
     Accepted values are 'None' meaning no page scaling or 'AppDefault' (default) indicating
     that the interactive PDF processor should select its default print scaling value."""
 
-    duplex: PaperHandlingOption | None = field(default=None)
+    duplex: PaperHandlingOption | None = None
     """The paper handling option to use when printing the document. Should be either of:
 
     - Simplex: Print single-sided
     - DuplexFlipShortEdge: Duplex, flip on the short edge of the sheet
     - DuplexFlipLongEdge: Duplex, flip on the long edge of the sheet
 
-    If this value is none, the document producer may choose their own default setting.
+    If this value is none, the document producer may choose its own default setting.
     """
 
-    pick_tray_by_pdf_size: bool | None = field(default=None)
+    pick_tray_by_pdf_size: bool | None = None
     """Whether the PDF page size shall be used to select the input paper tray. This setting
     influences only the preset values used to populate the print dialog. This setting
     has no effect on systems that do not provide the ability to pick the input tray by size.
 
-    If this value is none, the document producer may choose their own default setting.
+    If this value is none, the document producer may choose its own default setting.
     """
 
-    print_page_range: list[int] | None = field(default=None, encoder=PdfArray, decoder=list)
-    """The page numbers used to initialize the print dialog box. The array should
+    print_page_range: list[int] | None = field(
+        kw_only=True, default=None, encoder=PdfArray, decoder=list
+    )
+    """The page numbers used to initialize the print dialog box. This list should
     contain an even number of values interpreted as pairs, with each pair specifying
     the first and last pages in a sub-range of pages to be printed (the first page being
     denoted by the number 1).
 
-    If this value is none, the document producer may choose their own default setting.
+    If this value is none, the document producer may choose its own default setting.
     """
 
-    num_copies: int | None = field(default=None)
-    """The number of copies that shall be printed when the print dialog is opened for this file.
+    num_copies: int | None = None
+    """The number of copies that shall be printed when the print dialog is opened 
+    for this document.
 
-    If this value is none, the document producer may choose their own default setting,
-    though this setting is usually 1.
+    If this value is none, the document producer may choose its own default setting,
+    which is typically 1.
     """
+
+    @staticmethod
+    def _get_enforce(prefs: PdfArray) -> list[Enforceable] | None:
+        enforced = cast(PdfArray[PdfName], prefs)
+        return [cast(Enforceable, pref.value.decode()) for pref in enforced]
+
+    @staticmethod
+    def _set_enforce(prefs: list[Enforceable] | None) -> PdfArray[PdfName] | None:
+        if prefs is None:
+            return
+
+        return PdfArray([PdfName(pref.encode()) for pref in prefs])
+
+    enforce: list[Enforceable] | None = field(
+        kw_only=True, default=None, encoder=_set_enforce, decoder=_get_enforce
+    )
+    """(PDF 2.0) An array of names of viewer preferences that shall be enforced by
+    PDF processors and that shall not be overridden by subsequent selections in
+    the application user interface."""
 
     @classmethod
     def from_dict(cls, mapping: PdfDictionary) -> Self:
@@ -183,18 +224,6 @@ class ViewerPreferences(PdfDictionary):
         dictionary.data = mapping.data
 
         return dictionary
-
-    @property
-    def enforce(self) -> list[Enforceable] | None:
-        """(PDF 2.0) An array of names of viewer preferences that shall be enforced by
-        PDF processors and that shall not be overridden by subsequent selections in
-        the application user interface."""
-        enforced = self.get("Enforce")
-        if is_null_like(enforced):
-            return
-
-        enforced = cast(PdfArray[PdfName], enforced)
-        return [cast(Enforceable, it.value.decode()) for it in enforced]
 
 
 @dictmodel
