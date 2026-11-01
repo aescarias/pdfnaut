@@ -8,7 +8,6 @@ from pdfnaut.cos.objects import (
     FreeXRefEntry,
     InUseXRefEntry,
     PdfArray,
-    PdfComment,
     PdfDictionary,
     PdfHexString,
     PdfName,
@@ -18,10 +17,6 @@ from pdfnaut.cos.objects import (
 )
 from pdfnaut.cos.objects.xref import PdfXRefSection
 from pdfnaut.cos.serializer import PdfSerializer, serialize
-
-
-def test_comment() -> None:
-    assert serialize(PdfComment(b"Comment")) == b"%Comment"
 
 
 def test_null_and_boolean() -> None:

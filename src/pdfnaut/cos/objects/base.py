@@ -26,16 +26,6 @@ class PdfNull:
         return False
 
 
-@dataclass(frozen=True)
-class PdfComment:
-    """A comment introduced by the presence of the percent sign (``%``) outside a string or
-    inside a content stream. Comments have no syntactical meaning and shall be interpreted as
-    whitespace (see ISO 32000-2:2020 § 7.2.4 "Comments")."""
-
-    value: bytes
-    """The value of this comment."""
-
-
 @dataclass(frozen=True, order=True)
 class PdfName:
     """An atomic symbol uniquely defined by a sequence of 8-bit characters

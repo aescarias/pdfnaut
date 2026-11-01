@@ -2,7 +2,7 @@ from collections import defaultdict
 from io import BytesIO
 from typing import Any, Literal
 
-from ..cos.objects.base import PdfComment, PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
+from ..cos.objects.base import PdfHexString, PdfName, PdfNull, PdfObject, PdfReference
 from ..cos.objects.containers import PdfArray, PdfDictionary
 from ..cos.objects.stream import PdfStream
 from ..cos.objects.xref import (
@@ -15,10 +15,6 @@ from ..cos.objects.xref import (
 )
 from ..exceptions import PdfWriteError
 from .lexer import ESCAPE_MAP
-
-
-def serialize_comment(comment: PdfComment) -> bytes:
-    return b"%" + comment.value
 
 
 def serialize_null(_) -> bytes:
@@ -98,13 +94,11 @@ def serialize_stream(stream: PdfStream, *, eol: bytes) -> bytes:
     )
 
 
-def serialize(object_: PdfObject | PdfComment, *, params: dict[str, Any] | None = None) -> bytes:
+def serialize(object_: PdfObject, *, params: dict[str, Any] | None = None) -> bytes:
     if params is None:
         params = {}
 
-    if isinstance(object_, PdfComment):
-        return serialize_comment(object_)
-    elif isinstance(object_, PdfName):
+    if isinstance(object_, PdfName):
         return serialize_name(object_)
     elif isinstance(object_, bytes):
         return serialize_literal_string(object_, keep_ascii=params.get("keep_ascii", False))
@@ -154,12 +148,10 @@ class PdfSerializer:
                 Whether to also append the recommended binary marker. Defaults to True.
         """
 
-        comment = PdfComment(f"PDF-{version}".encode())
-        self.content.write(serialize_comment(comment) + self.eol)
+        self.content.write(f"%PDF-{version}".encode() + self.eol)
 
         if with_binary_marker:
-            marker = PdfComment(b"\xee\xe1\xf5\xf4")
-            self.content.write(serialize_comment(marker) + self.eol)
+            self.content.write(b"%\xee\xe1\xf5\xf4" + self.eol)
 
     def write_object(self, reference: PdfReference | tuple[int, int], contents: PdfObject) -> int:
         """Appends an indirect object to the document.

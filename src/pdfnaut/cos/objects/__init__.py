@@ -1,6 +1,5 @@
 from .base import (
     ObjectGetter,
-    PdfComment,
     PdfHexString,
     PdfInlineImage,
     PdfName,
@@ -22,7 +21,6 @@ from .xref import (
 )
 
 __all__ = (
-    "PdfComment",
     "PdfHexString",
     "PdfReference",
     "PdfName",
